@@ -96,7 +96,7 @@ jobs:
       - name: Step A1 — 환율 + Global 리서치
         if: ${{ contains('A', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "CLAUDE.md STEP 1·2·3 일부를 수행한다. 출력은 ${STAGING_DIR}/research-global.md 파일로 저장.
           1) USD/KRW 환율 조회 → 정수 반올림. 첫 줄에 'EXCHANGE_RATE: 1USD=KRW{값}' 한 줄 기록.
@@ -114,7 +114,7 @@ jobs:
       - name: Step A2 — US 리서치
         if: ${{ contains('A', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "CLAUDE.md STEP 3·3-1·4 부분 수행. 출력은 ${STAGING_DIR}/research-us.md.
           US 카테고리 기사 3~4건 검색. 최근 5일, 영어 소스, 한국 언론 제외.
@@ -132,7 +132,7 @@ jobs:
       - name: Step A3 — China 리서치 (현지어)
         if: ${{ contains('A', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "CLAUDE.md STEP 3 현지어 검색 규칙 적용. 출력 ${STAGING_DIR}/research-cn.md.
           China 카테고리 기사 2~3건. 중국어(中文) 키워드 검색 2회 이상. 최근 5일. 한국 언론 제외.
@@ -148,7 +148,7 @@ jobs:
       - name: Step A4 — Japan 리서치 (현지어)
         if: ${{ contains('A', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "CLAUDE.md STEP 3 현지어 검색. 출력 ${STAGING_DIR}/research-jp.md.
           Japan 카테고리 기사 2~3건. 일본어(日本語) 키워드 검색 2회 이상. 최근 5일. 한국 언론 제외.
@@ -167,7 +167,7 @@ jobs:
       - name: Step B — 인사이트 3종 작성
         if: ${{ contains('AB', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "CLAUDE.md '인사이트 섹션 가이드' 전체 적용. 입력은 ${STAGING_DIR}/research-*.md 4개 파일을 읽어서 처리.
           출력은 ${STAGING_DIR}/insights.html — analysis-item ×3 HTML 조각만(외곽 section 미포함).
@@ -187,7 +187,7 @@ jobs:
       - name: Step C — TL;DR + 헤드라인
         if: ${{ contains('ABC', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
         run: |
           claude -p "${STAGING_DIR}/research-*.md 4개와 ${STAGING_DIR}/insights.html을 읽고 두 가지 산출.
           1) ${STAGING_DIR}/tldr.html — '이번 주 이슈 요약' 섹션의 li 항목 5~7개 HTML 조각.
@@ -208,7 +208,7 @@ jobs:
       - name: Step D — HTML 조립 (이전 호 복제 + 섹션 치환)
         if: ${{ contains('ABCD', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           PREV_MMDD: ${{ steps.prep.outputs.prev_mmdd }}
           PUB_MMDD: ${{ steps.prep.outputs.pub_mmdd }}
           PUB_DATE: ${{ steps.prep.outputs.pub_date }}
@@ -253,7 +253,7 @@ jobs:
       - name: Step E — 차주 딥다이브 후보
         if: ${{ contains('ABCDE', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           PUB_YYMMDD: ${{ steps.prep.outputs.pub_yymmdd }}
         run: |
           mkdir -p internal
@@ -276,7 +276,7 @@ jobs:
       - name: Step F — index.html 및 직전 호 nav 업데이트
         if: ${{ contains('ABCDEF', steps.prep.outputs.from_step) }}
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           PREV_MMDD: ${{ steps.prep.outputs.prev_mmdd }}
           PUB_MMDD: ${{ steps.prep.outputs.pub_mmdd }}
           PUB_DATE: ${{ steps.prep.outputs.pub_date }}
