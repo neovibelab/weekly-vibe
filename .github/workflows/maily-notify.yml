@@ -7,8 +7,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  MAILY_FEED: 'https://maily.so/draft.briefing/feed'
-  LAST_GUID_FILE: '.github/maily-last-guid'
+  LAST_ID_FILE: '.github/maily-last-guid'
 
 concurrency:
   group: maily-notify
@@ -25,34 +24,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check Maily RSS
-        id: rss
+      - name: Check Maily API
+        id: maily
+        env:
+          MAILY_API_TOKEN: ${{ secrets.MAILY_API_TOKEN }}
         run: |
-          python3 .github/scripts/check_maily.py "$MAILY_FEED" "$LAST_GUID_FILE" \
+          python3 .github/scripts/check_maily.py \
+            "$MAILY_API_TOKEN" \
+            "$LAST_ID_FILE" \
             >> "$GITHUB_OUTPUT"
 
       - name: Send Discord notification
-        if: steps.rss.outputs.new == 'true'
+        if: steps.maily.outputs.new == 'true'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_MAILY }}
-          TITLE: ${{ steps.rss.outputs.title }}
-          LINK: ${{ steps.rss.outputs.link }}
-          PUB_DATE: ${{ steps.rss.outputs.pub_date }}
-          EXCERPT: ${{ steps.rss.outputs.excerpt }}
-          THUMBNAIL: ${{ steps.rss.outputs.thumbnail }}
+          TITLE:     ${{ steps.maily.outputs.title }}
+          LINK:      ${{ steps.maily.outputs.link }}
+          PUB_DATE:  ${{ steps.maily.outputs.pub_date }}
+          EXCERPT:   ${{ steps.maily.outputs.excerpt }}
+          THUMBNAIL: ${{ steps.maily.outputs.thumbnail }}
         run: |
           DESCRIPTION="${EXCERPT}"
           [ -z "$DESCRIPTION" ] && DESCRIPTION="(미리보기 없음)"
 
-          # pubDate "Thu, 07 May 2026 07:43:24 +0900" → "2026.05.07"
-          PUB_PRETTY=$(date -d "$PUB_DATE" +'%Y.%m.%d' 2>/dev/null || echo "$PUB_DATE")
-
           PAYLOAD=$(jq -n \
-            --arg title   "$TITLE" \
-            --arg link    "$LINK" \
-            --arg desc    "$DESCRIPTION" \
-            --arg footer  "차우진의 엔터문화연구소 뉴스레터 · $PUB_PRETTY" \
-            --arg thumb   "$THUMBNAIL" \
+            --arg title  "$TITLE" \
+            --arg link   "$LINK" \
+            --arg desc   "$DESCRIPTION" \
+            --arg footer "차우진의 엔터문화연구소 뉴스레터 · $PUB_DATE" \
+            --arg thumb  "$THUMBNAIL" \
             '{
               thread_name: $title,
               username: "엔터문화연구소",
@@ -74,18 +74,18 @@ jobs:
           HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
           BODY=$(echo "$RESPONSE" | sed '/HTTP_CODE:/d')
           echo "Discord webhook HTTP: $HTTP_CODE"
-          echo "Discord response: $BODY"
+          [ -n "$BODY" ] && echo "Discord response: $BODY"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE): $BODY"
             exit 1
           fi
 
-      - name: Update last-guid
-        if: steps.rss.outputs.new == 'true'
+      - name: Update last-id
+        if: steps.maily.outputs.new == 'true'
         run: |
-          echo "${{ steps.rss.outputs.guid }}" > "$LAST_GUID_FILE"
+          echo "${{ steps.maily.outputs.post_id }}" > "$LAST_ID_FILE"
           git config user.name  "neovibelab"
           git config user.email "neovibelab@users.noreply.github.com"
-          git add "$LAST_GUID_FILE"
-          git commit -m "chore(maily): last-guid 갱신"
+          git add "$LAST_ID_FILE"
+          git commit -m "chore(maily): last-id 갱신"
           git push
