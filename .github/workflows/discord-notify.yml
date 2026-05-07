@@ -61,7 +61,7 @@ jobs:
         run: |
           # TL;DR 각 줄을 "• item" 형태로 변환 (줄 사이 빈 줄 추가)
           BULLETS=$(echo "$ISSUE_TLDR" | sed 's/^/• /' | awk '{print; print ""}')
-          DESCRIPTION="$(printf '%s\n\n**이번 주 이슈 요약**\n%s' "$ISSUE_HEADLINE" "$BULLETS")"
+          DESCRIPTION="$(printf '%s\n\n**이번 주 이슈 요약**\n\n%s' "$ISSUE_HEADLINE" "$BULLETS")"
 
           THREAD_TITLE="📰 글로벌 주간 브리핑 — ${ISSUE_DATE}"
           PAYLOAD=$(jq -n \
