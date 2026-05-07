@@ -38,20 +38,25 @@ jobs:
           TITLE: ${{ steps.rss.outputs.title }}
           LINK: ${{ steps.rss.outputs.link }}
           PUB_DATE: ${{ steps.rss.outputs.pub_date }}
+          EXCERPT: ${{ steps.rss.outputs.excerpt }}
         run: |
+          DESCRIPTION="${EXCERPT}"
+          [ -z "$DESCRIPTION" ] && DESCRIPTION="(본문 미리보기 없음)"
+
           PAYLOAD=$(jq -n \
-            --arg title    "$TITLE" \
-            --arg link     "$LINK" \
-            --arg pub_date "$PUB_DATE" \
+            --arg title   "$TITLE" \
+            --arg link    "$LINK" \
+            --arg desc    "$DESCRIPTION" \
+            --arg footer  "차우진의 엔터문화연구소 뉴스레터 · $PUB_DATE" \
             '{
               thread_name: $title,
               username: "엔터문화연구소",
               embeds: [{
                 title:       $title,
                 url:         $link,
-                description: $pub_date,
+                description: $desc,
                 color:       8061951,
-                footer: { text: "차우진의 엔터문화연구소 뉴스레터" }
+                footer: { text: $footer }
               }]
             }')
 
