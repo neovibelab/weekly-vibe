@@ -63,19 +63,21 @@ jobs:
         id: prep
         run: |
           mkdir -p "$STAGING_DIR"
-          # 발행일(토요일) 기준 MMDD/YYYY.MM.DD 산출. cron은 금 11:00 UTC = 금 20:00 KST,
-          # 발행 날짜는 다음날 토요일이므로 +1일.
-          PUB_DATE_KST=$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y-%m-%d')
-          PUB_DATE_DOT=$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y.%m.%d')
-          PUB_MMDD=$(TZ=Asia/Seoul date -d 'tomorrow' +'%m%d')
-          PUB_YYMMDD=$(TZ=Asia/Seoul date -d 'tomorrow' +'%y.%m.%d')
+          # 발행일(토요일) 산출. cron은 금 22:00 UTC 실행 → UTC +1일 = 토요일.
+          # TZ=Asia/Seoul로 'tomorrow'를 쓰면 22:00 UTC = 07:00 KST 토요일이 되어
+          # KST 기준 tomorrow가 일요일로 계산되는 버그 발생 → UTC 기준으로 날짜 계산 후 포매팅만 KST 적용.
+          PUB_DATE=$(date -d '+1 day' +'%Y-%m-%d')          # UTC +1일 = 토요일
+          PUB_DATE_KST="$PUB_DATE"
+          PUB_DATE_DOT=$(date -d "$PUB_DATE" +'%Y.%m.%d')
+          PUB_MMDD=$(date -d "$PUB_DATE" +'%m%d')
+          PUB_YYMMDD=$(date -d "$PUB_DATE" +'%y.%m.%d')
           # 마스트헤드는 '2026년 M월 D일 {요일} (M.D–D)' 형식. 요일은 동적 산출(하드코딩 금지).
           _KOR_DAYS=("일요일" "월요일" "화요일" "수요일" "목요일" "금요일" "토요일")
-          _DOW=$(TZ=Asia/Seoul date -d 'tomorrow' +'%w')
-          PUB_KOR_BASE="$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y년 %-m월 %-d일') ${_KOR_DAYS[$_DOW]}"
-          WK_START_M=$(TZ=Asia/Seoul date -d 'tomorrow -6 days' +'%-m')
-          WK_START_D=$(TZ=Asia/Seoul date -d 'tomorrow -6 days' +'%-d')
-          WK_END_D=$(TZ=Asia/Seoul date -d 'tomorrow' +'%-d')
+          _DOW=$(date -d "$PUB_DATE" +'%w')
+          PUB_KOR_BASE="$(TZ=Asia/Seoul date -d "$PUB_DATE" +'%Y년 %-m월 %-d일') ${_KOR_DAYS[$_DOW]}"
+          WK_START_M=$(date -d "$PUB_DATE -6 days" +'%-m')
+          WK_START_D=$(date -d "$PUB_DATE -6 days" +'%-d')
+          WK_END_D=$(date -d "$PUB_DATE" +'%-d')
           PUB_KOR="${PUB_KOR_BASE} (${WK_START_M}.${WK_START_D}–${WK_END_D})"
           # 풀포맷(주간 끝일에 월 prefix 포함). HTML 조립 단계에서 자주 등장하는 변형.
           PUB_KOR_FULL="${PUB_KOR_BASE} (${WK_START_M}.${WK_START_D}–${WK_START_M}.${WK_END_D})"
