@@ -44,6 +44,7 @@ jobs:
             --arg link     "$LINK" \
             --arg pub_date "$PUB_DATE" \
             '{
+              thread_name: $title,
               username: "엔터문화연구소",
               embeds: [{
                 title:       $title,
