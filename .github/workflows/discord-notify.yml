@@ -35,26 +35,8 @@ jobs:
           HEADLINE=$(echo "$TITLE_RAW" | sed 's/^[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\} — //')
           URL="https://weeklybriefing.vercel.app/${HREF}"
 
-          # TL;DR 항목 파싱 (Python: HTML 태그·엔티티 제거)
-          TLDR=$(python3 - "$HREF" <<'PYEOF'
-import re, html, sys
-
-with open(sys.argv[1], encoding='utf-8') as f:
-    content = f.read()
-
-m = re.search(r'<ul class="tldr-list">(.*?)</ul>', content, re.DOTALL)
-if not m:
-    sys.exit(0)
-
-for item in re.findall(r'<li>(.*?)</li>', m.group(1), re.DOTALL):
-    item = re.sub(r'<span class="tldr-num">[^<]*</span>', '', item)
-    item = re.sub(r'<[^>]+>', '', item)
-    item = html.unescape(item)
-    item = ' '.join(item.split())
-    if item:
-        print(item)
-PYEOF
-          )
+          # TL;DR 항목 파싱 (HTML 태그·엔티티 제거)
+          TLDR=$(python3 .github/scripts/parse_tldr.py "$HREF")
 
           # 멀티라인 값은 GitHub Output delimiter 방식으로 저장
           echo "date=$DATE_PART"     >> "$GITHUB_OUTPUT"
