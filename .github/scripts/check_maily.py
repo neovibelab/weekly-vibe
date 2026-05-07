@@ -19,8 +19,13 @@ req = urllib.request.Request(url, headers={
     "Authorization": f"Bearer {API_TOKEN}",
     "User-Agent": "Mozilla/5.0",
 })
-with urllib.request.urlopen(req, timeout=15) as r:
-    data = json.loads(r.read().decode('utf-8'))
+try:
+    with urllib.request.urlopen(req, timeout=15) as r:
+        data = json.loads(r.read().decode('utf-8'))
+except urllib.error.HTTPError as e:
+    body = e.read().decode('utf-8', errors='replace')
+    print(f"[error] HTTP {e.code}: {body}", file=sys.stderr)
+    sys.exit(1)
 
 # ── 응답 구조 파악 (첫 키와 첫 아이템 키 로그) ────────────
 print(f"[debug] top-level keys: {list(data.keys())}", file=sys.stderr)
