@@ -54,14 +54,17 @@ jobs:
               }]
             }')
 
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
             "$DISCORD_WEBHOOK_URL")
 
+          HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTP_CODE:[0-9]*' | cut -d: -f2)
+          BODY=$(echo "$RESPONSE" | sed '/HTTP_CODE:/d')
           echo "Discord webhook HTTP: $HTTP_CODE"
+          echo "Discord response: $BODY"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE)"
+            echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE): $BODY"
             exit 1
           fi
 
