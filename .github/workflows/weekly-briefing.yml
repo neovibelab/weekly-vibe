@@ -27,6 +27,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   STAGING_DIR: .briefing-staging
   # 모델 분리:
   #  - 형식적/패턴 작업(리서치 요약, HTML 조립, nav 갱신) → haiku
@@ -56,7 +57,7 @@ jobs:
       - name: Configure Git
         run: |
           git config user.name "neovibelab"
-          git config user.email "tmifmdj@gmail.com"
+          git config user.email "neovibelab@users.noreply.github.com"
 
       - name: Prepare staging
         id: prep
