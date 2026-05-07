@@ -1,0 +1,76 @@
+name: 메일리 뉴스레터 알림
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 매 시간 정각
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  MAILY_FEED: 'https://maily.so/draft.briefing/feed'
+  LAST_GUID_FILE: '.github/maily-last-guid'
+
+concurrency:
+  group: maily-notify
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check Maily RSS
+        id: rss
+        run: |
+          python3 .github/scripts/check_maily.py "$MAILY_FEED" "$LAST_GUID_FILE" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Send Discord notification
+        if: steps.rss.outputs.new == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TITLE: ${{ steps.rss.outputs.title }}
+          LINK: ${{ steps.rss.outputs.link }}
+          PUB_DATE: ${{ steps.rss.outputs.pub_date }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg title    "$TITLE" \
+            --arg link     "$LINK" \
+            --arg pub_date "$PUB_DATE" \
+            '{
+              username: "엔터문화연구소",
+              embeds: [{
+                title:       $title,
+                url:         $link,
+                description: $pub_date,
+                color:       8061951,
+                footer: { text: "차우진의 엔터문화연구소 뉴스레터" }
+              }]
+            }')
+
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" \
+            "$DISCORD_WEBHOOK_URL")
+
+          echo "Discord webhook HTTP: $HTTP_CODE"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+      - name: Update last-guid
+        if: steps.rss.outputs.new == 'true'
+        run: |
+          echo "${{ steps.rss.outputs.guid }}" > "$LAST_GUID_FILE"
+          git config user.name  "neovibelab"
+          git config user.email "neovibelab@users.noreply.github.com"
+          git add "$LAST_GUID_FILE"
+          git commit -m "chore(maily): last-guid 갱신"
+          git push
