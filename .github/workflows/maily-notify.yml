@@ -34,7 +34,7 @@ jobs:
       - name: Send Discord notification
         if: steps.rss.outputs.new == 'true'
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_MAILY }}
           TITLE: ${{ steps.rss.outputs.title }}
           LINK: ${{ steps.rss.outputs.link }}
           PUB_DATE: ${{ steps.rss.outputs.pub_date }}
