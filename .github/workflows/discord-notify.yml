@@ -63,11 +63,14 @@ jobs:
           BULLETS=$(echo "$ISSUE_TLDR" | sed 's/^/• /')
           DESCRIPTION="$(printf '%s\n\n**이번 주 이슈 요약**\n%s' "$ISSUE_HEADLINE" "$BULLETS")"
 
+          THREAD_TITLE="📰 글로벌 주간 브리핑 — ${ISSUE_DATE}"
           PAYLOAD=$(jq -n \
+            --arg thread "$THREAD_TITLE" \
             --arg date  "$ISSUE_DATE" \
             --arg desc  "$DESCRIPTION" \
             --arg url   "$ISSUE_URL" \
             '{
+              thread_name: $thread,
               username: "엔터문화연구소",
               embeds: [{
                 title:       ("📰 글로벌 주간 브리핑 — " + $date),
@@ -78,12 +81,17 @@ jobs:
               }]
             }')
 
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          echo "[debug] payload preview: $(echo "$PAYLOAD" | head -c 300)"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD" \
             "$DISCORD_WEBHOOK_URL")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
 
           echo "Discord webhook HTTP: $HTTP_CODE"
+          echo "Discord response: $BODY"
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE)"
             exit 1
