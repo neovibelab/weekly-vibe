@@ -69,8 +69,10 @@ jobs:
           PUB_DATE_DOT=$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y.%m.%d')
           PUB_MMDD=$(TZ=Asia/Seoul date -d 'tomorrow' +'%m%d')
           PUB_YYMMDD=$(TZ=Asia/Seoul date -d 'tomorrow' +'%y.%m.%d')
-          # 마스트헤드는 '2026년 M월 D일 토요일 (M.D–D)' 형식. 주간 범위는 직전 일~토.
-          PUB_KOR_BASE=$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y년 %-m월 %-d일 토요일')
+          # 마스트헤드는 '2026년 M월 D일 {요일} (M.D–D)' 형식. 요일은 동적 산출(하드코딩 금지).
+          _KOR_DAYS=("일요일" "월요일" "화요일" "수요일" "목요일" "금요일" "토요일")
+          _DOW=$(TZ=Asia/Seoul date -d 'tomorrow' +'%w')
+          PUB_KOR_BASE="$(TZ=Asia/Seoul date -d 'tomorrow' +'%Y년 %-m월 %-d일') ${_KOR_DAYS[$_DOW]}"
           WK_START_M=$(TZ=Asia/Seoul date -d 'tomorrow -6 days' +'%-m')
           WK_START_D=$(TZ=Asia/Seoul date -d 'tomorrow -6 days' +'%-d')
           WK_END_D=$(TZ=Asia/Seoul date -d 'tomorrow' +'%-d')
