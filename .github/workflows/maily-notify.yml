@@ -1,9 +1,9 @@
 name: 메일리 뉴스레터 알림
 
 on:
-  schedule:
-    - cron: '0 * * * *'  # 매 시간 정각
-  workflow_dispatch:
+  # schedule 비활성화: Cloudflare Worker(maily-discord-notify)가 실시간 처리
+  # - cron: '0 * * * *'
+  workflow_dispatch:  # 수동 테스트용으로만 유지
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
