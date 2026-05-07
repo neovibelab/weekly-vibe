@@ -17,7 +17,6 @@ LAST_ID_FILE = sys.argv[2]
 url = f"{API_BASE}/api/{SLUG}/notes.json?status=published&order_by=published_at&page=1"
 req = urllib.request.Request(url, headers={
     "Authorization": f"Bearer {API_TOKEN}",
-    "Content-Type": "application/json",
     "User-Agent": "Mozilla/5.0",
 })
 with urllib.request.urlopen(req, timeout=15) as r:
