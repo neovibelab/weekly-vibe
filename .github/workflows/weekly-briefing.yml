@@ -2,7 +2,7 @@ name: 주간 브리핑 자동 발행
 
 on:
   schedule:
-    - cron: '0 11 * * 5'  # 금요일 20:00 KST (11:00 UTC)
+    - cron: '0 9 * * 5'   # 금요일 18:00 KST (09:00 UTC)
   workflow_dispatch:
     inputs:
       from_step:
