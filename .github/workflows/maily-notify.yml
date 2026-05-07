@@ -44,18 +44,14 @@ jobs:
           DESCRIPTION="${EXCERPT}"
           [ -z "$DESCRIPTION" ] && DESCRIPTION="(미리보기 없음)"
 
-          # 썸네일 있으면 image 필드 포함
-          if [ -n "$THUMBNAIL" ]; then
-            IMAGE_FIELD=',"image":{"url":"'"$THUMBNAIL"'"}'
-          else
-            IMAGE_FIELD=""
-          fi
+          # pubDate "Thu, 07 May 2026 07:43:24 +0900" → "2026.05.07"
+          PUB_PRETTY=$(date -d "$PUB_DATE" +'%Y.%m.%d' 2>/dev/null || echo "$PUB_DATE")
 
           PAYLOAD=$(jq -n \
             --arg title   "$TITLE" \
             --arg link    "$LINK" \
             --arg desc    "$DESCRIPTION" \
-            --arg footer  "차우진의 엔터문화연구소 뉴스레터 · $PUB_DATE" \
+            --arg footer  "차우진의 엔터문화연구소 뉴스레터 · $PUB_PRETTY" \
             --arg thumb   "$THUMBNAIL" \
             '{
               thread_name: $title,
