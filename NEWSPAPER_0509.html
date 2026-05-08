@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>엔터문화연구소 — 글로벌 주간 브리핑 2026.05.09</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --lime: #C8FF00;
+  --lime-dim: #a8d600;
+  --black: #0a0a0a;
+  --white: #ffffff;
+  --gray-200: #e8e8e8;
+  --gray-300: #d0d0d0;
+  --gray-400: #999999;
+  --gray-500: #666666;
+  --gray-600: #444444;
+  --us: #0055FF;
+  --cn: #FF2D20;
+  --jp: #7C3AED;
+  --global: #E67700;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-heading: 'Syne', 'Noto Sans KR', sans-serif;
+  --font-body: 'Noto Sans KR', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: var(--black); color: var(--white); font-family: var(--font-body); font-size: 15px; line-height: 1.7; -webkit-font-smoothing: antialiased; }
+.masthead { background: var(--lime); color: var(--black); padding: 40px 48px 36px; }
+.masthead-date { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.5px; opacity: 0.6; margin-bottom: 24px; }
+.masthead-title { font-family: var(--font-heading); font-size: clamp(42px, 6vw, 72px); font-weight: 800; line-height: 0.95; letter-spacing: -2px; margin-bottom: 20px; }
+.masthead-sub { font-family: var(--font-mono); font-size: 12px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.5; }
+.content { max-width: 1280px; margin: 0 auto; padding: 0 48px; }
+.tag { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; padding: 3px 8px; border-radius: 2px; margin-bottom: 12px; }
+.tag-us { background: var(--us); color: #fff; }
+.tag-cn { background: var(--cn); color: #fff; }
+.tag-jp { background: var(--jp); color: #fff; }
+.tag-global { background: var(--global); color: #fff; }
+.tag-cat { font-family: var(--font-mono); font-size: 10px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; color: var(--gray-400); margin-left: 8px; }
+.tag-cat a { color: inherit; text-decoration: none; cursor: pointer; border-bottom: 1px dotted var(--gray-600); transition: all 0.15s; }
+.tag-cat a:hover { color: var(--lime); border-color: var(--lime); }
+.hero { display: grid; grid-template-columns: 1.5fr 1fr; gap: 0; border-bottom: 1px solid var(--gray-600); padding: 48px 0; }
+.hero-main { padding-right: 48px; border-right: 1px solid var(--gray-600); }
+.hero-main .article-title { font-family: var(--font-display); font-size: clamp(28px, 3vw, 40px); font-weight: 400; line-height: 1.15; letter-spacing: -0.5px; margin-bottom: 20px; color: var(--white); }
+.hero-main .article-lead { font-family: var(--font-display); font-size: 17px; font-style: italic; line-height: 1.55; color: var(--gray-300); margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--gray-600); }
+.article-body { font-size: 14px; line-height: 1.75; color: var(--gray-300); font-weight: 300; }
+.article-body p { margin-bottom: 12px; }
+.pull-quote { margin: 24px 0; padding: 20px 24px; background: var(--lime); color: var(--black); border-radius: 2px; }
+.pull-quote p { font-family: var(--font-heading); font-size: 16px; font-weight: 600; line-height: 1.45; margin-bottom: 0 !important; }
+.pull-quote cite { display: block; font-family: var(--font-mono); font-style: normal; font-size: 10px; margin-top: 10px; opacity: 0.5; letter-spacing: 0.5px; }
+.hero-sidebar { padding-left: 40px; display: flex; flex-direction: column; }
+.sidebar-card { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.sidebar-card:first-child { padding-bottom: 32px; margin-bottom: 32px; border-bottom: 1px solid var(--gray-600); }
+.sidebar-card .article-title { font-family: var(--font-display); font-size: 22px; font-weight: 400; line-height: 1.2; margin-bottom: 14px; color: var(--white); }
+.sidebar-card .article-body { font-size: 13px; }
+.amount { font-family: var(--font-mono); font-size: 0.88em; font-weight: 700; color: var(--lime); white-space: nowrap; }
+.source { display: block; margin-top: 14px; font-family: var(--font-mono); font-size: 10px; color: var(--gray-500); letter-spacing: 0.3px; }
+.source a { color: var(--gray-400); text-decoration: none; border-bottom: 1px solid var(--gray-600); transition: all 0.2s; }
+.source a:hover { color: var(--lime); border-color: var(--lime); }
+.col-section { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: 1px solid var(--gray-600); }
+.col { padding: 40px 0; }
+.col:not(:last-child) { padding-right: 36px; margin-right: 36px; border-right: 1px solid var(--gray-600); }
+.col-header { font-family: var(--font-heading); font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--gray-500); padding-bottom: 14px; margin-bottom: 28px; border-bottom: 1px solid var(--gray-600); }
+.col:nth-child(1) .col-header { color: var(--cn); border-bottom-color: var(--cn); }
+.col:nth-child(2) .col-header { color: var(--jp); border-bottom-color: var(--jp); }
+.col-article { margin-bottom: 32px; }
+.col-article:last-child { margin-bottom: 0; }
+.col-article .article-title { font-family: var(--font-display); font-size: 20px; font-weight: 400; line-height: 1.2; margin-bottom: 12px; color: var(--white); }
+.col-article .article-body { font-size: 13px; }
+.tldr { padding: 44px 0 40px; border-bottom: 1px solid var(--gray-600); }
+.tldr-label { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--lime); margin-bottom: 18px; }
+.tldr-header { font-family: var(--font-display); font-size: clamp(26px, 3vw, 34px); font-weight: 400; line-height: 1.2; color: var(--white); margin-bottom: 24px; letter-spacing: -0.5px; }
+.tldr-list { list-style: none; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; }
+.tldr-list li { font-family: var(--font-body); font-size: 15px; line-height: 1.6; color: var(--gray-200); font-weight: 400; padding-left: 18px; border-left: 2px solid var(--lime); }
+.tldr-list li .tldr-num { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--lime); letter-spacing: 2px; margin-bottom: 6px; }
+.tldr-toc { margin-top: 26px; padding-top: 18px; border-top: 1px dashed var(--gray-600); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.5px; color: var(--gray-500); display: flex; flex-wrap: wrap; gap: 16px; }
+.tldr-toc a { color: var(--gray-300); text-decoration: none; border-bottom: 1px dotted var(--gray-600); padding-bottom: 1px; transition: all 0.2s; }
+.tldr-toc a:hover { color: var(--lime); border-color: var(--lime); }
+.analysis { padding: 56px 0 52px; border-bottom: 1px solid var(--gray-600); background: linear-gradient(180deg, rgba(200,255,0,0.035) 0%, rgba(200,255,0,0) 100%); margin: 0 -48px; padding-left: 48px; padding-right: 48px; }
+.analysis-intro { font-family: var(--font-display); font-size: 17px; font-style: italic; line-height: 1.55; color: var(--gray-300); margin-bottom: 30px; padding-bottom: 24px; border-bottom: 1px solid var(--gray-600); max-width: 820px; }
+.analysis-header { font-family: var(--font-heading); font-size: 22px; font-weight: 800; letter-spacing: 4px; color: var(--lime); padding-bottom: 16px; margin-bottom: 32px; border-bottom: 2px solid var(--lime); }
+.analysis-item { border-top: 1px solid var(--gray-600); padding-top: 20px; }
+.analysis-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 48px; }
+.analysis-num { font-family: var(--font-display); font-size: 56px; font-style: italic; color: var(--gray-600); line-height: 1; margin-bottom: 12px; }
+.analysis-item h3 { font-family: var(--font-display); font-size: 22px; font-weight: 400; line-height: 1.25; margin-bottom: 14px; color: var(--white); }
+.analysis-item p { font-size: 13.5px; line-height: 1.7; color: var(--gray-300); font-weight: 300; }
+.analysis-tier { margin-bottom: 16px; padding-left: 16px; border-left: 2px solid var(--gray-600); }
+.analysis-tier:last-child { margin-bottom: 0; }
+.analysis-tier-signal { border-left-color: var(--gray-400); }
+.analysis-tier-pattern { border-left-color: var(--gray-500); }
+.analysis-tier-implication { border-left-color: var(--lime); background: rgba(200,255,0,0.02); padding: 12px 16px; border-radius: 0 4px 4px 0; }
+.analysis-label { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.analysis-label-signal { color: var(--gray-300); }
+.analysis-label-pattern { color: var(--gray-300); }
+.analysis-label-implication { color: var(--lime); }
+.footer { background: var(--lime); color: var(--black); padding: 32px 48px; display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; }
+.footer-brand { font-family: var(--font-heading); font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+.footer-legal { font-family: var(--font-mono); font-size: 10px; line-height: 1.8; opacity: 0.5; max-width: 560px; }
+.footer-tags { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; opacity: 0.4; text-align: right; }
+.footer-fx { font-family: var(--font-mono); font-size: 13px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
+.nav-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 48px; background: var(--black); border-bottom: 1px solid var(--gray-600); }
+.nav-top a { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.5px; color: var(--gray-400); text-decoration: none; transition: color 0.2s; }
+.nav-top a:hover { color: var(--lime); }
+.nav-vol { font-family: var(--font-mono); font-size: 11px; color: var(--gray-500); letter-spacing: 0.5px; }
+.nav-bottom { display: flex; justify-content: space-between; align-items: center; padding: 20px 48px; border-top: 1px solid var(--gray-600); background: var(--black); }
+.nav-bottom a { font-family: var(--font-mono); font-size: 12px; color: var(--gray-400); text-decoration: none; transition: color 0.2s; }
+.nav-bottom a:hover { color: var(--lime); }
+.nav-bottom .nav-disabled { font-family: var(--font-mono); font-size: 12px; color: var(--gray-600); pointer-events: none; }
+.nav-bottom .nav-center { font-family: var(--font-mono); font-size: 11px; color: var(--gray-500); }
+.nav-bottom .nav-center a { color: var(--gray-400); }
+.nav-bottom .nav-center a:hover { color: var(--lime); }
+@media (max-width: 900px) {
+  .masthead { padding: 28px 20px 24px; }
+  .masthead-title { letter-spacing: -1px; }
+  .content { padding: 0 20px; }
+  .hero { grid-template-columns: 1fr; padding: 32px 0; }
+  .hero-main { padding-right: 0; border-right: none; padding-bottom: 32px; border-bottom: 1px solid var(--gray-600); }
+  .hero-sidebar { padding-left: 0; padding-top: 32px; }
+  .col-section { grid-template-columns: 1fr; }
+  .col:not(:last-child) { border-right: none; padding-right: 0; margin-right: 0; padding-bottom: 32px; margin-bottom: 0; border-bottom: 1px solid var(--gray-600); }
+  .analysis-grid { grid-template-columns: 1fr; gap: 36px; }
+  .tldr-list { grid-template-columns: 1fr; gap: 18px; }
+  .tldr-list li { font-size: 16px; }
+  .analysis { margin: 0 -20px; padding-left: 20px; padding-right: 20px; }
+  .analysis-intro { font-size: 16px; }
+  body { font-size: 16px; line-height: 1.8; }
+  .article-body { font-size: 16px; line-height: 1.85; }
+  .sidebar-card .article-body { font-size: 15px; }
+  .col-article .article-body { font-size: 15px; }
+  .hero-main .article-lead { font-size: 18px; line-height: 1.6; }
+  .analysis-item p { font-size: 15px; line-height: 1.8; }
+  .analysis-item h3 { font-size: 24px; }
+  .source { font-size: 12px; }
+  .tag { font-size: 11px; }
+  .tag-cat { font-size: 11px; }
+  .analysis-label { font-size: 11px; }
+  .pull-quote p { font-size: 17px; }
+  .pull-quote cite { font-size: 11px; }
+  .footer { padding: 24px 20px; flex-direction: column; }
+  .footer-tags { text-align: left; }
+  .footer-legal { font-size: 11px; }
+  .nav-top { padding: 12px 20px; }
+  .nav-bottom { padding: 16px 20px; }
+}
+</style>
+</head>
+<body>
+<nav class="nav-top">
+  <a href="index.html">&larr; Archive</a>
+  <span class="nav-vol">Vol. 09</span>
+</nav>
+<header class="masthead">
+  <div class="masthead-date">2026년 5월 9일 토요일 (5.3–9)</div>
+  <h1 class="masthead-title">엔터문화연구소<br>글로벌 주간 브리핑</h1>
+  <div class="masthead-sub">Weekly Business Briefing: US &middot; China &middot; Japan</div>
+</header>
+<div class="content">
+<section class="tldr" id="tldr">
+  <div class="tldr-label">이번 주 이슈 요약</div>
+  <h2 class="tldr-header">이번 주 이슈 요약</h2>
+  <!-- ============================================================
+     이번 주 이슈 요약 (TL;DR) — li 항목 HTML 조각 (외곽 section 미포함)
+     생성: 2026-05-08 | 커버리지: 2026-05-03~08
+     소스: research-us.md, research-cn.md, research-jp.md, research-global.md
+     ============================================================ -->
+
+<ul class="tldr-list">
+  <li>
+    <span class="region-tag region-us">US</span>
+    Paramount·WBD <span class="amount">$1,100억(₩161조)</span> 합병, FCC 외국인 지분 49.5% 심사 신청 — 9월 최종 결정
+  </li>
+  <li>
+    <span class="region-tag region-us">US</span>
+    AWS·Luma AI 지원 Innovative Dreams, AI 제작으로 "예산 1편에 5편" 효율 실증
+  </li>
+  <li>
+    <span class="region-tag region-cn">CN</span>
+    보나영화그룹, 자체 AI 제작 도구 2종 공개 베타 개시 — 창작자 영상화 직접 지원
+  </li>
+  <li>
+    <span class="region-tag region-cn">CN</span>
+    중국 1분기 게임시장 971.72억 위안, 전년 대비 13.38% 성장 — 홍과(RedNote) 단편드라마 월활 2.4억 돌파, 유쿠 추월
+  </li>
+  <li>
+    <span class="region-tag region-jp">JP</span>
+    일본 애니 해외 매출 1.7조 엔, 사상 첫 국내 초과 — 3.3조 엔 시장 전체 재편
+  </li>
+  <li>
+    <span class="region-tag region-jp">JP</span>
+    ギグワークス, 아니메·게임 IP 서브라이선스 보유사 spacetimes 자회사화
+  </li>
+  <li>
+    <span class="region-tag region-global">Global</span>
+    크런치롤 Ani-May — 게이밍(Forza Horizon 6)·소매·라이브 이벤트 멀티플랫폼 캠페인 가동
+  </li>
+</ul>
+  <nav class="tldr-toc">
+    <span>바로가기 &middot;</span>
+    <a href="#insights">주간 인사이트</a>
+    <a href="#news-global">글로벌</a>
+    <a href="#news-us">미국</a>
+    <a href="#news-cn">중국</a>
+    <a href="#news-jp">일본</a>
+  </nav>
+</section>
+<section class="analysis" id="insights">
+  <div class="analysis-header">인사이트</div>
+  <div class="analysis-grid">
+<!-- ============================================================
+     인사이트 × 3 — analysis-item HTML 조각 (외곽 section 미포함)
+     생성: 2026-05-08 | 커버리지: 2026-05-03~08
+     소스: research-us.md, research-cn.md, research-jp.md, research-global.md
+     ============================================================ -->
+
+<div class="analysis-item">
+  <div class="analysis-num">01</div>
+  <h3>AI, 프리~포스트 전 구간을 꿰뚫다 — 제작 원가의 새 기준선</h3>
+  <div class="analysis-tier analysis-tier-signal">
+    <div class="analysis-label analysis-label-signal">신호</div>
+    <p>AWS·Luma AI 공동 투자 스타트업 Innovative Dreams가 LED 사운드스테이지와 AI 툴체인을 결합해 "1편 예산으로 5편 제작" 효율을 실증했다(CNBC). 같은 주 중국에서 보나영화그룹은 자체 개발 AI 제작 도구 2종의 공개 베타를 시작하며 창작자의 영상화 지원 단계로 전환했다. 프리프로덕션부터 포스트까지 AI가 전 단계를 관통하는 단계에 진입했다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-pattern">
+    <div class="analysis-label analysis-label-pattern">맥락</div>
+    <p>미국은 빅테크 자본(AWS)이 스튜디오 형태로 생산 현장에 직접 내려앉는 경로고, 중국은 기존 스튜디오가 AI 도구를 내재화하는 경로다. 두 방식 모두 인건비·스튜디오 임대·포스트 비용을 구조적으로 낮추는 동일한 목표를 향한다. 단편드라마(短剧) 포맷에서 홍과(RedNote)가 AI 기반 고속 생산 덕분에 월 2.4억 사용자를 돌파해 유쿠를 추월한 건, 제작 속도가 플랫폼 순위를 실시간으로 뒤흔들 수 있다는 선례다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-implication">
+    <div class="analysis-label analysis-label-implication">전략</div>
+    <p>중소·독립 제작사에게는 기회다. 인건비와 장비 임대 부담이 가장 무거운 독립사일수록 AI 도구의 레버리지 폭이 크다. Luma AI·Runway 등 검증된 도구와 중국발 오픈 베타가 잇달아 공개되는 지금, 장르 실험작 파일럿 1편 예산으로 같은 세계관의 시리즈 첫 3화를 완성하는 전략이 현실적으로 열려 있다.</p>
+  </div>
+</div>
+
+<div class="analysis-item">
+  <div class="analysis-num">02</div>
+  <h3>중동 자본 49.5% — FCC가 할리우드 소유권 지형을 판가름한다</h3>
+  <div class="analysis-tier analysis-tier-signal">
+    <div class="analysis-label analysis-label-signal">신호</div>
+    <p>Paramount(스카이댄스 인수 차량)가 Warner Bros. Discovery와의 약 <span class="amount">$1,100억(₩161조)</span> 규모 합병에 대해 FCC 승인을 신청했다(Deadline). 딜 성사 시 외국인 소유 비율은 49.5%에 달하며 상당 부분이 걸프 지역 SWF 출자분이다. 규제 관문 통과 예상 시점은 2026년 9월이다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-pattern">
+    <div class="analysis-label analysis-label-pattern">맥락</div>
+    <p>지난 6주 사이 할리우드에 몰려든 중동 자본 지형: 걸프 SWF가 Paramount에 <span class="amount">$27억(₩39.5조)</span>을 투입하고(04.11), Bill Ackman은 UMG에 <span class="amount">$93억(₩136조)</span> 인수를 제안했다(04.25). 미국 통신법은 외국인 방송 면허 소유를 원칙상 제한하지만 FCC가 공익 판단으로 면제를 부여할 수 있다. 이번 판단이 전례가 되면 이후 할리우드 딜 구조 전체에 영향을 미친다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-implication">
+    <div class="analysis-label analysis-label-implication">전략</div>
+    <p>투자자는 관망해야 한다. FCC가 9월까지 외국 소유권 면제 여부를 판단하는 동안 합병 완료 여부·자산 분리 조건·콘텐츠 배포권 귀속 구조가 모두 유동적이다. Paramount·WBD 지분 또는 이들의 콘텐츠 공급에 의존하는 한국 플랫폼 관련 포지션을 이 결정 이전에 확정 짓는 것이 과연 현명한 선택일까?</p>
+  </div>
+</div>
+
+<div class="analysis-item">
+  <div class="analysis-num">03</div>
+  <h3>일본 애니 해외 매출 국내 역전 — IP 복합 수익화의 완성형이 보인다</h3>
+  <div class="analysis-tier analysis-tier-signal">
+    <div class="analysis-label analysis-label-signal">신호</div>
+    <p>2023년 일본 애니메이션 산업 시장 규모 3.3조 엔 중 해외 매출이 1.7조 엔으로 처음 국내를 초과했다(JETRO). 크런치롤은 같은 주 게이밍(Forza Horizon 6)·소매·라이브 이벤트를 아우르는 Ani-May 멀티플랫폼 캠페인을 가동했다. 글로벌 배포망이 단순 라이선싱 창구를 넘어 직접 수익화 인프라로 완성됐다는 신호다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-pattern">
+    <div class="analysis-label analysis-label-pattern">맥락</div>
+    <p>일본 애니의 해외 역전은 넷플릭스·크런치롤이 배포 인프라를 깔아주고 게이밍·MD·라이브 이벤트가 그 위에서 복합 수익화 레이어를 쌓은 20년짜리 구조의 결과다. 대조적으로 중국의 IP 상품화 비율은 매출 대비 2%에 불과해 글로벌 평균(60%)의 30분의 1에 그친다. 한국 IP 역시 OTT 라이선스 단일 수익 구조에서 크게 벗어나지 못한 채 같은 취약 평면에 있다.</p>
+  </div>
+  <div class="analysis-tier analysis-tier-implication">
+    <div class="analysis-label analysis-label-implication">전략</div>
+    <p>대형 스튜디오·레이블에게는 경고다. CJ ENM·HYBE·카카오엔터가 보유한 IP가 해외 OTT에서 인기를 얻는 동안, 그 인기가 게이밍 콜라보·라이선싱 상품·라이브 이벤트로 전환되지 않으면 IP의 가치는 플랫폼에 귀속된다. 일본이 20년간 쌓아온 복합 수익화 모델을 따라잡으려면, OTT 납품 구조에서 벗어나 IP 직접 소유·직접 유통 전략을 지금 설계해야 한다.</p>
+  </div>
+</div>
+  </div>
+</section>
+<section class="hero" id="news-global">
+  <article class="hero-main">
+    <span class="tag tag-global">Global</span><span class="tag-cat">IP · INV</span>
+    <h2 class="article-title">Crunchyroll Ani-May 2026 &mdash; 게이밍·소매·라이브 이벤트 멀티플랫폼 동시 전개</h2>
+    <p class="article-lead">크런치롤이 May 2026 애니메이션 캠페인 Ani-May를 공식 가동했다. 게이밍 플랫폼(포르자 호라이즌 6)·소매(메르찬다이징)·라이브 이벤트를 아우르는 멀티플랫폼 확산 전략으로, 애니 콘텐츠의 수익화 범위를 글로벌 스트리밍을 넘어 물리적 경험과 게이밍까지 연장한다.</p>
+    <div class="article-body">
+      <p>DesignRush 보도에 따르면, 크런치롤의 Ani-May 캠페인은 세 가지 축으로 구성된다. 첫째, 포르자 호라이즌 6 안에서 애니 이미지와 사운드트랙을 게임 내 스킨·음악으로 제공하는 게이밍 크로스오버. 둘째, 공식 MD·기념품·의류 판매로 팬들이 오프라인에서 구입할 수 있는 물리적 상품화. 셋째, 글로벌 주요 도시에서 개최되는 라이브 이벤트·팬 미팅이다.</p>
+      <p>이 캠페인의 의미는 크런치롤이 단순 배포 플랫폼을 넘어 IP 원작자 수준의 다층 수익화를 직접 주도한다는 신호다. 3~4년 전만 해도 웹 스트리밍 플랫폼의 역할은 라이선스 편집에만 국한됐다면, 이제는 게이밍·메르찬다이징·라이브 경험 전체를 통합 관리하는 미디어 회사로 기능하고 있다. 2023년 일본 애니가 해외 매출로 국내를 추월한 것이 단순 수출 성공이 아닌, 크런치롤·넷플릭스 같은 배포사가 IP 수익화 파이프라인 전체를 차지했기 때문이라는 구조를 다시 한 번 보여준다.</p>
+      <p>한국 엔터테인먼트에 대한 함의는 명확하다. K드라마·K팝·K게임이 글로벌에서 높은 인기를 기록하더라도, 이 인기가 메르찬다이징·게이밍 콜라보·라이브 이벤트로 전환되지 않으면 원저작사의 수익은 플랫폼 라이선스 비용에 제한된다. 대형 스튜디오·레이블들이 자사 IP의 이런 2차·3차 수익화 채널을 직접 구축하지 않는다면, 크런치롤이 한 것처럼 배포 플랫폼이 이 모든 수익을 흡수하게 된다.</p>
+    </div>
+    <span class="source">출처: <a href="https://news.designrush.com/crunchyroll-ani-may-2026-multi-platform-campaign" target="_blank">DesignRush</a> (May 2026)</span>
+  </article>
+  <div class="hero-sidebar">
+    <article class="sidebar-card">
+      <span class="tag tag-global">Global</span><span class="tag-cat">IP · DATA</span>
+      <h2 class="article-title">FIFA 2026 월드컵, YouTube 독점 스트리밍 파트너십 확대 &mdash; 경기별 라이브 1차 10분 무료 공개</h2>
+      <div class="article-body">
+        <p>Storyboard18 보도에 따르면, FIFA는 2026 월드컵의 디지털 배포를 위해 YouTube를 "Preferred Platform"으로 지정하고 파트너십을 전면 확대하기로 했다. 기존 할당 구조(제한된 경기만 스트리밍)에서 벗어나 풀 경기 스트리밍과 동시에, 모든 경기의 오프닝 1차 10분을 전 지역 시청자에게 무료로 공개하는 것이 핵심이다.</p>
+        <p>이 전략의 목표는 명확하다. TV 중계권 수익을 최대화하되, 스트리밍을 통한 팬 확보와 플랫폼 내 광고 수익을 동시에 창출하는 것이다. YouTube의 높은 글로벌 리치와 라이브 스트리밍 인프라를 활용하되, 경기 개시 10분의 무료 공개로 초기 시청 유입을 극대화하는 핸들링이다. 이는 스포츠 IP의 선형 TV 시대 종료와 스트리밍 플랫폼 독점 강화 흐름의 연장선이다.</p>
+      </div>
+      <span class="source">출처: <a href="https://www.storyboard18.com/brand-marketing/fifa-partners-youtube-as-preferred-platform-expands-streaming-for-2026-world-cup-92641.htm" target="_blank">Storyboard18</a> (May 2026)</span>
+    </article>
+  </div>
+</section>
+<section class="hero" id="news-us">
+  <article class="hero-main">
+    <span class="tag tag-us">US</span><span class="tag-cat">M&A · REG</span>
+    <h2 class="article-title">Paramount-WBD <span class="amount">$1,100억(₩161조)</span> 합병, FCC에 외국인 지분 49.5% 신청 &mdash; 중동 자본이 할리우드 지배권을 재편한다</h2>
+    <p class="article-lead">Paramount(Skydance 인수 차량)가 Warner Bros. Discovery와의 약 $1,100억(₩161조) 규모 합병에 대해 FCC 승인을 공식 신청했다. 딜 성사 시 외국인 소유 비율은 49.5%에 달하며, 걸프 지역 주권부자펀드(SWF) 출자분이 상당 부분을 차지한다. FCC의 규제 관문 통과 예상 시점은 2026년 9월이다.</p>
+    <div class="article-body">
+      <p>Deadline 보도에 따르면, Paramount가 신청한 FCC 서류에는 다음과 같은 조건이 명시됐다. (1) 외국인 지분 49.5% 한도 유지, (2) 미국 방송 정책에 따른 콘텐츠 통제권은 미국 자본에 유보, (3) 특정 규제 부문(뉴스 채널 운영 등)은 미국 자본만 관여 가능. 그럼에도 불구하고 규제 통과가 자동화된 것은 아니다.</p>
+      <p>문제의 배경은 지난 6주간 할리우드에 몰려든 중동 자본의 공세다. 걸프 SWF가 Paramount에 <span class="amount">$27억(₩39.5조)</span>을 투입하고(4월 11일), Bill Ackman은 Universal Music Group에 <span class="amount">$93억(₩136조)</span> 인수를 제안했다(4월 25일). 미국 통신법(Communications Act)은 원칙상 외국인의 방송 면허 소유를 제한하고 있으나, FCC가 &ldquo;공익(public interest)&rdquo; 판단 하에 면제를 부여할 수 있다.</p>
+      <p>FCC의 9월 판단이 Paramount-WBD를 허가한다면, 이는 할리우드 M&A 구조 전체의 외국인 지분 상한선을 49.5%까지 끌어올리는 선례가 된다. 역으로 기각할 경우, 중동 자본의 할리우드 진입은 넓혀진 합작 구도나 간접 투자로 제한된다. 어느 쪽이든 이번 결정은 향후 5년간의 할리우드 자본 구조를 결정하는 기점이 될 것으로 분석된다.</p>
+    </div>
+    <span class="source">출처: <a href="https://deadline.com/2026/04/paramount-fcc-request-wbd-merger-middle-east-1236873732/" target="_blank">Deadline</a> (Apr 25, 2026)</span>
+  </article>
+  <div class="hero-sidebar">
+    <article class="sidebar-card">
+      <span class="tag tag-us">US</span><span class="tag-cat">AI · M&A</span>
+      <h2 class="article-title">Innovative Dreams, LED 스테이지 + AI로 &ldquo;1편 예산에 5편&rdquo; 효율 실증 &mdash; AWS·Luma AI 공동 투자 스타트업</h2>
+      <div class="article-body">
+        <p>CNBC(4월 24일) 보도에 따르면, AWS와 Luma AI가 공동 투자한 신생 제작사 Innovative Dreams가 LED 사운드스테이지와 AI 툴체인을 결합한 제작 파이프라인으로 &ldquo;1편 예산으로 5편을 제작할 수 있다&rdquo는 효율을 실증했다.</p>
+        <p>Innovative Dreams의 방식은 다음과 같다. LED 사운드스테이지에서 현장 촬영(프리프로덕션부터 본촬영까지)을 끝낸 후, Luma AI·Runway 같은 생성형 AI 도구로 VFX·색보정·사운드 디자인까지 자동화하는 것이다. 종전 제작 단가 기준에서 인건비(VFX팀·색감팀·음향팀 감축), 스튜디오 임대료, 포스트 프로덕션 기간을 구조적으로 낮춘다. Netflix가 인용한 데이터에 따르면 이 방식으로 1편 예산 선에서 복수편을 완성할 수 있다는 결론이다.</p>
+        <p>의미 있는 신호는, 이것이 단순 기술 혁신이 아니라 빅테크(AWS)가 스튜디오 운영에 직접 나서는 경로라는 점이다. 중국의 보나영화그룹이 자체 개발 AI 도구로 창작자 지원 단계로 나아간 것과 달리, 미국의 빅테크는 스튜디오 자체로 변신하고 있다. 양쪽 모두 제작 원가의 기준선을 낮추는 동일한 목표를 향하고 있다는 점에서, 글로벌 엔터 원가 경쟁력이 근본적으로 재편 중이다.</p>
+      </div>
+      <span class="source">출처: <a href="https://www.cnbc.com/2026/04/24/an-aws-backed-hollywood-startup-deploys-ai-for-speed-and-cost-cutting.html" target="_blank">CNBC</a> (Apr 24, 2026)</span>
+    </article>
+  </div>
+</section>
+<section class="col-section" style="grid-template-columns: 1fr 1fr;">
+  <div class="col" id="news-cn">
+    <div class="col-header">China</div>
+    <article class="col-article">
+      <span class="tag tag-cn">CN</span><span class="tag-cat">DATA · INV</span>
+      <h3 class="article-title">2026년 중국 게임시장 1분기 971.72억 위안, 전년 대비 13.38% 성장 &mdash; 홍과 단편드라마 월활 2.4억, 유쿠 추월</h3>
+      <div class="article-body">
+        <p>新浪财经(4월 20일) 보도에 따르면, 중국음수협 게임위원회가 발표한 2026년 1분기 게임시장 규모는 971.72억 위안으로 전년 동기 대비 13.38% 성장했다. 이는 중국 게임시장이 2025년의 부진에서 벗어나 회복세를 보인다는 신호다. 특히 주목할 점은 주류 플랫폼의 라인업보다 단편드라마(短剧) 포맷의 성장이 시장 순위를 재편하는 속도다.</p>
+        <p>단편드라마 플랫폼 홍과(RedNote)가 월간활동사용자 2.4억 명을 돌파하며 유쿠(优酷)를 추월했다. 홍과는 1~3분 길이의 단편 스토리 영상을 고속 대량 생산하는 AI 기반 방식으로 운영되는 플랫폼이다. 대조적으로 유쿠와 텐센트 비디오는 장편 드라마 제작 위주이며, 제작 단가와 투자 회수 기간이 길다. AI 생산 효율이 플랫폼 순위를 실시간으로 뒤흔드는 현상을 보여주는 사례다.</p>
+      </div>
+      <span class="source">출처: <a href="https://finance.sina.com.cn/tech/digi/2026-04-20/doc-inhvcvty0557195.shtml" target="_blank">新浪财经</a> (Apr 20, 2026)</span>
+    </article>
+    <article class="col-article">
+      <span class="tag tag-cn">CN</span><span class="tag-cat">AI · INV</span>
+      <h3 class="article-title">보나영화그룹, 자체 개발 AI 제작 도구 2종 공개 베타 개시 &mdash; 창작자의 직접 영상화 지원</h3>
+      <div class="article-body">
+        <p>界面新闻(Jiemian News) 보도에 따르면, 보나영화그룹(Bona Film Group)이 자사 개발 AI 제작 도구 2종의 공개 베타 테스트를 시작했다. 하나는 스크립트를 자동으로 영상 스토리보드로 변환하는 도구이고, 다른 하나는 텍스트 프롬프트로 영상 클립을 생성하는 도구다.</p>
+        <p>전통적으로 중국 영상 제작사들은 제작 인프라(스튜디오, VFX팀, 색감팀 등)를 자체 보유하고 있었다. 보나영화가 AI 도구를 공개 베타로 제공하는 것은 외부 창작자들(독립 제작사, 웹드라마 작가, 숏폼 콘텐츠 제작자)이 자사 인프라에 접근 가능하도록 하는 전략 변화를 의미한다. AWS의 Innovative Dreams가 스튜디오 운영으로 나아가는 방식과 달리, 보나영화는 도구 공급자로 포지셔닝하면서 제작 생태계 내 위상을 강화하고 있다.</p>
+      </div>
+      <span class="source">출처: <a href="https://m.jiemian.com/article/14140949.html" target="_blank">界面新闻</a> (2026)</span>
+    </article>
+  </div>
+  <div class="col" id="news-jp">
+    <div class="col-header">Japan</div>
+    <article class="col-article">
+      <span class="tag tag-jp">JP</span><span class="tag-cat">M&A · IP</span>
+      <h3 class="article-title">ギグワークス, 아니메·게임 IP 서브라이선스 보유사 spacetimes 자회사화 &mdash; IP 라이선싱 생태계 통합</h3>
+      <div class="article-body">
+        <p>Webマール(MAあしたのもの情報サイト) 보도에 따르면, 일본 IT 아웃소싱 업체 ギグワークス(Gigworks)가 아니메·게임·연예인 관련 서브라이선스 보유사 spacetimes를 자회사화했다. 이는 일본 IP 라이선싱 생태계 내 수직 통합 움직임으로 읽을 수 있다.</p>
+        <p>spacetimes는 애니메이션 캐릭터, 게임 IP, 인기 배우의 이미지를 보유하고 있으며, 이런 IP들을 카페·팬 이벤트·콜라보 상품 등의 물리적 경험으로 라이선싱하는 회사다. ギグワークス와의 결합은 spacetimes의 라이선싱 포트폴리오를 ギグワークス의 B2B 인프라(사건 관리, 카탈로그 운영, 계약 처리)와 통합하는 것을 의미한다. 일본이 넷플릭스·크런치롤의 배포 플랫폼 투자와 동시에, 로컬 라이선싱 회사의 통합을 통해 IP 수익화 파이프라인 전체를 강화하고 있다는 신호다.</p>
+      </div>
+      <span class="source">출처: <a href="https://www.marr.jp/menu/ma_strategy/ma_planning/entry/64870" target="_blank">Webマール</a> (May 2026)</span>
+    </article>
+    <article class="col-article">
+      <span class="tag tag-jp">JP</span><span class="tag-cat">DATA · IP</span>
+      <h3 class="article-title">일본 애니 해외 매출 1.7조 엔, 국내 초과 처음 달성 &mdash; 3.3조 엔 시장의 51%, 글로벌 IP로 완성</h3>
+      <div class="article-body">
+        <p>ジェトロ(日本貿易振興機構) 2023년 통계 보고서에 따르면, 일본 애니메이션 산업 총 시장 규모 3.3조 엔 중 해외 매출이 1.7조 엔으로 처음 국내 매출을 초과했다. 해외 매출 비중은 전체의 51.5%에 달한다. 2022년 기준으로 해외 매출이 국내와 같은 수준이었다면, 2023년 그 역전이 확정된 것이다.</p>
+        <p>이 역전은 우연이 아니라 20년 간의 플랫폼 투자의 결과다. 넷플릭스·크런치롤이 글로벌 배포 인프라를 깔아주고, 게이밍·메르찬다이징·라이브 이벤트가 그 위에서 IP 수익화 레이어를 쌓았기 때문이다. 2023년 크런치롤의 Ani-May 캠페인과 spacetimes 자회사화는 이 구조의 강화 신호다. 대조적으로 중국의 IP 상품화 비율은 매출 대비 2%에 불과해 글로벌 평균(60%)의 30분의 1에 그친다. 한국 IP도 OTT 라이선스 수입에 편중되어 있다는 점에서 같은 취약성을 안고 있다.</p>
+      </div>
+      <span class="source">출처: <a href="https://www.jetro.go.jp/biz/areareports/2024/873f619bfbc14108.html" target="_blank">ジェトロ</a> (2024, 2023년 데이터)</span>
+    </article>
+  </div>
+</section>
+</div>
+<nav class="nav-bottom">
+  <a href="NEWSPAPER_0425.html">&larr; 이전 호</a>
+  <span class="nav-center"><a href="index.html">목록</a></span>
+  <span class="nav-disabled">다음 호 &rarr;</span>
+</nav>
+<footer class="footer">
+  <div>
+    <div class="footer-brand">엔터문화연구소 주간 브리핑</div>
+    <div class="footer-legal">
+      본 뉴스레터는 AI 기반 큐레이션으로 제작되었으며, 인용된 모든 기사의 저작권은 원 매체에 귀속됩니다.<br>
+      모든 금액은 2026년 5월 8일 기준 환율($1 = ₩1,463)을 적용했습니다. 실제 환율과 차이가 있을 수 있습니다.
+    </div>
+  </div>
+  <div style="text-align:right;">
+    <div class="footer-fx">$1 = ₩1,463</div>
+    <div class="footer-tags">Spotify &middot; DWP2 &middot; Disney &middot; Tencent &middot; iQiyi &middot; Netflix &middot; Toho &middot; MAPPA &middot; AJA</div>
+  </div>
+</footer>
+<script>
+document.querySelectorAll('.tag-cat').forEach(function(el){
+  var tags=el.textContent.split('·').map(function(t){return t.trim();}).filter(Boolean);
+  el.innerHTML=tags.map(function(t){
+    return '<a href="index.html?tag='+encodeURIComponent(t)+'">'+t+'</a>';
+  }).join(' · ');
+});
+</script>
+</body>
+</html>
