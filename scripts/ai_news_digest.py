@@ -151,52 +151,79 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # Claude API — 관련성 점수
 # ──────────────────────────────────────────────
 
+_AI_KEYWORDS = [
+    "AI", "artificial intelligence", "generative", "machine learning",
+    "음악 AI", "AI 음악", "인공지능", "생성형",
+    "Suno", "Udio", "Soundraw", "AIVA", "Boomy",
+    "copyright", "royalty", "licensing", "deepfake",
+]
+
+def _keyword_prefilter(articles: list[dict]) -> list[dict]:
+    """AI 관련 키워드가 제목 또는 본문에 포함된 기사만 통과."""
+    filtered = []
+    for a in articles:
+        text = (a["title"] + " " + a["body"]).lower()
+        if any(kw.lower() in text for kw in _AI_KEYWORDS):
+            filtered.append(a)
+    log.info("키워드 프리필터: %d건 → %d건", len(articles), len(filtered))
+    return filtered
+
+
 def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
     """
     각 기사에 관련성 점수(0~10)를 부여한다.
     관련성 기준: AI가 음악 산업에 미치는 영향
     (저작권, 스트리밍, 레이블, 아티스트 도구, 규제 등)
-    한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 내용 우선.
     """
     if not articles:
         return []
 
-    # 배치 처리: 기사 목록을 JSON으로 넘겨 한 번에 점수 받기
-    batch = [
-        {"id": i, "title": a["title"], "body": a["body"][:500]}
-        for i, a in enumerate(articles)
-    ]
-    prompt = (
-        "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
-        "관련성 기준:\n"
-        "- AI가 음악 산업(저작권, 스트리밍, 레이블, 아티스트 도구, 규제)에 미치는 영향\n"
-        "- 한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보\n"
-        "점수: 0(무관) ~ 10(매우 관련)\n"
-        "출력 형식 (JSON만, 설명 없이):\n"
-        '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
-        f"기사 목록:\n{json.dumps(batch, ensure_ascii=False)}"
-    )
+    # 키워드 프리필터 — Claude에 넘기기 전 AI 무관 기사 제거
+    articles = _keyword_prefilter(articles)
+    if not articles:
+        log.info("프리필터 통과 기사 없음")
+        return []
 
-    try:
-        response = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
+    # 배치 크기 제한 (max_tokens 512로 감당 가능한 수)
+    BATCH_SIZE = 20
+    score_map: dict[int, float] = {}
+
+    for batch_start in range(0, len(articles), BATCH_SIZE):
+        batch_articles = articles[batch_start:batch_start + BATCH_SIZE]
+        batch = [
+            {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
+            for i, a in enumerate(batch_articles)
+        ]
+        prompt = (
+            "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
+            "관련성 기준:\n"
+            "- AI가 음악 산업(저작권, 스트리밍, 레이블, 아티스트 도구, 규제)에 미치는 영향\n"
+            "- 한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보\n"
+            "점수: 0(무관) ~ 10(매우 관련)\n"
+            "출력 형식 (JSON만, 설명 없이):\n"
+            '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
+            f"기사 목록:\n{json.dumps(batch, ensure_ascii=False)}"
         )
-        raw = response.content[0].text.strip()
-        # JSON 블록 파싱
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        scores = json.loads(raw)
-        score_map = {item["id"]: item["score"] for item in scores}
-    except Exception as exc:
-        log.warning("관련성 점수 파싱 실패: %s — 모든 기사 점수 0 처리", exc)
-        score_map = {}
+        try:
+            response = client.messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = response.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            scores = json.loads(raw)
+            for item in scores:
+                score_map[item["id"]] = item["score"]
+        except Exception as exc:
+            log.warning("관련성 점수 파싱 실패 (batch %d~): %s", batch_start, exc)
 
     for i, article in enumerate(articles):
         article["score"] = score_map.get(i, 0)
+        log.info("  점수 %.1f | %s", article["score"], article["title"][:60])
 
     articles.sort(key=lambda x: x["score"], reverse=True)
     return articles
