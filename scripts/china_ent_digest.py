@@ -41,11 +41,13 @@ log = logging.getLogger(__name__)
 # 중국 엔터 × 케이팝·한국 엔터 교집합 집중.
 # ──────────────────────────────────────────────
 AM_SOURCES = [
-    ("한국경제",  "https://news.google.com/rss/search?q=중국+케이팝+한류+엔터+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("매일경제",  "https://news.google.com/rss/search?q=중국+한국+엔터+케이팝+콘텐츠+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+한류+케이팝+한한령+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("조선비즈",  "https://news.google.com/rss/search?q=중국+케이팝+한국+엔터+시장+when:2d+site:biz.chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("헤럴드경제", "https://news.google.com/rss/search?q=중국+한류+케이팝+엔터+when:2d+site:heraldcorp.com&hl=ko&gl=KR&ceid=KR:ko"),
+    # 한중 엔터 교집합 — site: 없이 한국어 전체에서 수집 후 채점으로 필터
+    ("Google News KR — 한중 케이팝", "https://news.google.com/rss/search?q=중국+케이팝+한류+엔터테인먼트+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 한한령",      "https://news.google.com/rss/search?q=한한령+중국+한국+콘텐츠+엔터+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 중국 K팝",    "https://news.google.com/rss/search?q=중국+K팝+아이돌+한국+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    # 신뢰 매체 site: 필터 (보조)
+    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+한류+케이팝+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("매일경제",  "https://news.google.com/rss/search?q=중국+한국+엔터+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
 ]
 
 # ──────────────────────────────────────────────
