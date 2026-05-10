@@ -49,23 +49,25 @@ AM_SOURCES = [
 ]
 
 # ──────────────────────────────────────────────
-# PM: 영문 신뢰 매체 (15:00 KST) — 직접 RSS 우선
-# 음악 전문지·테크 전문지. 본문 포함.
+# PM: 영문 신뢰 매체 (15:00 KST)
+# MBW·TechCrunch는 직접 RSS (AI 비즈니스 특화, 광범위 음악 뉴스 적음).
+# Variety·Billboard 등은 직접 RSS 대신 AI 타겟 쿼리 사용 (초상권 등 무관 기사 차단).
 # ──────────────────────────────────────────────
 PM_SOURCES = [
     ("Music Business Worldwide", "https://www.musicbusinessworldwide.com/feed/"),
-    ("Variety",                  "https://variety.com/v/music/feed/"),
     ("TechCrunch Music",         "https://techcrunch.com/tag/music/feed/"),
-    ("Billboard",                "https://news.google.com/rss/search?q=AI+music+entertainment+investment+when:2d+site:billboard.com&hl=en-US&gl=US&ceid=US:en"),
-    ("Pitchfork",                "https://news.google.com/rss/search?q=AI+music+lifestyle+entertainment+when:2d+site:pitchfork.com&hl=en-US&gl=US&ceid=US:en"),
-    ("The Verge Music",          "https://news.google.com/rss/search?q=AI+music+entertainment+when:2d+site:theverge.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Variety — AI",             "https://news.google.com/rss/search?q=AI+music+generative+royalty+when:2d+site:variety.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Billboard — AI",           "https://news.google.com/rss/search?q=AI+music+label+streaming+copyright+when:2d+site:billboard.com&hl=en-US&gl=US&ceid=US:en"),
+    ("The Verge — AI Music",     "https://news.google.com/rss/search?q=AI+music+entertainment+when:2d+site:theverge.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Reuters — AI Music",       "https://news.google.com/rss/search?q=AI+music+entertainment+industry+when:2d+site:reuters.com&hl=en-US&gl=US&ceid=US:en"),
 ]
 
 # 48시간 이내 기사만 수집
 HOURS_WINDOW = 48
 
 # 관련성 점수 컷오프 (0~10)
-RELEVANCE_CUTOFF = 3
+# PM은 5 이상만 — AI가 부수적으로 언급된 기사 차단
+RELEVANCE_CUTOFF = 5
 
 # 최대 선택 기사 수 (1건)
 MAX_ARTICLES = 1
@@ -100,12 +102,14 @@ AM_SCORE_PROMPT_PREFIX = (
 PM_SCORE_PROMPT_PREFIX = (
     "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
     "주제: AI × 음악·엔터테인먼트. 카테고리: 음악 / 자본 / 엔터테인먼트 / 라이프스타일.\n"
+    "핵심 원칙: AI가 기사의 주요 주제여야 한다. AI가 단순 언급·배경으로만 등장하면 0~2점.\n"
     "관련성 기준 (중요도 순):\n"
     "1. AI가 음악 산업에 미치는 영향 (생성형 AI, 저작권, 로열티, 레이블 전략)\n"
     "2. 엔터테인먼트 × AI 자본 동향 (투자·M&A·펀딩·플랫폼 비즈니스)\n"
     "3. AI × 엔터테인먼트 (영상·게임·팬덤·아이돌 AI 활용)\n"
     "4. AI × 라이프스타일 (소비자 행동 변화, 스트리밍, 추천 알고리즘)\n"
-    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
+    "예시 — 낮은 점수(1~3): 초상권 소송, 아티스트 계약 분쟁 등 AI와 무관한 엔터 뉴스.\n"
+    "예시 — 높은 점수(7~10): AI 음악 생성 플랫폼 출시, AI 저작권 판례, 레이블 AI 전략 발표.\n"
     "score는 0(무관)~10(매우 관련). id는 기사 번호.\n"
     "출력 형식: JSON 배열만, 설명 없이.\n\n"
     "기사 목록:\n"
