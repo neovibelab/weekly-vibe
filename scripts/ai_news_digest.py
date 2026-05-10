@@ -66,8 +66,8 @@ PM_SOURCES = [
 HOURS_WINDOW = 48
 
 # 관련성 점수 컷오프 (0~10)
-# PM은 5 이상만 — AI가 부수적으로 언급된 기사 차단
-RELEVANCE_CUTOFF = 5
+# 4 이상 — AI가 부수적 언급에 그치는 기사 차단하되 너무 엄격하지 않게
+RELEVANCE_CUTOFF = 4
 
 # 최대 선택 기사 수 (1건)
 MAX_ARTICLES = 1
