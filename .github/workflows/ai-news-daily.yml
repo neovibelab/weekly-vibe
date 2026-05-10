@@ -2,7 +2,8 @@ name: AI 음악 뉴스 데일리
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 매일 00:00 UTC = 09:00 KST
+    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC) — 한국어 뉴스
+    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC) — 영문 뉴스
   workflow_dispatch:      # 수동 실행 (테스트용)
 
 env:
