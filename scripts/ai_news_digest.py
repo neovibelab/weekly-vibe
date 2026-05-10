@@ -43,7 +43,7 @@ RSS_SOURCES = [
 HOURS_WINDOW = 48
 
 # 관련성 점수 컷오프 (0~10)
-RELEVANCE_CUTOFF = 5
+RELEVANCE_CUTOFF = 3
 
 # 최대 선택 기사 수
 MAX_ARTICLES = 2
