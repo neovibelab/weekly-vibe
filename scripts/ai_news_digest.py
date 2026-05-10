@@ -38,14 +38,14 @@ log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
 # AM: 한국 신뢰 매체 (09:00 KST)
-# 경제지·IT 전문지. AI × 음악·엔터·라이프스타일.
+# AI 엔터·비즈니스·AX(조직문화) 전반. 음악보다 넓은 범위.
 # ──────────────────────────────────────────────
 AM_SOURCES = [
-    ("한국경제",  "https://news.google.com/rss/search?q=AI+음악+엔터테인먼트+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("매일경제",  "https://news.google.com/rss/search?q=AI+음악+콘텐츠+엔터+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("전자신문",  "https://news.google.com/rss/search?q=AI+음악+생성+플랫폼+when:2d+site:etnews.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("ZDNet KR", "https://news.google.com/rss/search?q=AI+음악+엔터+라이프스타일+when:2d+site:zdnet.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("연합뉴스",  "https://news.google.com/rss/search?q=AI+음악+엔터테인먼트+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("한국경제",  "https://news.google.com/rss/search?q=AI+엔터테인먼트+비즈니스+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("매일경제",  "https://news.google.com/rss/search?q=AI+비즈니스+콘텐츠+산업+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("전자신문",  "https://news.google.com/rss/search?q=AI+기업+혁신+AX+도입+when:2d+site:etnews.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("ZDNet KR", "https://news.google.com/rss/search?q=AI+비즈니스+조직+AX+when:2d+site:zdnet.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("연합뉴스",  "https://news.google.com/rss/search?q=AI+엔터+비즈니스+산업+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
 ]
 
 # ──────────────────────────────────────────────
@@ -81,7 +81,23 @@ SUMMARY_SYSTEM_PROMPT = (
     "사실 중심으로, 과장 없이 작성합니다."
 )
 
-SCORE_PROMPT_PREFIX = (
+# AM용 — AI 엔터·비즈니스·AX 전반
+AM_SCORE_PROMPT_PREFIX = (
+    "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
+    "주제: AI × 엔터테인먼트·비즈니스·조직문화(AX). 카테고리: 음악 / 자본 / 엔터테인먼트 / 라이프스타일.\n"
+    "관련성 기준 (중요도 순):\n"
+    "1. AI × 엔터테인먼트 (음악·영상·게임·팬덤·플랫폼에 AI 적용)\n"
+    "2. AI × 비즈니스 (기업 AI 도입, 수익 모델, 투자·M&A)\n"
+    "3. AI × 조직문화·AX (기업 AI 전환, 직무 변화, 조직 혁신)\n"
+    "4. AI × 라이프스타일 (소비자 행동, 스트리밍, 추천)\n"
+    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
+    "score는 0(무관)~10(매우 관련). id는 기사 번호.\n"
+    "출력 형식: JSON 배열만, 설명 없이.\n\n"
+    "기사 목록:\n"
+)
+
+# PM용 — AI × 음악·엔터 특화
+PM_SCORE_PROMPT_PREFIX = (
     "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
     "주제: AI × 음악·엔터테인먼트. 카테고리: 음악 / 자본 / 엔터테인먼트 / 라이프스타일.\n"
     "관련성 기준 (중요도 순):\n"
@@ -95,15 +111,26 @@ SCORE_PROMPT_PREFIX = (
     "기사 목록:\n"
 )
 
+def _get_score_prompt_prefix() -> str:
+    return AM_SCORE_PROMPT_PREFIX if _get_session() == "AM" else PM_SCORE_PROMPT_PREFIX
+
 BATCH_SIZE = 20
 
-# AI 관련 키워드 프리필터
-_AI_KEYWORDS = [
+# PM 키워드 프리필터 (음악·엔터 특화)
+_PM_KEYWORDS = [
     "AI", "artificial intelligence", "generative", "machine learning",
     "인공지능", "AI 음악", "생성형",
     "Suno", "Udio", "Soundraw", "AIVA", "Boomy",
     "copyright", "royalty", "licensing", "deepfake",
     "algorithm", "streaming", "recommendation",
+]
+
+# AM 키워드 프리필터 (AI 전반 — 엔터·비즈니스·AX)
+_AM_KEYWORDS = [
+    "AI", "인공지능", "생성형", "generative", "machine learning",
+    "ChatGPT", "GPT", "LLM", "클로드", "Gemini",
+    "AX", "AI 전환", "AI 도입", "AI 혁신",
+    "엔터", "콘텐츠", "플랫폼", "비즈니스", "산업",
 ]
 
 
@@ -225,12 +252,13 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def _keyword_prefilter(articles: list[dict]) -> list[dict]:
+    keywords = _AM_KEYWORDS if _get_session() == "AM" else _PM_KEYWORDS
     filtered = []
     for a in articles:
         text = (a["title"] + " " + a["body"]).lower()
-        if any(kw.lower() in text for kw in _AI_KEYWORDS):
+        if any(kw.lower() in text for kw in keywords):
             filtered.append(a)
-    log.info("키워드 프리필터: %d건 → %d건", len(articles), len(filtered))
+    log.info("키워드 프리필터 (%s): %d건 → %d건", _get_session(), len(articles), len(filtered))
     return filtered
 
 
@@ -250,7 +278,7 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
             {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
             for i, a in enumerate(batch_items)
         ]
-        prompt = SCORE_PROMPT_PREFIX + json.dumps(batch, ensure_ascii=False)
+        prompt = _get_score_prompt_prefix() + json.dumps(batch, ensure_ascii=False)
         try:
             response = client.messages.create(
                 model="claude-haiku-4-5",
