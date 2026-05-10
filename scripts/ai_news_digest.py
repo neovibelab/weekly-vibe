@@ -13,7 +13,9 @@ import os
 import json
 import logging
 import datetime
+import urllib.request
 from difflib import SequenceMatcher
+from html.parser import HTMLParser
 
 import feedparser
 import requests
@@ -246,16 +248,68 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
 
 
 # ──────────────────────────────────────────────
+# 기사 본문 fetch
+# ──────────────────────────────────────────────
+
+class _TextExtractor(HTMLParser):
+    """HTML에서 본문 텍스트만 추출."""
+    def __init__(self):
+        super().__init__()
+        self._skip = 0
+        self._skip_tags = {"script", "style", "nav", "header", "footer", "aside"}
+        self.texts: list[str] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._skip_tags:
+            self._skip += 1
+
+    def handle_endtag(self, tag):
+        if tag in self._skip_tags and self._skip > 0:
+            self._skip -= 1
+
+    def handle_data(self, data):
+        if self._skip == 0:
+            t = data.strip()
+            if len(t) > 20:
+                self.texts.append(t)
+
+
+def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
+    """URL에서 기사 본문 텍스트를 추출한다. 실패 시 빈 문자열 반환."""
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; NVLBot/1.0)"},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+        extractor = _TextExtractor()
+        extractor.feed(html)
+        return " ".join(extractor.texts)[:max_chars]
+    except Exception as exc:
+        log.warning("기사 본문 fetch 실패 (%s…): %s", url[:50], exc)
+        return ""
+
+
+# ──────────────────────────────────────────────
 # Claude API — 한국어 요약
 # ──────────────────────────────────────────────
 
 def summarize_article(client: Anthropic, article: dict) -> str:
     """선택된 기사를 한국어 3~4문장으로 요약한다."""
+    body = article["body"]
+    # RSS 본문이 제목과 같거나 너무 짧으면 URL에서 직접 fetch
+    if len(body) < 150 or body.strip() == article["title"].strip():
+        log.info("본문 부족 — URL fetch 시도: %s…", article["url"][:60])
+        fetched = _fetch_article_body(article["url"])
+        if fetched:
+            body = fetched
+
     prompt = (
         f"다음 기사를 요약하라.\n\n"
         f"제목: {article['title']}\n"
         f"출처: {article['source']}\n"
-        f"내용: {article['body'][:1000]}"
+        f"내용: {body[:1200]}"
     )
     try:
         response = client.messages.create(
