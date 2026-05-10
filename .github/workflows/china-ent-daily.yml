@@ -2,7 +2,8 @@ name: 중국 엔터 뉴스 데일리
 
 on:
   schedule:
-    - cron: '30 0 * * *'  # 매일 00:30 UTC = 09:30 KST (ai-news-daily와 30분 간격)
+    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
+    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
 
 env:

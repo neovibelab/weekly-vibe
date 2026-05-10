@@ -1,8 +1,10 @@
 """
 China Ent Daily Digest
 ----------------------
-매일 00:30 UTC (09:30 KST) 실행.
-중국 엔터테인먼트·테크·IP 뉴스 1~2건을 선별해 Discord China Ent 채널에 게시.
+매일 09:00 KST / 15:00 KST 2회 실행.
+중국 엔터 뉴스 1건을 선별해 Discord China Ent 채널에 게시.
+
+주요 주제: 중국의 한국 엔터 이슈 / 자본 투자 / 정책 규제 / Z세대 소비 트렌드
 
 환경변수:
   ANTHROPIC_API_KEY          Claude API 키
@@ -34,35 +36,35 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    # 한국어
-    ("Google News KR — 중국 엔터", "https://news.google.com/rss/search?q=중국+엔터테인먼트+음악+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 중국 IP테크", "https://news.google.com/rss/search?q=중국+콘텐츠+플랫폼+IP+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    # 중국어
-    ("Google News CN — 娱乐科技", "https://news.google.com/rss/search?q=中国+娱乐+科技+音乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("Google News CN — IP版权", "https://news.google.com/rss/search?q=音乐+IP+版权+流媒体+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("Google News CN — 腾讯网易", "https://news.google.com/rss/search?q=腾讯音乐+网易云+字节跳动+娱乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    # 영어
-    ("Google News EN — China Entertainment", "https://news.google.com/rss/search?q=China+entertainment+music+streaming+when:2d&hl=en-US&gl=US&ceid=US:en"),
-    ("Google News EN — China IP Tech", "https://news.google.com/rss/search?q=China+music+IP+tech+Tencent+NetEase+when:2d&hl=en-US&gl=US&ceid=US:en"),
+    # 한국어 — 중국 한류·투자·규제
+    ("Google News KR — 중국 한류", "https://news.google.com/rss/search?q=중국+한류+K팝+엔터테인먼트+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 한한령 규제", "https://news.google.com/rss/search?q=한한령+중국+한국+콘텐츠+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 중국 엔터 투자", "https://news.google.com/rss/search?q=중국+엔터+투자+자본+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    # 중국어 — 韩流·자본·Z세대
+    ("Google News CN — 韩流韩剧", "https://news.google.com/rss/search?q=韩流+韩剧+韩国+娱乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("Google News CN — Z世代消费", "https://news.google.com/rss/search?q=Z世代+娱乐+消费+追星+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("Google News CN — 监管投资", "https://news.google.com/rss/search?q=娱乐+监管+政策+资本+投资+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    # 영어 — Hallyu·China policy
+    ("Google News EN — China Hallyu", "https://news.google.com/rss/search?q=China+Korea+Hallyu+Kpop+entertainment+when:2d&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News EN — China GenZ", "https://news.google.com/rss/search?q=China+Gen+Z+entertainment+consumption+idol+when:2d&hl=en-US&gl=US&ceid=US:en"),
 ]
 
-# 36시간 이내 기사만 수집
-HOURS_WINDOW = 36
+# 48시간 이내 기사만 수집
+HOURS_WINDOW = 48
 
 # 관련성 점수 컷오프 (0~10)
 RELEVANCE_CUTOFF = 5
 
-# 최대 선택 기사 수
-MAX_ARTICLES = 2
+# 최대 선택 기사 수 (1건)
+MAX_ARTICLES = 1
 
 # 제목 유사도 임계값 (이 이상이면 중복으로 간주)
 DUPLICATE_THRESHOLD = 0.80
 
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 한국 엔터테인먼트 업계 전문가입니다.\n"
-    "중국 엔터테인먼트·테크·IP 뉴스를 "
-    "한국 레이블, 플랫폼, 아티스트 관점에서 해석해 "
-    "3~4문장으로 요약합니다.\n"
+    "중국의 한국 엔터 이슈, 자본 투자, 정책 규제, Z세대 소비 트렌드 뉴스를 "
+    "한국 레이블·플랫폼·아티스트 관점에서 해석해 3~4문장으로 요약합니다.\n"
     "중국어·영어 원문이 입력되더라도 반드시 한국어로 요약합니다.\n"
     "사실 중심으로, 과장 없이 작성합니다."
 )
@@ -175,29 +177,21 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # ──────────────────────────────────────────────
 
 def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
-    """
-    각 기사에 관련성 점수(0~10)를 부여한다.
-    관련성 기준:
-    - 중국 엔터테인먼트 산업 (음악·드라마·영화·팬덤·아이돌·플랫폼)
-    - 중국 테크 기업의 콘텐츠·미디어 진출 (텐센트뮤직, 넷이즈, 바이트댄스 등)
-    - 중국 IP 전략·저작권·한한령·한중 콘텐츠 협력
-    - 한국 엔터테인먼트 업계 종사자에게 중국 시장 관점에서 유용한 정보
-    """
+    """각 기사에 관련성 점수(0~10)를 부여한다."""
     if not articles:
         return []
 
-    # 배치 처리: 기사 목록을 JSON으로 넘겨 한 번에 점수 받기
     batch = [
         {"id": i, "title": a["title"], "body": a["body"][:500]}
         for i, a in enumerate(articles)
     ]
     prompt = (
         "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
-        "관련성 기준:\n"
-        "- 중국 엔터테인먼트 산업 (음악·드라마·영화·팬덤·아이돌·플랫폼)\n"
-        "- 중국 테크 기업의 콘텐츠·미디어 진출 (텐센트뮤직, 넷이즈, 바이트댄스 등)\n"
-        "- 중국 IP 전략·저작권·한한령·한중 콘텐츠 협력\n"
-        "- 한국 엔터테인먼트 업계 종사자에게 중국 시장 관점에서 유용한 정보\n"
+        "관련성 기준 (중요도 순):\n"
+        "1. 중국에서의 한국 엔터 이슈 (K-팝·K-드라마·한류 관련 중국 동향, 한한령 변화)\n"
+        "2. 중국 엔터산업 자본 투자 (M&A, 펀딩, 플랫폼 투자)\n"
+        "3. 중국 엔터 정책·규제 (콘텐츠 심의, 플랫폼 규제, 저작권)\n"
+        "4. 중국 Z세대 소비 트렌드 (팬덤 소비, 아이돌, 숏폼, 스트리밍)\n"
         "점수: 0(무관) ~ 10(매우 관련)\n"
         "출력 형식 (JSON만, 설명 없이):\n"
         '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
@@ -407,14 +401,28 @@ def main() -> None:
         log.info("관련성 점수 %d 이상 기사 없음 — 전송 생략", RELEVANCE_CUTOFF)
         return
 
-    selected = relevant[:MAX_ARTICLES]
-    log.info("선택된 기사: %d건", len(selected))
-    for a in selected:
-        log.info("  [%.1f] %s (%s)", a["score"], a["title"], a["source"])
+    # 5. 후보 순서대로 시도 — fetch 실패 시 다음 기사로
+    selected = []
+    for candidate in relevant:
+        body = candidate["body"]
+        needs_fetch = len(body) < 150 or body.strip() == candidate["title"].strip()
+        if needs_fetch:
+            log.info("본문 부족 — URL fetch 시도: %s…", candidate["url"][:60])
+            fetched = _fetch_article_body(candidate["url"])
+            if not fetched:
+                log.info("fetch 실패 — 다음 기사로 건너뜀: %s…", candidate["title"][:50])
+                continue
+            candidate["body"] = fetched
 
-    # 5. 한국어 요약 생성
-    for article in selected:
-        article["summary"] = summarize_article(client, article)
+        candidate["summary"] = summarize_article(client, candidate)
+        selected.append(candidate)
+        log.info("선택: [%.1f] %s (%s)", candidate["score"], candidate["title"], candidate["source"])
+        if len(selected) >= MAX_ARTICLES:
+            break
+
+    if not selected:
+        log.info("요약 가능한 기사 없음 — 전송 생략")
+        return
 
     # 6. Discord 전송
     content = build_discord_payload(selected)
