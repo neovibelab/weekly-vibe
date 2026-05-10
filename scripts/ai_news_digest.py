@@ -11,10 +11,10 @@ AI 음악 산업 관련 뉴스 1~2건을 선별해 Discord #ai_talk 채널에 �
 
 import os
 import re
+import html
 import json
 import logging
 import datetime
-import urllib.request
 from difflib import SequenceMatcher
 from html.parser import HTMLParser
 
@@ -130,8 +130,9 @@ def fetch_articles() -> list[dict]:
                     continue
                 real_source, clean_title = _extract_real_source(entry, source_name)
                 raw_body = entry.get("summary", "") or ""
-                clean_body = re.sub(r"<[^>]+>", " ", raw_body).strip()
-                clean_body = re.sub(r"\s+", " ", clean_body)
+                clean_body = re.sub(r"<[^>]+>", " ", raw_body)
+                clean_body = html.unescape(clean_body)
+                clean_body = re.sub(r"\s+", " ", clean_body).strip()
                 articles.append({
                     "source": real_source,
                     "title": clean_title,
@@ -281,15 +282,19 @@ class _TextExtractor(HTMLParser):
 def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
     """URL에서 기사 본문 텍스트를 추출한다. 실패 시 빈 문자열 반환."""
     try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; NVLBot/1.0)"},
-        )
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            html = resp.read().decode("utf-8", errors="replace")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
+        }
+        resp = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        resp.raise_for_status()
+        page_html = resp.text
         extractor = _TextExtractor()
-        extractor.feed(html)
-        return " ".join(extractor.texts)[:max_chars]
+        extractor.feed(page_html)
+        text = " ".join(extractor.texts)
+        text = html.unescape(text)
+        return text[:max_chars]
     except Exception as exc:
         log.warning("기사 본문 fetch 실패 (%s…): %s", url[:50], exc)
         return ""
