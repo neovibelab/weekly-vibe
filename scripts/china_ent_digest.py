@@ -271,7 +271,7 @@ def build_discord_payload(selected: list[dict]) -> str:
 
 def send_to_discord(webhook_url: str, content: str) -> None:
     """Discord 웹훅으로 메시지 전송."""
-    payload = {"content": content}
+    payload = {"content": content, "flags": 4}  # 4 = SUPPRESS_EMBEDS
     response = requests.post(
         webhook_url,
         json=payload,
