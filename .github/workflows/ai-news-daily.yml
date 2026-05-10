@@ -4,7 +4,14 @@ on:
   schedule:
     - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC) — 한국어 뉴스
     - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC) — 영문 뉴스
-  workflow_dispatch:      # 수동 실행 (테스트용)
+  workflow_dispatch:
+    inputs:
+      session:
+        description: 'AM (한국어) 또는 PM (영문). 비우면 시각 자동 판별.'
+        required: false
+        default: ''
+        type: choice
+        options: ['', 'AM', 'PM']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -28,4 +35,5 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AI_TALK_WEBHOOK: ${{ secrets.DISCORD_AI_TALK_WEBHOOK }}
+          SESSION: ${{ inputs.session }}
         run: python scripts/ai_news_digest.py

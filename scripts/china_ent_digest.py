@@ -86,6 +86,9 @@ SUMMARY_SYSTEM_PROMPT = (
 
 # AM/PM 세션 판별 (UTC 기준)
 def _get_session() -> str:
+    override = os.environ.get("SESSION", "").upper()
+    if override in ("AM", "PM"):
+        return override
     return "AM" if datetime.datetime.utcnow().hour < 6 else "PM"
 
 def _get_sources() -> list[tuple[str, str]]:

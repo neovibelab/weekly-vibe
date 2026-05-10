@@ -112,6 +112,9 @@ _AI_KEYWORDS = [
 # ──────────────────────────────────────────────
 
 def _get_session() -> str:
+    override = os.environ.get("SESSION", "").upper()
+    if override in ("AM", "PM"):
+        return override
     return "AM" if datetime.datetime.utcnow().hour < 6 else "PM"
 
 def _get_sources() -> list[tuple[str, str]]:

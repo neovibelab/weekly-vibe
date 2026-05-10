@@ -5,6 +5,13 @@ on:
     - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
     - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
+    inputs:
+      session:
+        description: 'AM (한국어) 또는 PM (중국현지). 비우면 시각 자동 판별.'
+        required: false
+        default: ''
+        type: choice
+        options: ['', 'AM', 'PM']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -28,4 +35,5 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_CHINA_ENT_WEBHOOK: ${{ secrets.DISCORD_CHINA_ENT_WEBHOOK }}
+          SESSION: ${{ inputs.session }}
         run: python scripts/china_ent_digest.py
