@@ -10,6 +10,7 @@ China Ent Daily Digest
 """
 
 import os
+import re
 import json
 import logging
 import datetime
@@ -127,11 +128,15 @@ def fetch_articles() -> list[dict]:
                 if pub_time is None or pub_time < cutoff:
                     continue
                 real_source, clean_title = _extract_real_source(entry, source_name)
+                raw_body = entry.get("summary", "") or ""
+                # HTML 태그 제거 후 실제 텍스트 길이 확인
+                clean_body = re.sub(r"<[^>]+>", " ", raw_body).strip()
+                clean_body = re.sub(r"\s+", " ", clean_body)
                 articles.append({
                     "source": real_source,
                     "title": clean_title,
                     "url": entry.get("link", ""),
-                    "body": entry.get("summary", "") or clean_title,
+                    "body": clean_body or clean_title,
                     "published": pub_time.isoformat(),
                 })
                 count += 1
@@ -274,11 +279,15 @@ def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
 def summarize_article(client: Anthropic, article: dict) -> str:
     """선택된 기사를 한국어 3~4문장으로 요약한다."""
     body = article["body"]
+    log.info("요약 시작 — 본문 %d자: %s…", len(body), body[:60])
     if len(body) < 150 or body.strip() == article["title"].strip():
         log.info("본문 부족 — URL fetch 시도: %s…", article["url"][:60])
         fetched = _fetch_article_body(article["url"])
         if fetched:
+            log.info("fetch 성공 — %d자 획득", len(fetched))
             body = fetched
+        else:
+            log.warning("fetch 실패 — 제목만으로 요약")
 
     prompt = (
         f"다음 기사를 요약하라.\n\n"
