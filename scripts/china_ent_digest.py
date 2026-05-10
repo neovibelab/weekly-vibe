@@ -201,7 +201,7 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # Claude API — 관련성 점수
 # ──────────────────────────────────────────────
 
-SCORE_PROMPT = (
+SCORE_PROMPT_PREFIX = (
     "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
     "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
     "관련성 기준 (중요도 순):\n"
@@ -209,10 +209,9 @@ SCORE_PROMPT = (
     "2. 중국 엔터 테크 동향 (AI 음악·숏폼·스트리밍·플랫폼 기술)\n"
     "3. 중국 엔터 시장 구조 변화 (규제·정책·소비 트렌드·한류 동향)\n"
     "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
-    "점수: 0(무관) ~ 10(매우 관련)\n"
-    "출력 형식 (JSON만, 설명 없이):\n"
-    '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
-    "기사 목록:\n{batch_json}"
+    'score는 0(무관)~10(매우 관련). id는 기사 번호.\n'
+    "출력 형식: JSON 배열만, 설명 없이.\n\n"
+    "기사 목록:\n"
 )
 
 BATCH_SIZE = 20
@@ -230,7 +229,7 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
             {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
             for i, a in enumerate(batch_items)
         ]
-        prompt = SCORE_PROMPT.format(batch_json=json.dumps(batch, ensure_ascii=False))
+        prompt = SCORE_PROMPT_PREFIX + json.dumps(batch, ensure_ascii=False)
         try:
             response = client.messages.create(
                 model="claude-haiku-4-5",
