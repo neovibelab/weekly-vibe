@@ -55,7 +55,7 @@ AM_SOURCES = [
 PM_SOURCES = [
     ("SCMP",          "https://news.google.com/rss/search?q=China+entertainment+market+economy+when:2d+site:scmp.com&hl=en-US&gl=US&ceid=US:en"),
     ("Caixin Global", "https://news.google.com/rss/search?q=China+entertainment+tech+market+when:2d+site:caixinglobal.com&hl=en-US&gl=US&ceid=US:en"),
-    ("Reuters",       "https://news.google.com/rss/search?q=China+entertainment+industry+market+when:2d+site:reuters.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Reuters",       "https://news.google.com/rss/search?q=China+entertainment+streaming+music+film+when:2d+site:reuters.com&hl=en-US&gl=US&ceid=US:en"),
     ("36氪",          "https://news.google.com/rss/search?q=中国+娱乐+市场+经济+when:2d+site:36kr.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
     ("界面新闻",      "https://news.google.com/rss/search?q=中国+娱乐+市场+资本+when:2d+site:jiemian.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
     ("第一财经",      "https://news.google.com/rss/search?q=中国+娱乐+科技+市场+when:2d+site:yicai.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
@@ -201,46 +201,53 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # Claude API — 관련성 점수
 # ──────────────────────────────────────────────
 
+SCORE_PROMPT = (
+    "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
+    "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
+    "관련성 기준 (중요도 순):\n"
+    "1. 중국 엔터 시장 경제 이슈 (투자·M&A·수익·펀딩·플랫폼 비즈니스)\n"
+    "2. 중국 엔터 테크 동향 (AI 음악·숏폼·스트리밍·플랫폼 기술)\n"
+    "3. 중국 엔터 시장 구조 변화 (규제·정책·소비 트렌드·한류 동향)\n"
+    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
+    "점수: 0(무관) ~ 10(매우 관련)\n"
+    "출력 형식 (JSON만, 설명 없이):\n"
+    '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
+    "기사 목록:\n{batch_json}"
+)
+
+BATCH_SIZE = 20
+
+
 def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
-    """각 기사에 관련성 점수(0~10)를 부여한다."""
+    """각 기사에 관련성 점수(0~10)를 부여한다. 20건씩 배치 처리."""
     if not articles:
         return []
 
-    batch = [
-        {"id": i, "title": a["title"], "body": a["body"][:500]}
-        for i, a in enumerate(articles)
-    ]
-    prompt = (
-        "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
-        "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
-        "관련성 기준 (중요도 순):\n"
-        "1. 중국 엔터 시장 경제 이슈 (투자·M&A·수익·펀딩·플랫폼 비즈니스)\n"
-        "2. 중국 엔터 테크 동향 (AI 음악·숏폼·스트리밍·플랫폼 기술)\n"
-        "3. 중국 엔터 시장 구조 변화 (규제·정책·소비 트렌드·한류 동향)\n"
-        "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
-        "점수: 0(무관) ~ 10(매우 관련)\n"
-        "출력 형식 (JSON만, 설명 없이):\n"
-        '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
-        f"기사 목록:\n{json.dumps(batch, ensure_ascii=False)}"
-    )
+    score_map: dict[int, float] = {}
+    for batch_start in range(0, len(articles), BATCH_SIZE):
+        batch_items = articles[batch_start:batch_start + BATCH_SIZE]
+        batch = [
+            {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
+            for i, a in enumerate(batch_items)
+        ]
+        prompt = SCORE_PROMPT.format(batch_json=json.dumps(batch, ensure_ascii=False))
+        try:
+            response = client.messages.create(
+                model="claude-haiku-4-5",
+                max_tokens=1024,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = response.content[0].text.strip()
+            if raw.startswith("```"):
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            scores = json.loads(raw)
+            for item in scores:
+                score_map[item["id"]] = item["score"]
+        except Exception as exc:
+            log.warning("관련성 점수 파싱 실패 (batch %d~): %s", batch_start, exc)
 
-    try:
-        response = client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = response.content[0].text.strip()
-        # JSON 블록 파싱
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        scores = json.loads(raw)
-        score_map = {item["id"]: item["score"] for item in scores}
-    except Exception as exc:
-        log.warning("관련성 점수 파싱 실패: %s — 모든 기사 점수 0 처리", exc)
-        score_map = {}
 
     for i, article in enumerate(articles):
         article["score"] = score_map.get(i, 0)
