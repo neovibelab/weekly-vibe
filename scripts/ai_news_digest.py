@@ -289,11 +289,23 @@ def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
         }
         resp = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
         resp.raise_for_status()
-        page_html = resp.text
+        final_url = resp.url
+        log.info("fetch 최종 URL: %s…", final_url[:80])
+
+        if "news.google.com" in final_url:
+            import re as _re
+            match = _re.search(r'href="(https?://(?!news\.google)[^"]+)"', resp.text)
+            if match:
+                real_url = match.group(1)
+                log.info("실제 기사 URL 재시도: %s…", real_url[:80])
+                resp = requests.get(real_url, headers=headers, timeout=10, allow_redirects=True)
+                resp.raise_for_status()
+
         extractor = _TextExtractor()
-        extractor.feed(page_html)
+        extractor.feed(resp.text)
         text = " ".join(extractor.texts)
         text = html.unescape(text)
+        log.info("fetch 본문 추출: %d자", len(text))
         return text[:max_chars]
     except Exception as exc:
         log.warning("기사 본문 fetch 실패 (%s…): %s", url[:50], exc)
@@ -314,12 +326,21 @@ def summarize_article(client: Anthropic, article: dict) -> str:
         if fetched:
             body = fetched
 
-    prompt = (
-        f"다음 기사를 요약하라.\n\n"
-        f"제목: {article['title']}\n"
-        f"출처: {article['source']}\n"
-        f"내용: {body[:1200]}"
-    )
+    has_body = len(body) > len(article["title"]) + 20
+    if has_body:
+        prompt = (
+            f"다음 기사를 한국 엔터테인먼트 업계 관점에서 3~4문장으로 요약하라.\n\n"
+            f"제목: {article['title']}\n"
+            f"출처: {article['source']}\n"
+            f"내용: {body[:1200]}"
+        )
+    else:
+        prompt = (
+            f"다음 기사 제목을 바탕으로 한국 엔터테인먼트 업계 종사자에게 유용한 맥락과 의미를 3~4문장으로 작성하라.\n"
+            f"본문이 없더라도 반드시 내용을 작성해야 한다. '요약할 수 없습니다' 같은 응답은 절대 금지.\n\n"
+            f"제목: {article['title']}\n"
+            f"출처: {article['source']}"
+        )
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
