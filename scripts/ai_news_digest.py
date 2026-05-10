@@ -413,7 +413,7 @@ def summarize_article(client: Anthropic, article: dict) -> str:
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=600,
+            max_tokens=1000,
             system=SUMMARY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
