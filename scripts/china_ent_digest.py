@@ -50,13 +50,16 @@ AM_SOURCES = [
 
 # ──────────────────────────────────────────────
 # PM: 중국 현지 + 홍콩 신뢰 매체 (15:00 KST)
-# 재경·테크 전문지. 중국 엔터 시장·자본·규제 보도.
+# 재경·테크 전문지 직접 RSS. 본문 제공 가능한 소스 우선.
 # ──────────────────────────────────────────────
 PM_SOURCES = [
-    ("SCMP",          "https://news.google.com/rss/search?q=China+entertainment+market+economy+when:2d+site:scmp.com&hl=en-US&gl=US&ceid=US:en"),
-    ("Caixin Global", "https://news.google.com/rss/search?q=China+entertainment+tech+market+when:2d+site:caixinglobal.com&hl=en-US&gl=US&ceid=US:en"),
-    ("Reuters",       "https://news.google.com/rss/search?q=China+entertainment+streaming+music+film+when:2d+site:reuters.com&hl=en-US&gl=US&ceid=US:en"),
-    ("36氪",          "https://news.google.com/rss/search?q=中国+娱乐+市场+经济+when:2d+site:36kr.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    # 영어 — 직접 RSS (본문 포함)
+    ("SCMP",          "https://www.scmp.com/rss/91/feed"),           # China Business
+    ("Reuters China", "https://feeds.reuters.com/reuters/CNtopNews"), # China Top News
+    # 중국어 — 직접 RSS (본문 포함)
+    ("36氪",          "https://36kr.com/feed"),
+    ("虎嗅",          "https://www.huxiu.com/rss/0.xml"),
+    # Google News — 중국어 (fallback, 본문 없어도 제목 기반 요약)
     ("界面新闻",      "https://news.google.com/rss/search?q=中国+娱乐+市场+资本+when:2d+site:jiemian.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
     ("第一财经",      "https://news.google.com/rss/search?q=中国+娱乐+科技+市场+when:2d+site:yicai.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
 ]
@@ -442,24 +445,35 @@ def main() -> None:
         log.info("관련성 점수 %d 이상 기사 없음 — 전송 생략", RELEVANCE_CUTOFF)
         return
 
-    # 5. 후보 순서대로 시도 — fetch 실패 시 다음 기사로
+    # 5. 후보 순서대로 시도 — fetch 실패 시 제목 기반 요약으로 폴백
     selected = []
+    fetch_failed_candidates = []  # fetch 실패 기사는 별도 보관
+
     for candidate in relevant:
         body = candidate["body"]
         needs_fetch = len(body) < 150 or body.strip() == candidate["title"].strip()
         if needs_fetch:
             log.info("본문 부족 — URL fetch 시도: %s…", candidate["url"][:60])
             fetched = _fetch_article_body(candidate["url"])
-            if not fetched:
-                log.info("fetch 실패 — 다음 기사로 건너뜀: %s…", candidate["title"][:50])
-                continue
-            candidate["body"] = fetched
+            if fetched:
+                candidate["body"] = fetched
+            else:
+                log.info("fetch 실패 — 제목 기반 폴백 대기: %s…", candidate["title"][:50])
+                fetch_failed_candidates.append(candidate)
+                continue  # fetch 성공 기사 먼저 소진
 
         candidate["summary"] = summarize_article(client, candidate)
         selected.append(candidate)
         log.info("선택: [%.1f] %s (%s)", candidate["score"], candidate["title"], candidate["source"])
         if len(selected) >= MAX_ARTICLES:
             break
+
+    # fetch 성공 기사로 MAX_ARTICLES 미달 시 — 제목 기반 폴백
+    if len(selected) < MAX_ARTICLES and fetch_failed_candidates:
+        for candidate in fetch_failed_candidates[:MAX_ARTICLES - len(selected)]:
+            candidate["summary"] = summarize_article(client, candidate)
+            selected.append(candidate)
+            log.info("폴백 선택: [%.1f] %s (%s)", candidate["score"], candidate["title"], candidate["source"])
 
     if not selected:
         log.info("요약 가능한 기사 없음 — 전송 생략")
