@@ -59,13 +59,9 @@ SUMMARY_SYSTEM_PROMPT = (
     "사실 중심으로, 과장 없이 작성합니다."
 )
 
-DISCORD_MESSAGE_TEMPLATE = (
-    "**{headline}**\n\n"
-    "{summary}\n\n"
-    "📎 {source} · [원문 읽기]({url})"
-)
-
-DISCORD_HEADER_TEMPLATE = "🎵 **AI Music Daily** | {date}\n\n━━━━━━━━━━━━━━━━━━━━"
+DISCORD_HEADER_TEMPLATE = "🎵 **AI Music Daily | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+DISCORD_ARTICLE_TEMPLATE = "**{num}. {headline}**\n*{source}*\n\n{summary}\n\n🔗 [원문 보기]({url})"
+DISCORD_SEPARATOR = "\n─────────────────────────────────\n"
 
 
 # ──────────────────────────────────────────────
@@ -95,6 +91,27 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
     return None
 
 
+def _extract_real_source(entry, fallback: str) -> tuple[str, str]:
+    """실제 출처명과 정제된 제목을 반환한다.
+
+    Google News RSS는 제목 끝에 ' - 출처명'을 붙이고
+    entry.source.title에 출처명을 제공한다.
+    """
+    raw_title = entry.get("title", "").strip()
+
+    # 1순위: feedparser가 파싱한 entry.source.title
+    real_source = getattr(getattr(entry, "source", None), "title", None)
+
+    # 2순위: 제목 끝 ' - 출처명' 패턴
+    if not real_source and " - " in raw_title:
+        parts = raw_title.rsplit(" - ", 1)
+        if len(parts) == 2 and len(parts[1]) < 60:
+            real_source = parts[1].strip()
+            raw_title = parts[0].strip()
+
+    return real_source or fallback, raw_title
+
+
 def fetch_articles() -> list[dict]:
     """모든 RSS 소스에서 최근 HOURS_WINDOW 시간 이내 기사를 수집한다."""
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
@@ -108,18 +125,17 @@ def fetch_articles() -> list[dict]:
                 pub_time = _parse_entry_time(entry)
                 if pub_time is None or pub_time < cutoff:
                     continue
+                real_source, clean_title = _extract_real_source(entry, source_name)
                 articles.append({
-                    "source": source_name,
-                    "title": entry.get("title", "").strip(),
+                    "source": real_source,
+                    "title": clean_title,
                     "url": entry.get("link", ""),
-                    # summary가 없으면 title만으로 평가
-                    "body": entry.get("summary", "") or entry.get("title", ""),
+                    "body": entry.get("summary", "") or clean_title,
                     "published": pub_time.isoformat(),
                 })
                 count += 1
             log.info("[%s] %d건 수집 (최근 %dh 이내)", source_name, count, HOURS_WINDOW)
         except Exception as exc:
-            # 소스 하나 실패해도 나머지 계속 처리
             log.warning("[%s] RSS 수집 실패: %s", source_name, exc)
 
     log.info("전체 수집 기사: %d건", len(articles))
@@ -261,19 +277,20 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 def build_discord_payload(selected: list[dict]) -> str:
     """Discord 메시지 본문 문자열 생성."""
     today = datetime.date.today().strftime("%Y-%m-%d")
-    parts = [DISCORD_HEADER_TEMPLATE.format(date=today)]
+    header = DISCORD_HEADER_TEMPLATE.format(date=today)
 
-    for article in selected:
-        block = DISCORD_MESSAGE_TEMPLATE.format(
+    blocks = []
+    for i, article in enumerate(selected, 1):
+        block = DISCORD_ARTICLE_TEMPLATE.format(
+            num=i,
             headline=article["title"],
-            summary=article["summary"],
             source=article["source"],
+            summary=article["summary"],
             url=article["url"],
         )
-        parts.append(block)
+        blocks.append(block)
 
-    # 기사 간 빈 줄 하나 추가
-    return "\n\n".join(parts)
+    return header + "\n\n" + DISCORD_SEPARATOR.join(blocks)
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
