@@ -1,10 +1,11 @@
 """
 China Ent Daily Digest
 ----------------------
-매일 09:00 KST / 15:00 KST 2회 실행.
-중국 엔터 뉴스 1건을 선별해 Discord China Ent 채널에 게시.
+매일 2회 실행:
+  AM (09:00 KST / UTC 00:00): 한국 신뢰 매체 — 경제·테크·시장 관점의 중국 엔터 이슈
+  PM (15:00 KST / UTC 06:00): 중국 현지 신뢰 매체 — 경제·테크·시장 관점의 중국 엔터 이슈
 
-주요 주제: 중국의 한국 엔터 이슈 / 자본 투자 / 정책 규제 / Z세대 소비 트렌드
+UTC 시각으로 AM/PM 세션을 자동 판별한다.
 
 환경변수:
   ANTHROPIC_API_KEY          Claude API 키
@@ -35,18 +36,29 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-RSS_SOURCES = [
-    # 한국어 — 중국 한류·투자·규제
-    ("Google News KR — 중국 한류", "https://news.google.com/rss/search?q=중국+한류+K팝+엔터테인먼트+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 한한령 규제", "https://news.google.com/rss/search?q=한한령+중국+한국+콘텐츠+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 중국 엔터 투자", "https://news.google.com/rss/search?q=중국+엔터+투자+자본+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    # 중국어 — 韩流·자본·Z세대
-    ("Google News CN — 韩流韩剧", "https://news.google.com/rss/search?q=韩流+韩剧+韩国+娱乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("Google News CN — Z世代消费", "https://news.google.com/rss/search?q=Z世代+娱乐+消费+追星+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("Google News CN — 监管投资", "https://news.google.com/rss/search?q=娱乐+监管+政策+资本+投资+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    # 영어 — Hallyu·China policy
-    ("Google News EN — China Hallyu", "https://news.google.com/rss/search?q=China+Korea+Hallyu+Kpop+entertainment+when:2d&hl=en-US&gl=US&ceid=US:en"),
-    ("Google News EN — China GenZ", "https://news.google.com/rss/search?q=China+Gen+Z+entertainment+consumption+idol+when:2d&hl=en-US&gl=US&ceid=US:en"),
+# ──────────────────────────────────────────────
+# AM: 한국 신뢰 매체 (09:00 KST)
+# 경제지·통신사 위주. 중국 엔터 시장·경제·테크 보도.
+# ──────────────────────────────────────────────
+AM_SOURCES = [
+    ("한국경제",  "https://news.google.com/rss/search?q=중국+엔터+시장+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("매일경제",  "https://news.google.com/rss/search?q=중국+엔터+산업+경제+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+엔터+콘텐츠+시장+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("조선비즈",  "https://news.google.com/rss/search?q=중국+엔터+투자+테크+when:2d+site:biz.chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("전자신문",  "https://news.google.com/rss/search?q=중국+콘텐츠+플랫폼+테크+when:2d+site:etnews.com&hl=ko&gl=KR&ceid=KR:ko"),
+]
+
+# ──────────────────────────────────────────────
+# PM: 중국 현지 + 홍콩 신뢰 매체 (15:00 KST)
+# 재경·테크 전문지. 중국 엔터 시장·자본·규제 보도.
+# ──────────────────────────────────────────────
+PM_SOURCES = [
+    ("SCMP",          "https://news.google.com/rss/search?q=China+entertainment+market+economy+when:2d+site:scmp.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Caixin Global", "https://news.google.com/rss/search?q=China+entertainment+tech+market+when:2d+site:caixinglobal.com&hl=en-US&gl=US&ceid=US:en"),
+    ("Reuters",       "https://news.google.com/rss/search?q=China+entertainment+industry+market+when:2d+site:reuters.com&hl=en-US&gl=US&ceid=US:en"),
+    ("36氪",          "https://news.google.com/rss/search?q=中国+娱乐+市场+经济+when:2d+site:36kr.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("界面新闻",      "https://news.google.com/rss/search?q=中国+娱乐+市场+资本+when:2d+site:jiemian.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("第一财经",      "https://news.google.com/rss/search?q=中国+娱乐+科技+市场+when:2d+site:yicai.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
 ]
 
 # 48시간 이내 기사만 수집
@@ -63,15 +75,25 @@ DUPLICATE_THRESHOLD = 0.80
 
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 한국 엔터테인먼트 업계 전문가입니다.\n"
-    "중국의 한국 엔터 이슈, 자본 투자, 정책 규제, Z세대 소비 트렌드 뉴스를 "
+    "중국 엔터테인먼트 시장의 경제·테크·시장 동향을 "
     "한국 레이블·플랫폼·아티스트 관점에서 해석해 3~4문장으로 요약합니다.\n"
     "중국어·영어 원문이 입력되더라도 반드시 한국어로 요약합니다.\n"
     "사실 중심으로, 과장 없이 작성합니다."
 )
 
-DISCORD_HEADER_TEMPLATE = "🇨🇳 **China Ent Daily | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-DISCORD_ARTICLE_TEMPLATE = "**{num}. {headline}**\n*{source}*\n\n{summary}\n\n🔗 [원문 보기]({url})"
-DISCORD_SEPARATOR = "\n─────────────────────────────────\n"
+# AM/PM 세션 판별 (UTC 기준)
+def _get_session() -> str:
+    return "AM" if datetime.datetime.utcnow().hour < 6 else "PM"
+
+def _get_sources() -> list[tuple[str, str]]:
+    return AM_SOURCES if _get_session() == "AM" else PM_SOURCES
+
+def _get_header(date: str) -> str:
+    if _get_session() == "AM":
+        return f"🇰🇷 **China Ent 오전 | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    return f"🇨🇳 **China Ent 오후 | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+DISCORD_ARTICLE_TEMPLATE = "**{headline}**\n*{source}*\n\n{summary}\n\n🔗 [원문 보기]({url})"
 
 
 # ──────────────────────────────────────────────
@@ -117,11 +139,14 @@ def _extract_real_source(entry, fallback: str) -> tuple[str, str]:
 
 
 def fetch_articles() -> list[dict]:
-    """모든 RSS 소스에서 최근 HOURS_WINDOW 시간 이내 기사를 수집한다."""
+    """세션(AM/PM)에 맞는 소스에서 최근 HOURS_WINDOW 시간 이내 기사를 수집한다."""
+    session = _get_session()
+    sources = _get_sources()
+    log.info("세션: %s (%d개 소스)", session, len(sources))
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
     articles = []
 
-    for source_name, url in RSS_SOURCES:
+    for source_name, url in sources:
         try:
             feed = feedparser.parse(url)
             count = 0
@@ -187,11 +212,12 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
     ]
     prompt = (
         "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
+        "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
         "관련성 기준 (중요도 순):\n"
-        "1. 중국에서의 한국 엔터 이슈 (K-팝·K-드라마·한류 관련 중국 동향, 한한령 변화)\n"
-        "2. 중국 엔터산업 자본 투자 (M&A, 펀딩, 플랫폼 투자)\n"
-        "3. 중국 엔터 정책·규제 (콘텐츠 심의, 플랫폼 규제, 저작권)\n"
-        "4. 중국 Z세대 소비 트렌드 (팬덤 소비, 아이돌, 숏폼, 스트리밍)\n"
+        "1. 중국 엔터 시장 경제 이슈 (투자·M&A·수익·펀딩·플랫폼 비즈니스)\n"
+        "2. 중국 엔터 테크 동향 (AI 음악·숏폼·스트리밍·플랫폼 기술)\n"
+        "3. 중국 엔터 시장 구조 변화 (규제·정책·소비 트렌드·한류 동향)\n"
+        "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
         "점수: 0(무관) ~ 10(매우 관련)\n"
         "출력 형식 (JSON만, 설명 없이):\n"
         '[{"id": 0, "score": 7}, {"id": 1, "score": 2}, ...]\n\n'
@@ -347,12 +373,11 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 def build_discord_payload(selected: list[dict]) -> str:
     """Discord 메시지 본문 문자열 생성."""
     today = datetime.date.today().strftime("%Y-%m-%d")
-    header = DISCORD_HEADER_TEMPLATE.format(date=today)
+    header = _get_header(today)
 
     blocks = []
-    for i, article in enumerate(selected, 1):
+    for article in selected:
         block = DISCORD_ARTICLE_TEMPLATE.format(
-            num=i,
             headline=article["title"],
             source=article["source"],
             summary=article["summary"],
@@ -360,7 +385,7 @@ def build_discord_payload(selected: list[dict]) -> str:
         )
         blocks.append(block)
 
-    return header + "\n\n" + DISCORD_SEPARATOR.join(blocks)
+    return header + "\n\n" + "\n\n".join(blocks)
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
