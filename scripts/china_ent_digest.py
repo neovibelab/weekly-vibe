@@ -266,13 +266,23 @@ def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
         # Google News 페이지에 머무른 경우 — 실제 기사 URL 재시도
         if "news.google.com" in final_url:
             import re as _re
-            # HTML에서 실제 기사 링크 탐색
-            match = _re.search(r'href="(https?://(?!news\.google)[^"]+)"', resp.text)
+            # CDN·이미지·Google 내부 URL 제외하고 실제 기사 링크만 탐색
+            _EXCLUDE = r"(?:news\.google|lh\d+\.googleusercontent|googleapis|gstatic|google\.com)"
+            match = _re.search(
+                rf'href="(https?://(?!{_EXCLUDE})[a-zA-Z0-9][^"{{}}\\s]{{10,}})"',
+                resp.text
+            )
             if match:
                 real_url = match.group(1)
                 log.info("실제 기사 URL 재시도: %s…", real_url[:80])
                 resp = requests.get(real_url, headers=headers, timeout=10, allow_redirects=True)
                 resp.raise_for_status()
+
+        # HTML이 아닌 응답(이미지 등)은 스킵
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" not in content_type and "text/plain" not in content_type:
+            log.warning("비-HTML 응답 (%s) — 스킵", content_type[:50])
+            return ""
 
         extractor = _TextExtractor()
         extractor.feed(resp.text)
