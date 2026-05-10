@@ -32,14 +32,15 @@ log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
     # 한국어
-    ("Google News KR — 중국 엔터", "https://news.google.com/rss/search?q=중국+엔터테인먼트+음악&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 중국 IP", "https://news.google.com/rss/search?q=중국+IP+저작권+플랫폼&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 중국 엔터", "https://news.google.com/rss/search?q=중국+엔터테인먼트+음악+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
+    ("Google News KR — 중국 IP테크", "https://news.google.com/rss/search?q=중국+콘텐츠+플랫폼+IP+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
     # 중국어
-    ("Google News CN — 娱乐科技", "https://news.google.com/rss/search?q=中国+娱乐+科技+音乐&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("Google News CN — IP版权", "https://news.google.com/rss/search?q=音乐+IP+版权+流媒体&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("Google News CN — 娱乐科技", "https://news.google.com/rss/search?q=中国+娱乐+科技+音乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("Google News CN — IP版权", "https://news.google.com/rss/search?q=音乐+IP+版权+流媒体+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
+    ("Google News CN — 腾讯网易", "https://news.google.com/rss/search?q=腾讯音乐+网易云+字节跳动+娱乐+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
     # 영어
-    ("Google News EN — China Entertainment", "https://news.google.com/rss/search?q=China+entertainment+music+streaming&hl=en-US&gl=US&ceid=US:en"),
-    ("Google News EN — China IP Tech", "https://news.google.com/rss/search?q=China+IP+tech+entertainment+industry&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News EN — China Entertainment", "https://news.google.com/rss/search?q=China+entertainment+music+streaming+when:2d&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News EN — China IP Tech", "https://news.google.com/rss/search?q=China+music+IP+tech+Tencent+NetEase+when:2d&hl=en-US&gl=US&ceid=US:en"),
 ]
 
 # 36시간 이내 기사만 수집

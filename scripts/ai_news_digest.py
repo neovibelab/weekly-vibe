@@ -34,12 +34,13 @@ RSS_SOURCES = [
     ("Music Business Worldwide", "https://www.musicbusinessworldwide.com/feed/"),
     ("Variety", "https://variety.com/v/music/feed/"),
     ("TechCrunch", "https://techcrunch.com/tag/music/feed/"),
-    ("Google News — AI Music", "https://news.google.com/rss/search?q=AI+music+label+streaming&hl=en-US&gl=US&ceid=US:en"),
-    ("Google News — Generative Music", "https://news.google.com/rss/search?q=generative+AI+music+industry&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News — AI Music", "https://news.google.com/rss/search?q=AI+music+label+streaming+when:2d&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News — Generative Music", "https://news.google.com/rss/search?q=generative+AI+music+industry+when:2d&hl=en-US&gl=US&ceid=US:en"),
+    ("Google News — Music AI Copyright", "https://news.google.com/rss/search?q=music+AI+copyright+royalty+when:2d&hl=en-US&gl=US&ceid=US:en"),
 ]
 
-# 36시간 이내 기사만 수집
-HOURS_WINDOW = 36
+# 48시간 이내 기사만 수집 (주말·휴일 공백 대응)
+HOURS_WINDOW = 48
 
 # 관련성 점수 컷오프 (0~10)
 RELEVANCE_CUTOFF = 5
