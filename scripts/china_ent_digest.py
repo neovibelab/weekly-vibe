@@ -38,14 +38,14 @@ log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
 # AM: 한국 신뢰 매체 (09:00 KST)
-# 경제지·통신사 위주. 중국 엔터 시장·경제·테크 보도.
+# 중국 엔터 × 케이팝·한국 엔터 교집합 집중.
 # ──────────────────────────────────────────────
 AM_SOURCES = [
-    ("한국경제",  "https://news.google.com/rss/search?q=중국+엔터+시장+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("매일경제",  "https://news.google.com/rss/search?q=중국+엔터+산업+경제+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+엔터+콘텐츠+시장+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("조선비즈",  "https://news.google.com/rss/search?q=중국+엔터+투자+테크+when:2d+site:biz.chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("전자신문",  "https://news.google.com/rss/search?q=중국+콘텐츠+플랫폼+테크+when:2d+site:etnews.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("한국경제",  "https://news.google.com/rss/search?q=중국+케이팝+한류+엔터+when:2d+site:hankyung.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("매일경제",  "https://news.google.com/rss/search?q=중국+한국+엔터+케이팝+콘텐츠+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+한류+케이팝+한한령+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("조선비즈",  "https://news.google.com/rss/search?q=중국+케이팝+한국+엔터+시장+when:2d+site:biz.chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("헤럴드경제", "https://news.google.com/rss/search?q=중국+한류+케이팝+엔터+when:2d+site:heraldcorp.com&hl=ko&gl=KR&ceid=KR:ko"),
 ]
 
 # ──────────────────────────────────────────────
@@ -207,7 +207,23 @@ def deduplicate(articles: list[dict]) -> list[dict]:
 # Claude API — 관련성 점수
 # ──────────────────────────────────────────────
 
-SCORE_PROMPT_PREFIX = (
+# AM용 — 중국 엔터 × 케이팝·한국 엔터 교집합
+AM_SCORE_PROMPT_PREFIX = (
+    "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
+    "주제: 중국 엔터테인먼트 × 케이팝·한국 엔터 교집합.\n"
+    "관련성 기준 (중요도 순):\n"
+    "1. 중국에서의 케이팝·한류 동향 (팬덤, 스트리밍, 공연, 콘텐츠 소비)\n"
+    "2. 한한령·중국 한국 엔터 규제·정책 변화\n"
+    "3. 중국 시장 진출 한국 아티스트·레이블·플랫폼 소식\n"
+    "4. 중국 Z세대의 케이팝 소비 트렌드\n"
+    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
+    'score는 0(무관)~10(매우 관련). id는 기사 번호.\n'
+    "출력 형식: JSON 배열만, 설명 없이.\n\n"
+    "기사 목록:\n"
+)
+
+# PM용 — 중국 엔터 시장 경제·테크·시장 전반
+PM_SCORE_PROMPT_PREFIX = (
     "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
     "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
     "관련성 기준 (중요도 순):\n"
@@ -219,6 +235,9 @@ SCORE_PROMPT_PREFIX = (
     "출력 형식: JSON 배열만, 설명 없이.\n\n"
     "기사 목록:\n"
 )
+
+def _get_score_prompt_prefix() -> str:
+    return AM_SCORE_PROMPT_PREFIX if _get_session() == "AM" else PM_SCORE_PROMPT_PREFIX
 
 BATCH_SIZE = 20
 
@@ -235,7 +254,7 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
             {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
             for i, a in enumerate(batch_items)
         ]
-        prompt = SCORE_PROMPT_PREFIX + json.dumps(batch, ensure_ascii=False)
+        prompt = _get_score_prompt_prefix() + json.dumps(batch, ensure_ascii=False)
         try:
             response = client.messages.create(
                 model="claude-haiku-4-5",
