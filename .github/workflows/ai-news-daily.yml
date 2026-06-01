@@ -5,6 +5,13 @@ on:
     - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
     - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
+    inputs:
+      session:
+        description: '세션 강제 지정 (AI뉴스=AM, 영음악=PM, 비우면 시각 자동)'
+        required: false
+        default: ''
+        type: choice
+        options: ['', 'AM', 'PM']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -28,6 +35,7 @@ jobs:
           DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          SESSION: ${{ inputs.session }}
         run: python scripts/ai_news_digest.py
 
   # ── 중국&아시아 ────────────────────────────────

@@ -37,38 +37,34 @@ log = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 # AM: 한국어 AI·엔터·씬 소스 (09:00 KST)
 # ──────────────────────────────────────────────
+# ── AM: AI 전용 소스 (09:00 KST) ─────────────────
 AM_SOURCES = [
-    ("Soompi",            "https://www.soompi.com/feed"),
-    ("Koreaboo",          "https://www.koreaboo.com/feed/"),
-    ("Hypebeast Korea",   "https://www.hypebeast.kr/feed"),
-    ("Rest of World",     "https://restofworld.org/feed/"),
     ("AI Music NL",       "https://aimusicnewsletter.substack.com/feed"),
-    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
-    ("r/koreanmusic",     "https://www.reddit.com/r/koreanmusic/.rss"),
+    ("MusicTech",         "https://www.musictech.com/news/feed/"),
+    ("CDM",               "https://cdm.link/feed/"),
+    ("Synthtopia",        "https://www.synthtopia.com/feed/"),
+    ("Waxy",              "https://waxy.org/feed/"),
+    ("404 Media",         "https://www.404media.co/rss/"),
+    ("r/aimusic",         "https://www.reddit.com/r/aimusic/.rss"),
+    ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
 ]
 
-# ──────────────────────────────────────────────
-# PM: 영어 음악·씬 소스 (15:00 KST)
-# ──────────────────────────────────────────────
+# ── PM: 영어 음악·씬 + K-pop 소스 (15:00 KST) ───
 PM_SOURCES = [
-    # 씬·제작자 매체
-    ("CDM",               "https://cdm.link/feed/"),
-    ("Attack Magazine",   "https://www.attackmagazine.com/feed/"),
-    ("MusicTech",         "https://www.musictech.com/news/feed/"),
-    ("FACT Magazine",     "https://www.factmag.com/feed/"),
-    # 인디·평론
+    # 씬·평론
     ("Pitchfork News",    "https://pitchfork.com/feed/feed-news/rss"),
     ("The Line of Best Fit", "https://www.thelineofbestfit.com/feed"),
     ("Bandcamp Daily",    "https://daily.bandcamp.com/feed"),
     ("Stereogum",         "https://www.stereogum.com/feed/"),
-    # 에디토리얼·클럽 씬
-    ("Waxy",              "https://waxy.org/feed/"),
-    ("404 Media",         "https://www.404media.co/rss/"),
+    ("FACT Magazine",     "https://www.factmag.com/feed/"),
+    # 클럽 씬
     ("DJ Mag",            "https://djmag.com/rss.xml"),
     ("Mixmag",            "https://mixmag.net/rss.xml"),
-    # Reddit 씬 커뮤니티
-    ("r/aimusic",         "https://www.reddit.com/r/aimusic/.rss"),
-    ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
+    # K-pop (중국 채널에서 이동)
+    ("Soompi",            "https://www.soompi.com/feed"),
+    ("Koreaboo",          "https://www.koreaboo.com/feed/"),
+    ("Hypebeast Korea",   "https://www.hypebeast.kr/feed"),
+    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
 ]
 
 # 48시간 이내 신호만 수집
@@ -90,8 +86,8 @@ def _get_webhook_env() -> str:
 def _get_header() -> str:
     today = datetime.date.today().strftime("%Y-%m-%d")
     if _get_session() == "AM":
-        return f"🇰🇷 **AI·엔터 뉴스 | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    return f"🎵 **영어 음악·씬 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        return f"🤖 **AI 음악·기술 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    return f"🎵 **영어 음악·K-pop Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # 5지표 컷오프
 INDICATOR_CUTOFF = 2      # 이상 = 후보 통과

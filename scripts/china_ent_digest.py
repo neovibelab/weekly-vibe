@@ -44,15 +44,14 @@ RSS_SOURCES = [
     ("Pandaily",       "https://pandaily.com/feed/"),
     ("TechNode",       "https://technode.com/feed/"),
     ("PingWest",       "https://www.pingwest.com/feed"),
-    # 한중·동남아 교차 팬덤
-    ("Soompi",         "https://www.soompi.com/feed"),
+    # 동남아·아시아 도시
     ("Rest of World",  "https://restofworld.org/feed/"),
-    # 도시·아시아
     ("Coconuts",       "https://coconuts.co/feed/"),
     ("SCMP Lifestyle", "https://www.scmp.com/rss/94/feed"),
-    # Reddit 팬덤·커뮤니티
+    # Reddit 중국·C-pop 커뮤니티
     ("r/cpop",         "https://www.reddit.com/r/cpop/.rss"),
     ("r/China_irl",    "https://www.reddit.com/r/China_irl/.rss"),
+    # Soompi·K-pop 제거 — 영어 음악 채널로 이동
 ]
 
 HOURS_WINDOW = 48
