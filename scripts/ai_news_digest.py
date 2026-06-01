@@ -123,8 +123,9 @@ VIBE_SCORE_PROMPT = (
 
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 음악·문화 Vibe 신호 분석가입니다.\n"
-    "주어진 신호를 **한 문장(40자 이내)**으로 기술합니다.\n"
-    "어떤 결·균열·교차가 감지되는가를 한 줄로.\n"
+    "주어진 신호를 **2~3문장(200자 이내)**으로 기술합니다.\n"
+    "1문장: 무슨 신호인가 — 사실 중심, 과장 없이.\n"
+    "2~3문장: 어떤 결·균열·교차가 감지되는가 — 씬·정체성·흐름 관점.\n"
     "본문에 도시·장소가 실제로 언급될 때만 명시. 없으면 쓰지 않는다.\n"
     "한국어. 'AI가' 식의 Signal 요약 금지. 사실에 없는 내용 금지."
 )
@@ -421,7 +422,7 @@ def summarize_article(client: Anthropic, article: dict) -> str:
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=200,
+            max_tokens=500,
             system=SUMMARY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
@@ -447,7 +448,7 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
         title = a["title"][:100]
         url = a.get("url", "")
         title_part = f"[**{title}**]({url})" if url else f"**{title}**"
-        summary = (a.get("summary", "") or "").strip()[:120]
+        summary = (a.get("summary", "") or "").strip()[:500]
         msg = f"{badge} {title_part} `{indicators}`"
         if summary:
             msg += f"\n> {summary}"
