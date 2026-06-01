@@ -99,10 +99,9 @@ VIBE_SCORE_PROMPT = (
 
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 음악·문화 Vibe 신호 분석가입니다.\n"
-    "주어진 신호(기사·콘텐츠)를 2문장으로 기술합니다:\n"
-    "1문장: 무슨 신호인가 (사실·현상 중심, 과장 없이).\n"
-    "2문장: 어떤 결·균열·교차가 감지되는가 (V&S 컬트·씬·도시·교차정체성 관점).\n"
-    "한국어로 작성. 'AI가', '생성형 AI가' 식의 Signal 요약 금지 — Vibe 결에 집중."
+    "주어진 신호를 **한 문장(40자 이내)**으로 기술합니다.\n"
+    "어떤 결·균열·교차가 감지되는가를 한 줄로. 도시명·씬명 포함 권장.\n"
+    "한국어. 'AI가' 식의 Signal 요약 금지."
 )
 
 BATCH_SIZE = 15
@@ -411,34 +410,28 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 # ──────────────────────────────────────────────
 
 def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
-    """후보 1개 = 1메시지로 분할. Discord 2000자 제한 대응."""
-    messages = [header]
+    """전체 후보를 단일 메시지로. 제목에 URL 인링크, 한 줄 요약."""
+    lines = [header, ""]
     for a in candidates:
         count = a["indicator_count"]
-        indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
-        channel = a.get("channel", "vibe/en")
-
-        if count >= INDICATOR_HIGHLIGHT:
-            badge = "🔴 **강조**"
-        elif count >= INDICATOR_CUTOFF:
-            badge = "🟡 **후보**"
-        else:
+        if count < INDICATOR_CUTOFF:
             continue
+        badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
+        indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
+        title = a["title"][:80]
+        url = a.get("url", "")
+        title_part = f"[**{title}**]({url})" if url else f"**{title}**"
+        summary = (a.get("summary", "") or "").strip()[:80]
+        lines.append(f"{badge} {title_part} `{indicators}`")
+        if summary:
+            lines.append(f"> {summary}")
+        lines.append("")
 
-        summary = (a.get("summary", "") or "")[:200]  # 요약 200자 제한
-        title = a["title"][:120]
-        url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
-        msg = (
-            f"{badge} `{channel}` `{indicators}`\n"
-            f"**{title}** · *{a['source']}*\n"
-            f"{summary}"
-            f"{url_line}"
-        )
-        if len(msg) > 1900:
-            msg = msg[:1900] + "…"
-        messages.append(msg)
-
-    return messages
+    content = "\n".join(lines).strip()
+    if len(content) <= len(header) + 5:
+        return []
+    # 1900자 초과 시 잘라서 단일 메시지로
+    return [content[:1900]]
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
@@ -498,10 +491,8 @@ def main() -> None:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
-    import time
     for msg in messages:
         send_to_discord(webhook_url, msg)
-        time.sleep(0.5)
 
 
 if __name__ == "__main__":

@@ -97,10 +97,9 @@ VIBE_SCORE_PROMPT = (
 
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 도시·소비·Z세대 문화 Vibe 신호 분석가입니다.\n"
-    "주어진 신호(기사·콘텐츠)를 2문장으로 기술합니다:\n"
-    "1문장: 무슨 신호인가 (사실·현상 중심, 과장 없이).\n"
-    "2문장: 어떤 도시 결·소비 균열·Z세대 교차정체성이 감지되는가.\n"
-    "한국어로 작성. 특정 도시명을 명시. 일반론 금지 — 도시·신 단위 구체성 우선."
+    "주어진 신호를 **한 문장(40자 이내)**으로 기술합니다.\n"
+    "어떤 도시 결·소비 균열·교차정체성이 감지되는가를 한 줄로. 도시명 필수.\n"
+    "한국어. 일반론 금지."
 )
 
 BATCH_SIZE = 15
@@ -429,29 +428,27 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 # ──────────────────────────────────────────────
 
 def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
-    messages = [header]
+    lines = [header, ""]
     for a in candidates:
         count = a["indicator_count"]
-        indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
-        channel = a.get("channel", "vibe/z-lifestyle")
+        if count < INDICATOR_CUTOFF:
+            continue
+        badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
+        indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
         city = a.get("city", "")
         city_tag = f" `{city}`" if city else ""
-        if count >= INDICATOR_HIGHLIGHT:
-            badge = "🔴 **강조**"
-        elif count >= INDICATOR_CUTOFF:
-            badge = "🟡 **후보**"
-        else:
-            continue
-        summary = (a.get("summary", "") or "")[:200]
-        title = a["title"][:120]
-        url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
-        msg = (
-            f"{badge} `{channel}`{city_tag} `{indicators}`\n"
-            f"**{title}** · *{a['source']}*\n"
-            f"{summary}{url_line}"
-        )
-        messages.append(msg[:1900])
-    return messages
+        title = a["title"][:80]
+        url = a.get("url", "")
+        title_part = f"[**{title}**]({url})" if url else f"**{title}**"
+        summary = (a.get("summary", "") or "").strip()[:80]
+        lines.append(f"{badge}{city_tag} {title_part} `{indicators}`")
+        if summary:
+            lines.append(f"> {summary}")
+        lines.append("")
+    content = "\n".join(lines).strip()
+    if len(content) <= len(header) + 5:
+        return []
+    return [content[:1900]]
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
@@ -508,10 +505,8 @@ def main() -> None:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
-    import time
     for msg in messages:
         send_to_discord(webhook_url, msg)
-        time.sleep(0.5)
 
 
 if __name__ == "__main__":
