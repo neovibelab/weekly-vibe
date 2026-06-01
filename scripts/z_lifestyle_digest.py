@@ -1,9 +1,9 @@
 """
-AI Music & Culture — Vibe Signal Collector
--------------------------------------------
-씬·니치·도시 소스에서 Vibe 후보를 수집해 #auto-candidates로 전달.
-소스: RSS(컬트·씬 매체) + IMAP(tmifmdj 구독 메일)
-스코어링: Vibe & Signal 밀도 5지표 (언급빈도·도시분포·교차정체성·매개자다양성·지속기간)
+Z-Gen Lifestyle — Vibe Signal Collector
+-----------------------------------------
+도시·소비·서브컬처 소스에서 Z세대 Vibe 후보를 수집해 #auto-candidates로 전달.
+소스: RSS(도시 매체·글로벌 스트리트·아시아 도시 피드) + IMAP(tmifmdj 구독 메일)
+스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
   ANTHROPIC_API_KEY                  Claude API 키
@@ -33,46 +33,44 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
-# Vibe RSS 소스 — 씬·제작자·도시 매체 (Signal 후행 소스 제거)
+# Vibe RSS 소스 — 도시·소비·서브컬처·아시아 피드
 # ──────────────────────────────────────────────
 
 RSS_SOURCES = [
-    # 씬·제작자 매체
-    ("CDM",               "https://cdm.link/feed/"),
-    ("Attack Magazine",   "https://www.attackmagazine.com/feed/"),
-    ("MusicTech",         "https://www.musictech.com/news/feed/"),
-    ("Synthtopia",        "https://www.synthtopia.com/feed/"),
-    ("FACT Magazine",     "https://www.factmag.com/feed/"),
-    # 인디·평론
-    ("Pitchfork News",    "https://pitchfork.com/feed/feed-news/rss"),
-    ("The Line of Best Fit", "https://www.thelineofbestfit.com/feed"),
-    ("Bandcamp Daily",    "https://daily.bandcamp.com/feed"),
-    ("Stereogum",         "https://www.stereogum.com/feed/"),
-    # 에디토리얼·리서치
-    ("Waxy",              "https://waxy.org/feed/"),
-    ("404 Media",         "https://www.404media.co/rss/"),
-    ("Rest of World",     "https://restofworld.org/feed/"),
-    # 클럽·도시 씬
-    ("DJ Mag",            "https://djmag.com/rss.xml"),
-    ("Mixmag",            "https://mixmag.net/rss.xml"),
-    # AI 음악 니치
-    ("AI Music NL",       "https://aimusicnewsletter.substack.com/feed"),
-    # Reddit 씬 커뮤니티 (불안정 — 실패 시 스킵)
-    ("r/aimusic",         "https://www.reddit.com/r/aimusic/.rss"),
-    ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
-    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
+    # 글로벌 스트리트·라이프스타일
+    ("Highsnobiety",        "https://www.highsnobiety.com/feed/"),
+    ("Hypebeast",           "https://hypebeast.com/feed"),
+    ("Dazed",               "https://www.dazeddigital.com/rss"),
+    ("i-D",                 "https://i-d.co/feed/"),
+    ("Business of Fashion", "https://www.businessoffashion.com/arc/outboundfeeds/rss/"),
+    ("Cool Hunting",        "https://www.coolhunting.com/feed/"),
+    ("Aftermath",           "https://aftermath.site/rss"),
+    # 비서구권 도시·소비
+    ("Rest of World",       "https://restofworld.org/feed/"),
+    # 아시아 도시 (도시별 피드 선택 구독)
+    ("Time Out Tokyo",      "https://www.timeout.com/tokyo/feed.rss"),
+    ("Time Out Bangkok",    "https://www.timeout.com/bangkok/feed.rss"),
+    ("Time Out Singapore",  "https://www.timeout.com/singapore/feed.rss"),
+    ("Time Out Seoul",      "https://www.timeout.com/seoul/feed.rss"),
+    ("Coconuts Bangkok",    "https://coconuts.co/bangkok/feed/"),
+    ("Coconuts Jakarta",    "https://coconuts.co/jakarta/feed/"),
+    ("Coconuts Manila",     "https://coconuts.co/manila/feed/"),
+    ("NYLON Singapore",     "https://www.nylon.com.sg/feed/"),
+    ("Metropolis Japan",    "https://metropolisjapan.com/feed/"),
+    ("Hypebeast Japan",     "https://hypebeast.com/jp/feed"),
+    ("Hypebeast Korea",     "https://www.hypebeast.kr/feed"),
+    ("VnExpress Life",      "https://e.vnexpress.net/rss/life.rss"),
+    # Reddit 도시·라이프스타일
+    ("r/streetwear",        "https://www.reddit.com/r/streetwear/.rss"),
+    ("r/seoullife",         "https://www.reddit.com/r/seoullife/.rss"),
+    ("r/tokyo",             "https://www.reddit.com/r/Tokyo/.rss"),
+    ("r/bangkok",           "https://www.reddit.com/r/bangkok/.rss"),
 ]
 
-# 48시간 이내 신호만 수집
 HOURS_WINDOW = 48
-
-# 후보 최대 수 (1 → N으로 확장: 후보 풀)
 MAX_CANDIDATES = 5
-
-# 5지표 컷오프
-INDICATOR_CUTOFF = 2      # 이상 = 후보 통과
-INDICATOR_HIGHLIGHT = 3   # 이상 = 강조 (🔴)
-
+INDICATOR_CUTOFF = 2
+INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
 
 # ──────────────────────────────────────────────
@@ -98,14 +96,15 @@ VIBE_SCORE_PROMPT = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "당신은 음악·문화 Vibe 신호 분석가입니다.\n"
+    "당신은 도시·소비·Z세대 문화 Vibe 신호 분석가입니다.\n"
     "주어진 신호(기사·콘텐츠)를 2문장으로 기술합니다:\n"
     "1문장: 무슨 신호인가 (사실·현상 중심, 과장 없이).\n"
-    "2문장: 어떤 결·균열·교차가 감지되는가 (V&S 컬트·씬·도시·교차정체성 관점).\n"
-    "한국어로 작성. 'AI가', '생성형 AI가' 식의 Signal 요약 금지 — Vibe 결에 집중."
+    "2문장: 어떤 도시 결·소비 균열·Z세대 교차정체성이 감지되는가.\n"
+    "한국어로 작성. 특정 도시명을 명시. 일반론 금지 — 도시·신 단위 구체성 우선."
 )
 
 BATCH_SIZE = 15
+
 
 # ──────────────────────────────────────────────
 # RSS 수집
@@ -132,6 +131,27 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
     return None
 
 
+def _city_from_source(source_name: str) -> str:
+    mapping = {
+        "Time Out Tokyo": "도쿄",
+        "Time Out Bangkok": "방콕",
+        "Time Out Singapore": "싱가포르",
+        "Time Out Seoul": "서울",
+        "Coconuts Bangkok": "방콕",
+        "Coconuts Jakarta": "자카르타",
+        "Coconuts Manila": "마닐라",
+        "NYLON Singapore": "싱가포르",
+        "Metropolis Japan": "도쿄",
+        "Hypebeast Japan": "도쿄",
+        "Hypebeast Korea": "서울",
+        "VnExpress Life": "호치민/하노이",
+        "r/seoullife": "서울",
+        "r/tokyo": "도쿄",
+        "r/bangkok": "방콕",
+    }
+    return mapping.get(source_name, "")
+
+
 def fetch_rss_articles() -> list[dict]:
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
     articles = []
@@ -141,6 +161,7 @@ def fetch_rss_articles() -> list[dict]:
         try:
             feed = feedparser.parse(url, request_headers=headers)
             count = 0
+            city = _city_from_source(source_name)
             for entry in feed.entries:
                 pub_time = _parse_entry_time(entry)
                 if pub_time is None or pub_time < cutoff:
@@ -149,13 +170,17 @@ def fetch_rss_articles() -> list[dict]:
                 raw_body = entry.get("summary", "") or ""
                 body = re.sub(r"<[^>]+>", " ", raw_body)
                 body = html.unescape(re.sub(r"\s+", " ", body)).strip()
+                # 도시 이름을 body 앞에 힌트로 추가 (스코어링 시 ②도시분포 판단 보조)
+                if city and city not in title:
+                    body = f"[{city}] {body}"
                 articles.append({
                     "source": source_name,
                     "title": title,
                     "url": entry.get("link", ""),
                     "body": body or title,
                     "published": pub_time.isoformat(),
-                    "channel": "vibe/en",
+                    "channel": "vibe/z-lifestyle",
+                    "city": city,
                 })
                 count += 1
             if count:
@@ -168,7 +193,7 @@ def fetch_rss_articles() -> list[dict]:
 
 
 # ──────────────────────────────────────────────
-# IMAP 수집 (tmifmdj 구독 메일)
+# IMAP 수집
 # ──────────────────────────────────────────────
 
 def _decode_header_value(value: str) -> str:
@@ -183,7 +208,6 @@ def _decode_header_value(value: str) -> str:
 
 
 def _extract_email_text(msg) -> str:
-    """멀티파트 메일에서 텍스트 본문 추출 (text/plain 우선, text/html 폴백)"""
     text_plain = []
     text_html = []
     if msg.is_multipart():
@@ -200,21 +224,17 @@ def _extract_email_text(msg) -> str:
     else:
         payload = msg.get_payload(decode=True)
         if payload:
-            ct = msg.get_content_type()
             decoded = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-            if ct == "text/plain":
+            if msg.get_content_type() == "text/plain":
                 text_plain.append(decoded)
             else:
                 text_html.append(decoded)
 
     if text_plain:
         return " ".join(text_plain)[:800]
-
-    # HTML 폴백: 태그 제거
     raw = " ".join(text_html)
     cleaned = re.sub(r"<[^>]+>", " ", raw)
-    cleaned = html.unescape(re.sub(r"\s+", " ", cleaned)).strip()
-    return cleaned[:800]
+    return html.unescape(re.sub(r"\s+", " ", cleaned)).strip()[:800]
 
 
 def fetch_email_articles() -> list[dict]:
@@ -235,27 +255,24 @@ def fetch_email_articles() -> list[dict]:
         msg_ids = data[0].split() if data[0] else []
         log.info("[IMAP] 대상 메일: %d건", len(msg_ids))
 
-        for msg_id in msg_ids[-50:]:  # 최대 50건
+        for msg_id in msg_ids[-50:]:
             try:
                 _, msg_data = mail.fetch(msg_id, "(RFC822)")
                 raw_email = msg_data[0][1]
                 msg = email.message_from_bytes(raw_email)
-
                 subject = _decode_header_value(msg.get("Subject", ""))
                 sender = _decode_header_value(msg.get("From", ""))
                 body = _extract_email_text(msg)
-
-                # 빈 메일·시스템 메일 스킵
                 if not subject or not body or len(body) < 50:
                     continue
-
                 articles.append({
                     "source": f"📧 {sender[:60]}",
                     "title": subject[:200],
                     "url": "",
                     "body": body,
                     "published": "",
-                    "channel": "vibe/email",
+                    "channel": "vibe/z-lifestyle",
+                    "city": "",
                 })
             except Exception as e:
                 log.warning("[IMAP] 메일 파싱 실패: %s", e)
@@ -282,8 +299,7 @@ def deduplicate(articles: list[dict]) -> list[dict]:
         )
         if not is_dup:
             unique.append(candidate)
-    removed = len(articles) - len(unique)
-    if removed:
+    if len(articles) > len(unique):
         log.info("중복 제거: %d건 → %d건", len(articles), len(unique))
     return unique
 
@@ -330,18 +346,19 @@ def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
                 scored.append(a)
 
     for a in scored:
-        log.info("  [%d지표] %s | %s",
+        city_tag = f" [{a.get('city','')}]" if a.get("city") else ""
+        log.info("  [%d지표] %s%s | %s",
                  a["indicator_count"],
                  "·".join(a["indicators"]),
+                 city_tag,
                  a["title"][:60])
 
-    # 지표 수 내림차순 정렬
     scored.sort(key=lambda x: x["indicator_count"], reverse=True)
     return scored
 
 
 # ──────────────────────────────────────────────
-# 요약 생성
+# 요약
 # ──────────────────────────────────────────────
 
 class _TextExtractor(HTMLParser):
@@ -388,9 +405,10 @@ def summarize_article(client: Anthropic, article: dict) -> str:
         if fetched:
             body = fetched
 
+    city_hint = f"[도시: {article['city']}] " if article.get("city") else ""
     prompt = (
         f"제목: {article['title']}\n"
-        f"출처: {article['source']}\n"
+        f"출처: {article['source']} {city_hint}\n"
         f"본문: {body[:1000]}"
     )
     try:
@@ -407,18 +425,20 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 
 
 # ──────────────────────────────────────────────
-# Discord #auto-candidates 카드 빌드
+# Discord #auto-candidates 카드
 # ──────────────────────────────────────────────
 
 def build_discord_payload(candidates: list[dict]) -> str:
     today = datetime.date.today().strftime("%Y-%m-%d")
-    header = f"🎵 **AI Music Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    header = f"🌏 **Z-Gen & City Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     blocks = []
     for a in candidates:
         count = a["indicator_count"]
         indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
-        channel = a.get("channel", "vibe/en")
+        channel = a.get("channel", "vibe/z-lifestyle")
+        city = a.get("city", "")
+        city_tag = f" `{city}`" if city else ""
 
         if count >= INDICATOR_HIGHLIGHT:
             badge = "🔴 **강조**"
@@ -429,7 +449,7 @@ def build_discord_payload(candidates: list[dict]) -> str:
 
         url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
         block = (
-            f"{badge} `{channel}` `{indicators}`\n"
+            f"{badge} `{channel}`{city_tag} `{indicators}`\n"
             f"**{a['title']}** · *{a['source']}*\n"
             f"{a.get('summary', '')}"
             f"{url_line}"
@@ -468,7 +488,6 @@ def main() -> None:
 
     client = Anthropic(api_key=api_key)
 
-    # 수집: RSS + IMAP 통합
     rss_articles = fetch_rss_articles()
     email_articles = fetch_email_articles()
     all_articles = rss_articles + email_articles
@@ -480,13 +499,11 @@ def main() -> None:
     articles = deduplicate(all_articles)
     articles = score_vibe(client, articles)
 
-    # 컷오프 필터
     candidates = [a for a in articles if a["indicator_count"] >= INDICATOR_CUTOFF]
     if not candidates:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
-    # 상위 N건 요약
     selected = candidates[:MAX_CANDIDATES]
     for a in selected:
         a["summary"] = summarize_article(client, a)

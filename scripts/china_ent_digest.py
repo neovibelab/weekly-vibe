@@ -1,24 +1,27 @@
 """
-China Ent Daily Digest
-----------------------
-매일 2회 실행:
-  AM (09:00 KST / UTC 00:00): 한국 신뢰 매체 — 경제·테크·시장 관점의 중국 엔터 이슈
-  PM (15:00 KST / UTC 06:00): 중국 현지 신뢰 매체 — 경제·테크·시장 관점의 중국 엔터 이슈
-
-UTC 시각으로 AM/PM 세션을 자동 판별한다.
+China Ent & Culture — Vibe Signal Collector
+---------------------------------------------
+중국 청년문화·서브컬처·도시 씬 소스에서 Vibe 후보를 수집해 #auto-candidates로 전달.
+소스: RSS(Radii·Sixth Tone·씬 매체) + IMAP(tmifmdj vibe/cn-asia 메일)
+스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
-  ANTHROPIC_API_KEY          Claude API 키
-  DISCORD_CHINA_ENT_WEBHOOK  Discord 웹훅 URL
+  ANTHROPIC_API_KEY                  Claude API 키
+  DISCORD_AUTO_CANDIDATES_WEBHOOK    Discord #auto-candidates 웹훅
+  GMAIL_USER                         tmifmdj@gmail.com
+  GMAIL_APP_PASS                     Gmail 앱 비밀번호
 """
 
 import os
 import re
 import html
+import email
+import imaplib
 import json
 import logging
 import datetime
 from difflib import SequenceMatcher
+from email.header import decode_header
 from html.parser import HTMLParser
 
 import feedparser
@@ -26,85 +29,69 @@ import requests
 from anthropic import Anthropic
 from dateutil import parser as dateparser
 
-# ──────────────────────────────────────────────
-# 설정
-# ──────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
-# AM: 한국 신뢰 매체 (09:00 KST)
-# 중국 엔터 × 케이팝·한국 엔터 교집합 집중.
+# Vibe RSS 소스 — 중국 청년문화·도시·씬 (Signal 후행 재경 소스 제거)
 # ──────────────────────────────────────────────
-AM_SOURCES = [
-    # 한중 엔터 교집합 — site: 없이 한국어 전체에서 수집 후 채점으로 필터
-    ("Google News KR — 한중 케이팝", "https://news.google.com/rss/search?q=중국+케이팝+한류+엔터테인먼트+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 한한령",      "https://news.google.com/rss/search?q=한한령+중국+한국+콘텐츠+엔터+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    ("Google News KR — 중국 K팝",    "https://news.google.com/rss/search?q=중국+K팝+아이돌+한국+when:2d&hl=ko&gl=KR&ceid=KR:ko"),
-    # 신뢰 매체 site: 필터 (보조)
-    ("연합뉴스",  "https://news.google.com/rss/search?q=중국+한류+케이팝+when:2d+site:yna.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("매일경제",  "https://news.google.com/rss/search?q=중국+한국+엔터+when:2d+site:mk.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+
+RSS_SOURCES = [
+    # 중국 청년문화·서브컬처 (핵심)
+    ("Radii",          "https://radii.co/feed/"),
+    ("Sixth Tone",     "https://www.sixthtone.com/rss"),
+    # 중국 테크·소비 트렌드
+    ("Pandaily",       "https://pandaily.com/feed/"),
+    ("TechNode",       "https://technode.com/feed/"),
+    ("PingWest",       "https://www.pingwest.com/feed"),
+    # 한중·동남아 교차 팬덤
+    ("Soompi",         "https://www.soompi.com/feed"),
+    ("Rest of World",  "https://restofworld.org/feed/"),
+    # 도시·아시아
+    ("Coconuts",       "https://coconuts.co/feed/"),
+    ("SCMP Lifestyle", "https://www.scmp.com/rss/94/feed"),
+    # Reddit 팬덤·커뮤니티
+    ("r/cpop",         "https://www.reddit.com/r/cpop/.rss"),
+    ("r/China_irl",    "https://www.reddit.com/r/China_irl/.rss"),
 ]
 
-# ──────────────────────────────────────────────
-# PM: 중국 현지 + 홍콩 신뢰 매체 (15:00 KST)
-# 재경·테크 전문지 직접 RSS. 본문 제공 가능한 소스 우선.
-# ──────────────────────────────────────────────
-PM_SOURCES = [
-    # 영어 — 직접 RSS (본문 포함)
-    ("SCMP",          "https://www.scmp.com/rss/91/feed"),           # China Business
-    ("Reuters China", "https://feeds.reuters.com/reuters/CNtopNews"), # China Top News
-    # 중국어 — 직접 RSS (본문 포함)
-    ("36氪",          "https://36kr.com/feed"),
-    ("虎嗅",          "https://www.huxiu.com/rss/0.xml"),
-    # Google News — 중국어 (fallback, 본문 없어도 제목 기반 요약)
-    ("界面新闻",      "https://news.google.com/rss/search?q=中国+娱乐+市场+资本+when:2d+site:jiemian.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-    ("第一财经",      "https://news.google.com/rss/search?q=中国+娱乐+科技+市场+when:2d+site:yicai.com&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"),
-]
-
-# 48시간 이내 기사만 수집
 HOURS_WINDOW = 48
-
-# 관련성 점수 컷오프 (0~10)
-RELEVANCE_CUTOFF = 5
-
-# 최대 선택 기사 수 (1건)
-MAX_ARTICLES = 1
-
-# 제목 유사도 임계값 (이 이상이면 중복으로 간주)
+MAX_CANDIDATES = 5
+INDICATOR_CUTOFF = 2
+INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
 
-SUMMARY_SYSTEM_PROMPT = (
-    "당신은 한국 엔터테인먼트 업계 전문가입니다.\n"
-    "중국 엔터테인먼트 시장의 경제·테크·시장 동향을 "
-    "정확히 3문장으로 작성합니다.\n"
-    "1~2번째 문장: 기사의 핵심 사실을 간결하게 서술.\n"
-    "3번째 문장: 이 뉴스가 한국 엔터테인먼트 업계에 미치는 시사점을 1문장으로 명시.\n"
-    "문단 구분이나 레이블 없이 이어 씁니다.\n"
-    "중국어·영어 원문이 입력되더라도 반드시 한국어로 작성합니다.\n"
-    "사실 중심으로, 과장 없이 작성합니다."
+# ──────────────────────────────────────────────
+# 5지표 스코어링 프롬프트
+# ──────────────────────────────────────────────
+
+VIBE_SCORE_PROMPT = (
+    "아래 신호(기사/콘텐츠) 목록을 보고 각각에 대해 Vibe & Signal 밀도 5지표를 채점하라.\n\n"
+    "5지표 (각 0~2):\n"
+    "① 언급빈도: 커뮤니티·SNS·전문 매체·평론 레이어에서 같은 신호가 반복 등장하는가\n"
+    "   (0=단발 또는 첫 등장, 1=일부 레이어에서 언급, 2=여러 레이어에서 반복)\n"
+    "② 도시분포: 특정 도시·지역을 명시하는 신호인가\n"
+    "   (0=지리 없음, 1=단일 도시/지역 명시, 2=복수 도시·지역에 걸친 신호)\n"
+    "③ 교차정체성: 팬덤·세대·서브컬처·라이프스타일 등 정체성 레이어가 몇 개 겹치는가\n"
+    "   (0=없음, 1=하나의 정체성 레이어, 2=둘 이상 교차)\n"
+    "④ 매개자다양성: 팬·평론가·아티스트·플랫폼·산업 관계자 중 몇 레이어가 함께 관여하는가\n"
+    "   (0=없음, 1=하나의 매개자 레이어, 2=둘 이상)\n"
+    "⑤ 지속기간: 단발 화제인가 누적·반복 관찰되는가\n"
+    "   (0=단발 이벤트, 1=단기 트렌드, 2=누적 관찰 중인 흐름)\n\n"
+    "출력: JSON 배열만. 각 항목: id, indicators(작동한 지표명 배열), count(개수).\n"
+    "예: [{\"id\":0,\"indicators\":[\"도시분포\",\"교차정체성\"],\"count\":2}]\n\n"
+    "신호 목록:\n"
 )
 
-# AM/PM 세션 판별 (UTC 기준)
-def _get_session() -> str:
-    override = os.environ.get("SESSION", "").upper()
-    if override in ("AM", "PM"):
-        return override
-    return "AM" if datetime.datetime.utcnow().hour < 6 else "PM"
+SUMMARY_SYSTEM_PROMPT = (
+    "당신은 중국·동아시아 청년문화 Vibe 신호 분석가입니다.\n"
+    "주어진 신호(기사·콘텐츠)를 2문장으로 기술합니다:\n"
+    "1문장: 무슨 신호인가 (사실·현상 중심, 과장 없이).\n"
+    "2문장: 어떤 결·균열·교차가 감지되는가 (V&S 도시·서브컬처·교차정체성 관점).\n"
+    "한국어로 작성. Signal 후행 분석 금지 — Vibe 결에 집중."
+)
 
-def _get_sources() -> list[tuple[str, str]]:
-    return AM_SOURCES if _get_session() == "AM" else PM_SOURCES
-
-def _get_header(date: str) -> str:
-    if _get_session() == "AM":
-        return f"🇰🇷 **China Ent 오전 | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    return f"🇨🇳 **China Ent 오후 | {date}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-DISCORD_ARTICLE_TEMPLATE = "**{headline}** · *{source}*\n\n{summary}\n\n🔗 {url}"
+BATCH_SIZE = 15
 
 
 # ──────────────────────────────────────────────
@@ -112,7 +99,6 @@ DISCORD_ARTICLE_TEMPLATE = "**{headline}** · *{source}*\n\n{summary}\n\n🔗 {u
 # ──────────────────────────────────────────────
 
 def _parse_entry_time(entry) -> datetime.datetime | None:
-    """feedparser entry에서 발행 시각을 timezone-aware UTC datetime으로 반환."""
     for attr in ("published_parsed", "updated_parsed"):
         t = getattr(entry, attr, None)
         if t:
@@ -120,7 +106,6 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
                 return datetime.datetime(*t[:6], tzinfo=datetime.timezone.utc)
             except Exception:
                 pass
-    # fallback: 문자열 파싱
     for attr in ("published", "updated"):
         s = getattr(entry, attr, None)
         if s:
@@ -134,56 +119,131 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
     return None
 
 
-def _extract_real_source(entry, fallback: str) -> tuple[str, str]:
-    """실제 출처명과 정제된 제목을 반환한다."""
-    raw_title = entry.get("title", "").strip()
-
-    real_source = getattr(getattr(entry, "source", None), "title", None)
-
-    if not real_source and " - " in raw_title:
-        parts = raw_title.rsplit(" - ", 1)
-        if len(parts) == 2 and len(parts[1]) < 60:
-            real_source = parts[1].strip()
-            raw_title = parts[0].strip()
-
-    return real_source or fallback, raw_title
-
-
-def fetch_articles() -> list[dict]:
-    """세션(AM/PM)에 맞는 소스에서 최근 HOURS_WINDOW 시간 이내 기사를 수집한다."""
-    session = _get_session()
-    sources = _get_sources()
-    log.info("세션: %s (%d개 소스)", session, len(sources))
+def fetch_rss_articles() -> list[dict]:
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
     articles = []
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; VibeBot/1.0)"}
 
-    for source_name, url in sources:
+    for source_name, url in RSS_SOURCES:
         try:
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(url, request_headers=headers)
             count = 0
             for entry in feed.entries:
                 pub_time = _parse_entry_time(entry)
                 if pub_time is None or pub_time < cutoff:
                     continue
-                real_source, clean_title = _extract_real_source(entry, source_name)
+                title = entry.get("title", "").strip()
                 raw_body = entry.get("summary", "") or ""
-                # HTML 태그 제거 + 엔티티 디코딩
-                clean_body = re.sub(r"<[^>]+>", " ", raw_body)
-                clean_body = html.unescape(clean_body)
-                clean_body = re.sub(r"\s+", " ", clean_body).strip()
+                body = re.sub(r"<[^>]+>", " ", raw_body)
+                body = html.unescape(re.sub(r"\s+", " ", body)).strip()
                 articles.append({
-                    "source": real_source,
-                    "title": clean_title,
+                    "source": source_name,
+                    "title": title,
                     "url": entry.get("link", ""),
-                    "body": clean_body or clean_title,
+                    "body": body or title,
                     "published": pub_time.isoformat(),
+                    "channel": "vibe/cn-asia",
                 })
                 count += 1
-            log.info("[%s] %d건 수집 (최근 %dh 이내)", source_name, count, HOURS_WINDOW)
+            if count:
+                log.info("[RSS] %s: %d건", source_name, count)
         except Exception as exc:
-            log.warning("[%s] RSS 수집 실패: %s", source_name, exc)
+            log.warning("[RSS] %s 실패: %s", source_name, exc)
 
-    log.info("전체 수집 기사: %d건", len(articles))
+    log.info("RSS 전체 수집: %d건", len(articles))
+    return articles
+
+
+# ──────────────────────────────────────────────
+# IMAP 수집 (tmifmdj 구독 메일)
+# ──────────────────────────────────────────────
+
+def _decode_header_value(value: str) -> str:
+    parts = decode_header(value)
+    result = []
+    for part, charset in parts:
+        if isinstance(part, bytes):
+            result.append(part.decode(charset or "utf-8", errors="replace"))
+        else:
+            result.append(str(part))
+    return "".join(result)
+
+
+def _extract_email_text(msg) -> str:
+    text_plain = []
+    text_html = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            ct = part.get_content_type()
+            if ct == "text/plain":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    text_plain.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
+            elif ct == "text/html":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    text_html.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            decoded = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+            if msg.get_content_type() == "text/plain":
+                text_plain.append(decoded)
+            else:
+                text_html.append(decoded)
+
+    if text_plain:
+        return " ".join(text_plain)[:800]
+
+    raw = " ".join(text_html)
+    cleaned = re.sub(r"<[^>]+>", " ", raw)
+    return html.unescape(re.sub(r"\s+", " ", cleaned)).strip()[:800]
+
+
+def fetch_email_articles() -> list[dict]:
+    gmail_user = os.environ.get("GMAIL_USER", "")
+    gmail_pass = os.environ.get("GMAIL_APP_PASS", "")
+    if not gmail_user or not gmail_pass:
+        log.info("GMAIL 환경변수 없음 — 이메일 수집 스킵")
+        return []
+
+    articles = []
+    try:
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(gmail_user, gmail_pass)
+        mail.select("inbox")
+
+        since_date = (datetime.date.today() - datetime.timedelta(days=2)).strftime("%d-%b-%Y")
+        _, data = mail.search(None, "SINCE", since_date)
+        msg_ids = data[0].split() if data[0] else []
+        log.info("[IMAP] 대상 메일: %d건", len(msg_ids))
+
+        for msg_id in msg_ids[-50:]:
+            try:
+                _, msg_data = mail.fetch(msg_id, "(RFC822)")
+                raw_email = msg_data[0][1]
+                msg = email.message_from_bytes(raw_email)
+                subject = _decode_header_value(msg.get("Subject", ""))
+                sender = _decode_header_value(msg.get("From", ""))
+                body = _extract_email_text(msg)
+                if not subject or not body or len(body) < 50:
+                    continue
+                articles.append({
+                    "source": f"📧 {sender[:60]}",
+                    "title": subject[:200],
+                    "url": "",
+                    "body": body,
+                    "published": "",
+                    "channel": "vibe/cn-asia",
+                })
+            except Exception as e:
+                log.warning("[IMAP] 메일 파싱 실패: %s", e)
+
+        mail.logout()
+        log.info("[IMAP] 수집 완료: %d건", len(articles))
+    except Exception as exc:
+        log.warning("[IMAP] 연결 실패: %s", exc)
+
     return articles
 
 
@@ -192,7 +252,6 @@ def fetch_articles() -> list[dict]:
 # ──────────────────────────────────────────────
 
 def deduplicate(articles: list[dict]) -> list[dict]:
-    """제목 유사도 80% 이상인 기사는 하나만 남긴다."""
     unique = []
     for candidate in articles:
         title_c = candidate["title"].lower()
@@ -202,64 +261,27 @@ def deduplicate(articles: list[dict]) -> list[dict]:
         )
         if not is_dup:
             unique.append(candidate)
-    removed = len(articles) - len(unique)
-    if removed:
+    if len(articles) > len(unique):
         log.info("중복 제거: %d건 → %d건", len(articles), len(unique))
     return unique
 
 
 # ──────────────────────────────────────────────
-# Claude API — 관련성 점수
+# 5지표 스코어링
 # ──────────────────────────────────────────────
 
-# AM용 — 중국 엔터 × 케이팝·한국 엔터 교집합
-AM_SCORE_PROMPT_PREFIX = (
-    "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
-    "주제: 중국 엔터테인먼트 × 케이팝·한국 엔터 교집합.\n"
-    "관련성 기준 (중요도 순):\n"
-    "1. 중국에서의 케이팝·한류 동향 (팬덤, 스트리밍, 공연, 콘텐츠 소비)\n"
-    "2. 한한령·중국 한국 엔터 규제·정책 변화\n"
-    "3. 중국 시장 진출 한국 아티스트·레이블·플랫폼 소식\n"
-    "4. 중국 Z세대의 케이팝 소비 트렌드\n"
-    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
-    'score는 0(무관)~10(매우 관련). id는 기사 번호.\n'
-    "출력 형식: JSON 배열만, 설명 없이.\n\n"
-    "기사 목록:\n"
-)
-
-# PM용 — 중국 엔터 시장 경제·테크·시장 전반
-PM_SCORE_PROMPT_PREFIX = (
-    "아래 기사 목록을 보고 각 기사의 관련성 점수를 JSON 배열로 반환하라.\n"
-    "주제: 중국 엔터테인먼트 시장·산업. 카테고리: 경제 / 테크 / 시장.\n"
-    "관련성 기준 (중요도 순):\n"
-    "1. 중국 엔터 시장 경제 이슈 (투자·M&A·수익·펀딩·플랫폼 비즈니스)\n"
-    "2. 중국 엔터 테크 동향 (AI 음악·숏폼·스트리밍·플랫폼 기술)\n"
-    "3. 중국 엔터 시장 구조 변화 (규제·정책·소비 트렌드·한류 동향)\n"
-    "한국 엔터테인먼트 업계 종사자에게 실질적으로 유용한 정보 우선.\n"
-    'score는 0(무관)~10(매우 관련). id는 기사 번호.\n'
-    "출력 형식: JSON 배열만, 설명 없이.\n\n"
-    "기사 목록:\n"
-)
-
-def _get_score_prompt_prefix() -> str:
-    return AM_SCORE_PROMPT_PREFIX if _get_session() == "AM" else PM_SCORE_PROMPT_PREFIX
-
-BATCH_SIZE = 20
-
-
-def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
-    """각 기사에 관련성 점수(0~10)를 부여한다. 20건씩 배치 처리."""
+def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
     if not articles:
         return []
 
-    score_map: dict[int, float] = {}
+    scored = []
     for batch_start in range(0, len(articles), BATCH_SIZE):
         batch_items = articles[batch_start:batch_start + BATCH_SIZE]
         batch = [
-            {"id": batch_start + i, "title": a["title"], "body": a["body"][:300]}
+            {"id": i, "title": a["title"], "body": a["body"][:300]}
             for i, a in enumerate(batch_items)
         ]
-        prompt = _get_score_prompt_prefix() + json.dumps(batch, ensure_ascii=False)
+        prompt = VIBE_SCORE_PROMPT + json.dumps(batch, ensure_ascii=False)
         try:
             response = client.messages.create(
                 model="claude-haiku-4-5",
@@ -268,29 +290,38 @@ def score_articles(client: Anthropic, articles: list[dict]) -> list[dict]:
             )
             raw = response.content[0].text.strip()
             if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-            scores = json.loads(raw)
-            for item in scores:
-                score_map[item["id"]] = item["score"]
+                raw = re.sub(r"^```\w*\n?", "", raw)
+                raw = re.sub(r"\n?```$", "", raw)
+            results = json.loads(raw)
+            for item in results:
+                idx = item["id"]
+                if idx < len(batch_items):
+                    a = batch_items[idx].copy()
+                    a["indicators"] = item.get("indicators", [])
+                    a["indicator_count"] = item.get("count", 0)
+                    scored.append(a)
         except Exception as exc:
-            log.warning("관련성 점수 파싱 실패 (batch %d~): %s", batch_start, exc)
+            log.warning("5지표 스코어링 실패 (batch %d~): %s", batch_start, exc)
+            for a in batch_items:
+                a["indicators"] = []
+                a["indicator_count"] = 0
+                scored.append(a)
 
+    for a in scored:
+        log.info("  [%d지표] %s | %s",
+                 a["indicator_count"],
+                 "·".join(a["indicators"]),
+                 a["title"][:60])
 
-    for i, article in enumerate(articles):
-        article["score"] = score_map.get(i, 0)
-
-    articles.sort(key=lambda x: x["score"], reverse=True)
-    return articles
+    scored.sort(key=lambda x: x["indicator_count"], reverse=True)
+    return scored
 
 
 # ──────────────────────────────────────────────
-# 기사 본문 fetch
+# 요약
 # ──────────────────────────────────────────────
 
 class _TextExtractor(HTMLParser):
-    """HTML에서 본문 텍스트만 추출."""
     def __init__(self):
         super().__init__()
         self._skip = 0
@@ -312,134 +343,87 @@ class _TextExtractor(HTMLParser):
                 self.texts.append(t)
 
 
-def _fetch_article_body(url: str, max_chars: int = 1500) -> str:
-    """URL에서 기사 본문 텍스트를 추출한다. 실패 시 빈 문자열 반환."""
+def _fetch_article_body(url: str, max_chars: int = 1200) -> str:
+    if not url:
+        return ""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "ko-KR,ko;q=0.9,en;q=0.8",
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0 Safari/537.36"}
         resp = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
         resp.raise_for_status()
-        final_url = resp.url
-        log.info("fetch 최종 URL: %s…", final_url[:80])
-
-        # Google News 페이지에 머무른 경우 — 실제 기사 URL 재시도
-        if "news.google.com" in final_url:
-            import re as _re
-            # CDN·이미지·Google 내부 URL 제외하고 실제 기사 링크만 탐색
-            _EXCLUDE = r"(?:news\.google|lh\d+\.googleusercontent|googleapis|gstatic|google\.com)"
-            match = _re.search(
-                rf'href="(https?://(?!{_EXCLUDE})[a-zA-Z0-9][^"{{}}\\s]{{10,}})"',
-                resp.text
-            )
-            if match:
-                real_url = match.group(1)
-                log.info("실제 기사 URL 재시도: %s…", real_url[:80])
-                resp = requests.get(real_url, headers=headers, timeout=10, allow_redirects=True)
-                resp.raise_for_status()
-
-        # HTML이 아닌 응답(이미지 등)은 스킵
-        content_type = resp.headers.get("Content-Type", "")
-        if "text/html" not in content_type and "text/plain" not in content_type:
-            log.warning("비-HTML 응답 (%s) — 스킵", content_type[:50])
-            return ""
-
         extractor = _TextExtractor()
         extractor.feed(resp.text)
-        text = " ".join(extractor.texts)
-        text = html.unescape(text)
-        log.info("fetch 본문 추출: %d자", len(text))
+        text = html.unescape(" ".join(extractor.texts))
         return text[:max_chars]
-    except Exception as exc:
-        log.warning("기사 본문 fetch 실패 (%s…): %s", url[:50], exc)
+    except Exception:
         return ""
 
 
-# ──────────────────────────────────────────────
-# Claude API — 한국어 요약
-# ──────────────────────────────────────────────
-
 def summarize_article(client: Anthropic, article: dict) -> str:
-    """선택된 기사를 한국어 3~4문장으로 요약한다."""
     body = article["body"]
-    log.info("요약 시작 — 본문 %d자: %s…", len(body), body[:60])
-    if len(body) < 150 or body.strip() == article["title"].strip():
-        log.info("본문 부족 — URL fetch 시도: %s…", article["url"][:60])
+    if len(body) < 150 and article.get("url"):
         fetched = _fetch_article_body(article["url"])
         if fetched:
-            log.info("fetch 성공 — %d자 획득", len(fetched))
             body = fetched
-        else:
-            log.warning("fetch 실패 — 제목만으로 요약")
 
-    has_body = len(body) > len(article["title"]) + 20
-    if has_body:
-        prompt = (
-            f"다음 기사를 정확히 3문장으로 요약하라. 문단 구분 없이 이어 쓴다.\n"
-            f"1~2번째 문장: 기사의 핵심 사실을 간결하게.\n"
-            f"3번째 문장: 한국 레이블·플랫폼·아티스트에게 미치는 시사점 1문장.\n\n"
-            f"제목: {article['title']}\n"
-            f"출처: {article['source']}\n"
-            f"내용: {body[:1200]}"
-        )
-    else:
-        prompt = (
-            f"다음 기사 제목을 바탕으로 정확히 3문장을 작성하라. 문단 구분 없이 이어 쓴다.\n"
-            f"1~2번째 문장: 제목으로 유추할 수 있는 핵심 사실.\n"
-            f"3번째 문장: 한국 레이블·플랫폼·아티스트에게 미치는 시사점 1문장.\n"
-            f"'요약할 수 없습니다' 같은 응답은 절대 금지.\n\n"
-            f"제목: {article['title']}\n"
-            f"출처: {article['source']}"
-        )
+    prompt = (
+        f"제목: {article['title']}\n"
+        f"출처: {article['source']}\n"
+        f"본문: {body[:1000]}"
+    )
     try:
         response = client.messages.create(
             model="claude-haiku-4-5",
-            max_tokens=300,
+            max_tokens=200,
             system=SUMMARY_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text.strip()
     except Exception as exc:
-        log.error("요약 생성 실패 (%s): %s", article["title"], exc)
-        return "(요약 생성 실패)"
+        log.error("요약 생성 실패: %s", exc)
+        return article["title"]
 
 
 # ──────────────────────────────────────────────
-# Discord 전송
+# Discord #auto-candidates 카드
 # ──────────────────────────────────────────────
 
-def build_discord_payload(selected: list[dict]) -> str:
-    """Discord 메시지 본문 문자열 생성."""
+def build_discord_payload(candidates: list[dict]) -> str:
     today = datetime.date.today().strftime("%Y-%m-%d")
-    header = _get_header(today)
+    header = f"🀄 **China & Asia Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
     blocks = []
-    for article in selected:
-        block = DISCORD_ARTICLE_TEMPLATE.format(
-            headline=article["title"],
-            source=article["source"],
-            summary=article["summary"],
-            url=article["url"],
+    for a in candidates:
+        count = a["indicator_count"]
+        indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
+        channel = a.get("channel", "vibe/cn-asia")
+
+        if count >= INDICATOR_HIGHLIGHT:
+            badge = "🔴 **강조**"
+        elif count >= INDICATOR_CUTOFF:
+            badge = "🟡 **후보**"
+        else:
+            continue
+
+        url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
+        block = (
+            f"{badge} `{channel}` `{indicators}`\n"
+            f"**{a['title']}** · *{a['source']}*\n"
+            f"{a.get('summary', '')}"
+            f"{url_line}"
         )
         blocks.append(block)
+
+    if not blocks:
+        return ""
 
     return header + "\n\n" + "\n\n".join(blocks)
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
-    """Discord 웹훅으로 메시지 전송."""
-    payload = {"content": content, "flags": 4}  # 4 = SUPPRESS_EMBEDS
-    response = requests.post(
-        webhook_url,
-        json=payload,
-        timeout=15,
-    )
+    payload = {"content": content, "flags": 4}
+    response = requests.post(webhook_url, json=payload, timeout=15)
     if response.status_code not in (200, 204):
-        raise RuntimeError(
-            f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}"
-        )
+        raise RuntimeError(f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}")
     log.info("Discord 전송 완료 (HTTP %d)", response.status_code)
 
 
@@ -449,69 +433,44 @@ def send_to_discord(webhook_url: str, content: str) -> None:
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get("DISCORD_CHINA_ENT_WEBHOOK")
+    webhook_url = os.environ.get("DISCORD_AUTO_CANDIDATES_WEBHOOK")
 
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
     if not webhook_url:
-        raise EnvironmentError("DISCORD_CHINA_ENT_WEBHOOK 환경변수가 설정되지 않았습니다.")
+        raise EnvironmentError(
+            "DISCORD_AUTO_CANDIDATES_WEBHOOK 환경변수가 설정되지 않았습니다.\n"
+            "Discord에 #auto-candidates 채널과 웹훅을 생성하고 GitHub Secret에 등록하세요."
+        )
 
     client = Anthropic(api_key=api_key)
 
-    # 1. RSS 수집
-    articles = fetch_articles()
-    if not articles:
-        log.info("수집된 기사 없음 — 전송 생략")
+    rss_articles = fetch_rss_articles()
+    email_articles = fetch_email_articles()
+    all_articles = rss_articles + email_articles
+
+    if not all_articles:
+        log.info("수집된 신호 없음 — 전송 생략")
         return
 
-    # 2. 중복 제거
-    articles = deduplicate(articles)
+    articles = deduplicate(all_articles)
+    articles = score_vibe(client, articles)
 
-    # 3. 관련성 점수 산출
-    articles = score_articles(client, articles)
-
-    # 4. 컷오프 적용 후 상위 1~2건 선택
-    relevant = [a for a in articles if a["score"] >= RELEVANCE_CUTOFF]
-    if not relevant:
-        log.info("관련성 점수 %d 이상 기사 없음 — 전송 생략", RELEVANCE_CUTOFF)
+    candidates = [a for a in articles if a["indicator_count"] >= INDICATOR_CUTOFF]
+    if not candidates:
+        log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
-    # 5. 후보 순서대로 시도 — fetch 실패 시 제목 기반 요약으로 폴백
-    selected = []
-    fetch_failed_candidates = []  # fetch 실패 기사는 별도 보관
+    selected = candidates[:MAX_CANDIDATES]
+    for a in selected:
+        a["summary"] = summarize_article(client, a)
+        log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    for candidate in relevant:
-        body = candidate["body"]
-        needs_fetch = len(body) < 150 or body.strip() == candidate["title"].strip()
-        if needs_fetch:
-            log.info("본문 부족 — URL fetch 시도: %s…", candidate["url"][:60])
-            fetched = _fetch_article_body(candidate["url"])
-            if fetched:
-                candidate["body"] = fetched
-            else:
-                log.info("fetch 실패 — 제목 기반 폴백 대기: %s…", candidate["title"][:50])
-                fetch_failed_candidates.append(candidate)
-                continue  # fetch 성공 기사 먼저 소진
-
-        candidate["summary"] = summarize_article(client, candidate)
-        selected.append(candidate)
-        log.info("선택: [%.1f] %s (%s)", candidate["score"], candidate["title"], candidate["source"])
-        if len(selected) >= MAX_ARTICLES:
-            break
-
-    # fetch 성공 기사로 MAX_ARTICLES 미달 시 — 제목 기반 폴백
-    if len(selected) < MAX_ARTICLES and fetch_failed_candidates:
-        for candidate in fetch_failed_candidates[:MAX_ARTICLES - len(selected)]:
-            candidate["summary"] = summarize_article(client, candidate)
-            selected.append(candidate)
-            log.info("폴백 선택: [%.1f] %s (%s)", candidate["score"], candidate["title"], candidate["source"])
-
-    if not selected:
-        log.info("요약 가능한 기사 없음 — 전송 생략")
-        return
-
-    # 6. Discord 전송
     content = build_discord_payload(selected)
+    if not content:
+        log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
+        return
+
     send_to_discord(webhook_url, content)
 
 

@@ -1,39 +1,68 @@
-name: AI 음악 뉴스 데일리
+name: Vibe 신호 수집 데일리
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC) — 한국어 뉴스
-    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC) — 영문 뉴스
+    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
+    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
-    inputs:
-      session:
-        description: 'AM (한국어) 또는 PM (영문). 비우면 시각 자동 판별.'
-        required: false
-        default: ''
-        type: choice
-        options: ['', 'AM', 'PM']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
-  digest:
+  # ── AI 음악 채널 ──────────────────────────────
+  ai-music:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: 의존 라이브러리 설치
         run: pip install feedparser anthropic requests python-dateutil
-
-      - name: AI 뉴스 다이제스트 실행
+      - name: AI Music Vibe 수집
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_AI_TALK_WEBHOOK: ${{ secrets.DISCORD_AI_TALK_WEBHOOK }}
-          SESSION: ${{ inputs.session }}
+          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
         run: python scripts/ai_news_digest.py
+
+  # ── 중국 엔터 채널 ────────────────────────────
+  china-ent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존 라이브러리 설치
+        run: pip install feedparser anthropic requests python-dateutil
+      - name: China & Asia Vibe 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+        run: python scripts/china_ent_digest.py
+
+  # ── Z세대 라이프스타일 채널 (신규) ─────────────
+  z-lifestyle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존 라이브러리 설치
+        run: pip install feedparser anthropic requests python-dateutil
+      - name: Z-Gen & City Vibe 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+        run: python scripts/z_lifestyle_digest.py

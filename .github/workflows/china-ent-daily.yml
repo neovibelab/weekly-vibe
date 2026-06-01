@@ -1,10 +1,8 @@
-name: 중국 엔터 뉴스 데일리
+# DEPRECATED 2026-06-01 — ai-news-daily.yml china-ent job으로 통합됨. 이 파일은 비활성.
+name: 중국 엔터 뉴스 데일리 (deprecated)
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
-    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
-  workflow_dispatch:
+  workflow_dispatch:  # 수동 트리거만, 스케줄 제거
     inputs:
       session:
         description: 'AM (한국어) 또는 PM (중국현지). 비우면 시각 자동 판별.'
