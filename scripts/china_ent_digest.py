@@ -483,6 +483,19 @@ def main() -> None:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
+    seen_file = os.environ.get("SEEN_FILE", ".seen-titles.txt")
+    seen_titles: list[str] = []
+    if os.path.exists(seen_file):
+        with open(seen_file, encoding="utf-8") as f:
+            seen_titles = [l.strip() for l in f if l.strip()]
+        log.info("채널간 중복 제거: seen_titles %d건 로드", len(seen_titles))
+
+    def _is_cross_dup(title: str) -> bool:
+        t = title.lower()
+        return any(SequenceMatcher(None, t, s.lower()).ratio() >= 0.75 for s in seen_titles)
+
+    candidates = [a for a in candidates if not _is_cross_dup(a["title"])]
+
     seen_sources: set[str] = set()
     diverse: list[dict] = []
     for a in candidates:
@@ -516,6 +529,11 @@ def main() -> None:
         send_to_discord(webhook_url, msg)
         if i < len(messages) - 1:
             time.sleep(1)
+
+    with open(seen_file, "a", encoding="utf-8") as f:
+        for a in selected:
+            f.write(a["title"] + "\n")
+    log.info("seen-titles 갱신: %d건 추가 → 총 %d건", len(selected), len(seen_titles) + len(selected))
 
 
 if __name__ == "__main__":

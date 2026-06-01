@@ -15,9 +15,10 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  SEEN_FILE: .seen-titles.txt   # 채널 간 중복 제거용 공유 파일
 
 jobs:
-  # ── AI·엔터 뉴스 (AM) + 영어 음악·씬 (PM) ──────
+  # ── 1st: AI·음악 ────────────────────────────────
   ai-music:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -36,10 +37,20 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SESSION: ${{ inputs.session }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/ai_news_digest.py
+      - name: seen-titles 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
 
-  # ── 중국&아시아 ────────────────────────────────
+  # ── 2nd: 중국&아시아 (ai-music 완료 후) ──────────
   china-ent:
+    needs: ai-music
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -49,16 +60,31 @@ jobs:
           python-version: '3.12'
       - name: 의존 라이브러리 설치
         run: pip install feedparser anthropic requests python-dateutil
+      - name: seen-titles 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+        continue-on-error: true
       - name: China & Asia Vibe 수집
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_CHINA_ASIA_WEBHOOK: ${{ secrets.DISCORD_CHINA_ASIA_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/china_ent_digest.py
+      - name: seen-titles 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
 
-  # ── Z세대 바이브 ───────────────────────────────
+  # ── 3rd: Z세대 바이브 (china-ent 완료 후) ─────────
   z-lifestyle:
+    needs: china-ent
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -68,10 +94,16 @@ jobs:
           python-version: '3.12'
       - name: 의존 라이브러리 설치
         run: pip install feedparser anthropic requests python-dateutil
+      - name: seen-titles 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+        continue-on-error: true
       - name: Z-Gen & City Vibe 수집
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/z_lifestyle_digest.py
