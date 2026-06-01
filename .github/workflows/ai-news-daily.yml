@@ -5,13 +5,6 @@ on:
     - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
     - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
-    inputs:
-      session:
-        description: '세션 강제 지정 (AI뉴스=AM, 영음악=PM, 비우면 시각 자동)'
-        required: false
-        default: ''
-        type: choice
-        options: ['', 'AM', 'PM']
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -33,10 +26,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
-          DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
-          SESSION: ${{ inputs.session }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/ai_news_digest.py
+        run: python scripts/ai_music_digest.py
       - name: seen-titles 업로드
         if: always()
         uses: actions/upload-artifact@v4
@@ -46,9 +37,42 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 2nd: 한국 엔터 (ai-music 완료 후) ─────────────
-  korea-ent:
+  # ── 2nd: 서양 음악·씬 (ai-music 완료 후) ─────────────
+  western-music:
     needs: ai-music
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존 라이브러리 설치
+        run: pip install feedparser anthropic requests python-dateutil
+      - name: seen-titles 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+          path: .
+        continue-on-error: true
+      - name: 서양 음악·씬 Vibe 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/western_music_digest.py
+      - name: seen-titles 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
+
+  # ── 3rd: 한국 엔터 (western-music 완료 후) ─────────────
+  korea-ent:
+    needs: western-music
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -79,7 +103,7 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 3rd: 중국 엔터 (korea-ent 완료 후) ─────────────
+  # ── 4th: 중국 엔터 (korea-ent 완료 후) ─────────────
   china-ent:
     needs: korea-ent
     runs-on: ubuntu-latest
@@ -112,7 +136,7 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 4th: Z세대·도시 (china-ent 완료 후) ─────────────
+  # ── 5th: Z세대·도시 (china-ent 완료 후) ─────────────
   z-lifestyle:
     needs: china-ent
     runs-on: ubuntu-latest
@@ -145,7 +169,7 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 5th: 투자·M&A (z-lifestyle 완료 후, seen-titles 독립) ──
+  # ── 6th: 투자·M&A (z-lifestyle 완료 후, seen-titles 독립) ──
   deals:
     needs: z-lifestyle
     runs-on: ubuntu-latest

@@ -1,13 +1,13 @@
 """
-China Ent & Culture — Vibe Signal Collector
----------------------------------------------
-중국 청년문화·서브컬처·도시 씬 소스에서 Vibe 후보를 수집.
-DISCORD_CHINA_ASIA_WEBHOOK
+AI Music & Tech — Vibe Signal Collector
+-----------------------------------------
+AI 음악·기술 소스에서 Vibe 후보를 수집.
+DISCORD_AI_NEWS_WEBHOOK
 스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
   ANTHROPIC_API_KEY        Claude API 키
-  DISCORD_CHINA_ASIA_WEBHOOK  Discord 웹훅
+  DISCORD_AI_NEWS_WEBHOOK  Discord 웹훅
 """
 
 import os
@@ -29,15 +29,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    ("Radii",          "https://radii.co/feed/"),
-    ("Sixth Tone",     "https://www.sixthtone.com/rss"),
-    ("Pandaily",       "https://pandaily.com/feed/"),
-    ("TechNode",       "https://technode.com/feed/"),
-    ("PingWest",       "https://www.pingwest.com/feed"),
-    ("r/cpop",         "https://www.reddit.com/r/cpop/.rss"),
-    ("r/China_irl",    "https://www.reddit.com/r/China_irl/.rss"),
-    ("36kr 문화",      "https://36kr.com/feed"),
-    ("Sup China",      "https://supchina.com/feed/"),
+    ("AI Music NL",           "https://aimusicnewsletter.substack.com/feed"),
+    ("MusicTech",             "https://www.musictech.com/news/feed/"),
+    ("CDM",                   "https://cdm.link/feed/"),
+    ("Synthtopia",            "https://www.synthtopia.com/feed/"),
+    ("Waxy",                  "https://waxy.org/feed/"),
+    ("404 Media",             "https://www.404media.co/rss/"),
+    ("r/aimusic",             "https://www.reddit.com/r/aimusic/.rss"),
+    ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
 ]
 
 HOURS_WINDOW = 48
@@ -66,12 +65,8 @@ VIBE_SCORE_PROMPT = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "당신은 중국·동아시아 청년문화 Vibe 신호 분석가입니다.\n"
-    "주어진 신호를 200자 이내 2~3문장으로 기술합니다.\n"
-    "레이블·소제목·번호 없이 이어서 씁니다.\n"
-    "첫 문장은 사실 중심(과장 없이), 이어지는 문장은 도시·세대·서브컬처 관점의 균열이나 교차.\n"
-    "본문에 도시·장소가 실제로 언급될 때만 명시. 없으면 쓰지 않는다.\n"
-    "한국어. Signal 후행 분석 금지. 사실에 없는 내용 금지."
+    "당신은 AI 음악·기술 Vibe 신호 분석가입니다. "
+    "200자 이내 2~3문장. 레이블 없이 이어서. 씬·기술·흐름 관점. 본문에 있는 내용만. 한국어."
 )
 
 BATCH_SIZE = 15
@@ -123,7 +118,7 @@ def fetch_rss_articles() -> list[dict]:
                     "url": entry.get("link", ""),
                     "body": body or title,
                     "published": pub_time.isoformat(),
-                    "channel": "vibe/cn-asia",
+                    "channel": "vibe/ai-music",
                 })
                 count += 1
             if count:
@@ -145,7 +140,8 @@ def deduplicate(articles: list[dict]) -> list[dict]:
         )
         if not is_dup:
             unique.append(candidate)
-    if len(articles) > len(unique):
+    removed = len(articles) - len(unique)
+    if removed:
         log.info("중복 제거: %d건 → %d건", len(articles), len(unique))
     return unique
 
@@ -288,12 +284,12 @@ def send_to_discord(webhook_url: str, content: str) -> None:
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get("DISCORD_CHINA_ASIA_WEBHOOK")
+    webhook_url = os.environ.get("DISCORD_AI_NEWS_WEBHOOK")
 
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
     if not webhook_url:
-        raise EnvironmentError("DISCORD_CHINA_ASIA_WEBHOOK 환경변수가 설정되지 않았습니다.")
+        raise EnvironmentError("DISCORD_AI_NEWS_WEBHOOK 환경변수가 설정되지 않았습니다.")
 
     client = Anthropic(api_key=api_key)
     today = datetime.date.today().strftime("%Y-%m-%d")
@@ -346,7 +342,7 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    header = f"🀄 **중국 엔터 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    header = f"🤖 **AI 음악·기술 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
     if not messages:
         return

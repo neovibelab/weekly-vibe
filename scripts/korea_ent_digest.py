@@ -29,11 +29,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    ("Soompi",          "https://www.soompi.com/feed"),
-    ("Koreaboo",        "https://www.koreaboo.com/feed/"),
-    ("Hypebeast Korea", "https://www.hypebeast.kr/feed"),
-    ("r/kpop",          "https://www.reddit.com/r/kpop/.rss"),
-    ("r/koreanmusic",   "https://www.reddit.com/r/koreanmusic/.rss"),
+    # 한국 3대 언론 엔터·문화 섹션 (Google News RSS, 분석 키워드)
+    ("조선 엔터분석",  "https://news.google.com/rss/search?q=엔터테인먼트+케이팝+분석+트렌드+site:chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("중앙 문화분석",  "https://news.google.com/rss/search?q=문화+음악+케이팝+분석+site:joongang.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("경향 문화분석",  "https://news.google.com/rss/search?q=문화+엔터테인먼트+분석+site:khan.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    # 음악 웹진·매거진 (직접 RSS)
+    ("Weiv",          "https://www.weiv.co.kr/rss"),
+    ("GQ Korea",      "https://www.gqkorea.co.kr/feed/"),
+    ("Vogue Korea",   "https://www.vogue.co.kr/feed/"),
+    # 글로벌 K-pop 커뮤니티
+    ("r/kpop",        "https://www.reddit.com/r/kpop/.rss"),
+    ("r/koreanmusic", "https://www.reddit.com/r/koreanmusic/.rss"),
 ]
 
 HOURS_WINDOW = 48
@@ -62,12 +68,8 @@ VIBE_SCORE_PROMPT = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "당신은 한국 엔터테인먼트·K-pop Vibe 신호 분석가입니다.\n"
-    "주어진 신호를 200자 이내 2~3문장으로 기술합니다.\n"
-    "레이블·소제목·번호 없이 이어서 씁니다.\n"
-    "첫 문장은 사실 중심(과장 없이), 이어지는 문장은 씬·팬덤·교차정체성 관점의 균열이나 교차.\n"
-    "본문에 도시·장소가 실제로 언급될 때만 명시. 없으면 쓰지 않는다.\n"
-    "한국어. 사실에 없는 내용 금지."
+    "당신은 한국 엔터테인먼트·K-pop Vibe 신호 분석가입니다. "
+    "200자 이내 2~3문장. 레이블 없이 이어서. 씬·팬덤·산업 구조·교차정체성 관점. 본문에 있는 내용만. 한국어."
 )
 
 BATCH_SIZE = 15
