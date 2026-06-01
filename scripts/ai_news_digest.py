@@ -508,7 +508,7 @@ def main() -> None:
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
     messages = build_discord_messages(selected, _get_header())
-    if len(messages) <= 1:
+    if not messages:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 

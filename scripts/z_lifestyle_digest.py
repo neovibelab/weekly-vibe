@@ -501,7 +501,7 @@ def main() -> None:
     today = datetime.date.today().strftime("%Y-%m-%d")
     header = f"🌏 **Z-Gen & City Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
-    if len(messages) <= 1:
+    if not messages:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
