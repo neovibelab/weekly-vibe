@@ -211,6 +211,40 @@ def _decode_header_value(value: str) -> str:
     return "".join(result)
 
 
+_SKIP_URL_PATTERNS = re.compile(
+    r'(unsubscribe|tracking|pixel|open\.php|click\.php|mailto:|1x1|'
+    r'list-manage|mailchimp|sendgrid|list\.hubspot|email\.mg\.|'
+    r'\.(png|jpg|gif|ico|svg|woff|css|js)\b)',
+    re.I
+)
+
+def _extract_email_url(msg) -> str:
+    html_body = ""
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == "text/html":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    html_body = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                    break
+    else:
+        if msg.get_content_type() == "text/html":
+            payload = msg.get_payload(decode=True)
+            if payload:
+                html_body = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+    if not html_body:
+        return ""
+    urls = re.findall(r'href=["\']?(https://[^\s"\'<>]{20,})["\']?', html_body)
+    for url in urls:
+        if _SKIP_URL_PATTERNS.search(url):
+            continue
+        path = url.split("/", 3)[3] if url.count("/") >= 3 else ""
+        if len(path) < 3:
+            continue
+        return url.split("?")[0]
+    return ""
+
+
 def _extract_email_text(msg) -> str:
     text_plain = []
     text_html = []
@@ -267,12 +301,13 @@ def fetch_email_articles() -> list[dict]:
                 subject = _decode_header_value(msg.get("Subject", ""))
                 sender = _decode_header_value(msg.get("From", ""))
                 body = _extract_email_text(msg)
+                url = _extract_email_url(msg)
                 if not subject or not body or len(body) < 50:
                     continue
                 articles.append({
                     "source": f"📧 {sender[:60]}",
                     "title": subject[:200],
-                    "url": "",
+                    "url": url,
                     "body": body,
                     "published": "",
                     "channel": "vibe/z-lifestyle",
