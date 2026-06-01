@@ -34,6 +34,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
           DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
+          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SESSION: ${{ inputs.session }}
@@ -70,6 +71,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_CHINA_ASIA_WEBHOOK: ${{ secrets.DISCORD_CHINA_ASIA_WEBHOOK }}
+          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
@@ -105,6 +107,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SEEN_FILE: ${{ env.SEEN_FILE }}

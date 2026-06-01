@@ -444,6 +444,18 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
     return messages if len(messages) > 1 else []
 
 
+_DEAL_RE = re.compile(
+    r'\b(acqui|merger|acquis|M&A|IPO|funding|invest|raises?\s+\$|'
+    r'series\s+[A-E]\b|valuation|stake|buyout|takeover|'
+    r'인수|합병|투자|펀딩|상장|밸류에이션|지분|매각)\b',
+    re.I
+)
+
+def _is_deal(article: dict) -> bool:
+    text = article.get("title", "") + " " + article.get("body", "")[:300]
+    return bool(_DEAL_RE.search(text))
+
+
 def send_to_discord(webhook_url: str, content: str) -> None:
     payload = {"content": content[:2000], "flags": 4}
     response = requests.post(webhook_url, json=payload, timeout=15)
@@ -517,18 +529,29 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    header = f"🀄 **China & Asia Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    messages = build_discord_messages(selected, header)
-    if not messages:
-        log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
-        return
+    deals_webhook = os.environ.get("DISCORD_DEALS_WEBHOOK", "")
+    deal_items = [a for a in selected if _is_deal(a)]
+    vibe_items  = [a for a in selected if not _is_deal(a)]
+    log.info("딜 분류: 딜 %d건 / Vibe %d건", len(deal_items), len(vibe_items))
 
     import time
-    for i, msg in enumerate(messages):
-        send_to_discord(webhook_url, msg)
-        if i < len(messages) - 1:
-            time.sleep(1)
+    today = datetime.date.today().strftime("%Y-%m-%d")
+
+    def _send_batch(items, hook, header):
+        if not items or not hook:
+            return
+        msgs = build_discord_messages(items, header)
+        if not msgs:
+            return
+        for i, msg in enumerate(msgs):
+            send_to_discord(hook, msg)
+            if i < len(msgs) - 1:
+                time.sleep(1)
+
+    _send_batch(vibe_items, webhook_url,
+                f"🀄 **China & Asia Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    _send_batch(deal_items, deals_webhook,
+                f"💰 **투자·M&A | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
     with open(seen_file, "a", encoding="utf-8") as f:
         for a in selected:
