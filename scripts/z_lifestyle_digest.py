@@ -428,42 +428,34 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 # Discord #auto-candidates 카드
 # ──────────────────────────────────────────────
 
-def build_discord_payload(candidates: list[dict]) -> str:
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    header = f"🌏 **Z-Gen & City Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-    blocks = []
+def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
+    messages = [header]
     for a in candidates:
         count = a["indicator_count"]
         indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
         channel = a.get("channel", "vibe/z-lifestyle")
         city = a.get("city", "")
         city_tag = f" `{city}`" if city else ""
-
         if count >= INDICATOR_HIGHLIGHT:
             badge = "🔴 **강조**"
         elif count >= INDICATOR_CUTOFF:
             badge = "🟡 **후보**"
         else:
             continue
-
+        summary = (a.get("summary", "") or "")[:200]
+        title = a["title"][:120]
         url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
-        block = (
+        msg = (
             f"{badge} `{channel}`{city_tag} `{indicators}`\n"
-            f"**{a['title']}** · *{a['source']}*\n"
-            f"{a.get('summary', '')}"
-            f"{url_line}"
+            f"**{title}** · *{a['source']}*\n"
+            f"{summary}{url_line}"
         )
-        blocks.append(block)
-
-    if not blocks:
-        return ""
-
-    return header + "\n\n" + "\n\n".join(blocks)
+        messages.append(msg[:1900])
+    return messages
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
-    payload = {"content": content, "flags": 4}
+    payload = {"content": content[:2000], "flags": 4}
     response = requests.post(webhook_url, json=payload, timeout=15)
     if response.status_code not in (200, 204):
         raise RuntimeError(f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}")
@@ -509,12 +501,17 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    content = build_discord_payload(selected)
-    if not content:
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    header = f"🌏 **Z-Gen & City Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    messages = build_discord_messages(selected, header)
+    if len(messages) <= 1:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
-    send_to_discord(webhook_url, content)
+    import time
+    for msg in messages:
+        send_to_discord(webhook_url, msg)
+        time.sleep(0.5)
 
 
 if __name__ == "__main__":

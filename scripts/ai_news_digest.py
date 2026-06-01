@@ -410,11 +410,9 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 # Discord #auto-candidates 카드 빌드
 # ──────────────────────────────────────────────
 
-def build_discord_payload(candidates: list[dict]) -> str:
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    header = f"🎵 **AI Music Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-    blocks = []
+def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
+    """후보 1개 = 1메시지로 분할. Discord 2000자 제한 대응."""
+    messages = [header]
     for a in candidates:
         count = a["indicator_count"]
         indicators = "·".join(a["indicators"]) if a["indicators"] else "—"
@@ -427,23 +425,24 @@ def build_discord_payload(candidates: list[dict]) -> str:
         else:
             continue
 
+        summary = (a.get("summary", "") or "")[:200]  # 요약 200자 제한
+        title = a["title"][:120]
         url_line = f"\n🔗 {a['url']}" if a.get("url") else ""
-        block = (
+        msg = (
             f"{badge} `{channel}` `{indicators}`\n"
-            f"**{a['title']}** · *{a['source']}*\n"
-            f"{a.get('summary', '')}"
+            f"**{title}** · *{a['source']}*\n"
+            f"{summary}"
             f"{url_line}"
         )
-        blocks.append(block)
+        if len(msg) > 1900:
+            msg = msg[:1900] + "…"
+        messages.append(msg)
 
-    if not blocks:
-        return ""
-
-    return header + "\n\n" + "\n\n".join(blocks)
+    return messages
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
-    payload = {"content": content, "flags": 4}
+    payload = {"content": content[:2000], "flags": 4}
     response = requests.post(webhook_url, json=payload, timeout=15)
     if response.status_code not in (200, 204):
         raise RuntimeError(f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}")
@@ -492,12 +491,17 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    content = build_discord_payload(selected)
-    if not content:
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    header = f"🎵 **AI Music Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    messages = build_discord_messages(selected, header)
+    if len(messages) <= 1:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
-    send_to_discord(webhook_url, content)
+    import time
+    for msg in messages:
+        send_to_discord(webhook_url, msg)
+        time.sleep(0.5)
 
 
 if __name__ == "__main__":
