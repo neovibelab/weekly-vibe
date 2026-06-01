@@ -1,15 +1,17 @@
 """
 AI Music & Culture — Vibe Signal Collector
 -------------------------------------------
-씬·니치·도시 소스에서 Vibe 후보를 수집해 #auto-candidates로 전달.
-소스: RSS(컬트·씬 매체) + IMAP(tmifmdj 구독 메일)
-스코어링: Vibe & Signal 밀도 5지표 (언급빈도·도시분포·교차정체성·매개자다양성·지속기간)
+AM (09:00 KST): 한국어 AI·엔터 뉴스 → #ai-뉴스-다이제스트 (DISCORD_AI_NEWS_WEBHOOK)
+PM (15:00 KST): 영어 음악·씬 소스  → #영어-음악-뉴스   (DISCORD_EN_MUSIC_WEBHOOK)
+소스: RSS(씬·니치 매체) + IMAP(tmifmdj 구독 메일)
+스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
-  ANTHROPIC_API_KEY                  Claude API 키
-  DISCORD_AUTO_CANDIDATES_WEBHOOK    Discord #auto-candidates 웹훅
-  GMAIL_USER                         tmifmdj@gmail.com
-  GMAIL_APP_PASS                     Gmail 앱 비밀번호
+  ANTHROPIC_API_KEY        Claude API 키
+  DISCORD_AI_NEWS_WEBHOOK  AM — 한국어 AI 뉴스 웹훅
+  DISCORD_EN_MUSIC_WEBHOOK PM — 영어 음악 뉴스 웹훅
+  GMAIL_USER               tmifmdj@gmail.com
+  GMAIL_APP_PASS           Gmail 앱 비밀번호
 """
 
 import os
@@ -33,41 +35,63 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
-# Vibe RSS 소스 — 씬·제작자·도시 매체 (Signal 후행 소스 제거)
+# AM: 한국어 AI·엔터·씬 소스 (09:00 KST)
 # ──────────────────────────────────────────────
+AM_SOURCES = [
+    ("Soompi",            "https://www.soompi.com/feed"),
+    ("Koreaboo",          "https://www.koreaboo.com/feed/"),
+    ("Hypebeast Korea",   "https://www.hypebeast.kr/feed"),
+    ("Rest of World",     "https://restofworld.org/feed/"),
+    ("AI Music NL",       "https://aimusicnewsletter.substack.com/feed"),
+    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
+    ("r/koreanmusic",     "https://www.reddit.com/r/koreanmusic/.rss"),
+]
 
-RSS_SOURCES = [
+# ──────────────────────────────────────────────
+# PM: 영어 음악·씬 소스 (15:00 KST)
+# ──────────────────────────────────────────────
+PM_SOURCES = [
     # 씬·제작자 매체
     ("CDM",               "https://cdm.link/feed/"),
     ("Attack Magazine",   "https://www.attackmagazine.com/feed/"),
     ("MusicTech",         "https://www.musictech.com/news/feed/"),
-    ("Synthtopia",        "https://www.synthtopia.com/feed/"),
     ("FACT Magazine",     "https://www.factmag.com/feed/"),
     # 인디·평론
     ("Pitchfork News",    "https://pitchfork.com/feed/feed-news/rss"),
     ("The Line of Best Fit", "https://www.thelineofbestfit.com/feed"),
     ("Bandcamp Daily",    "https://daily.bandcamp.com/feed"),
     ("Stereogum",         "https://www.stereogum.com/feed/"),
-    # 에디토리얼·리서치
+    # 에디토리얼·클럽 씬
     ("Waxy",              "https://waxy.org/feed/"),
     ("404 Media",         "https://www.404media.co/rss/"),
-    ("Rest of World",     "https://restofworld.org/feed/"),
-    # 클럽·도시 씬
     ("DJ Mag",            "https://djmag.com/rss.xml"),
     ("Mixmag",            "https://mixmag.net/rss.xml"),
-    # AI 음악 니치
-    ("AI Music NL",       "https://aimusicnewsletter.substack.com/feed"),
-    # Reddit 씬 커뮤니티 (불안정 — 실패 시 스킵)
+    # Reddit 씬 커뮤니티
     ("r/aimusic",         "https://www.reddit.com/r/aimusic/.rss"),
     ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
-    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
 ]
 
 # 48시간 이내 신호만 수집
 HOURS_WINDOW = 48
-
-# 후보 최대 수 (1 → N으로 확장: 후보 풀)
 MAX_CANDIDATES = 5
+
+def _get_session() -> str:
+    override = os.environ.get("SESSION", "").upper()
+    if override in ("AM", "PM"):
+        return override
+    return "AM" if datetime.datetime.utcnow().hour < 6 else "PM"
+
+def _get_sources() -> list[tuple[str, str]]:
+    return AM_SOURCES if _get_session() == "AM" else PM_SOURCES
+
+def _get_webhook_env() -> str:
+    return "DISCORD_AI_NEWS_WEBHOOK" if _get_session() == "AM" else "DISCORD_EN_MUSIC_WEBHOOK"
+
+def _get_header() -> str:
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    if _get_session() == "AM":
+        return f"🇰🇷 **AI·엔터 뉴스 | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    return f"🎵 **영어 음악·씬 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # 5지표 컷오프
 INDICATOR_CUTOFF = 2      # 이상 = 후보 통과
@@ -132,11 +156,12 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
 
 
 def fetch_rss_articles() -> list[dict]:
+    log.info("세션: %s", _get_session())
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
     articles = []
     headers = {"User-Agent": "Mozilla/5.0 (compatible; VibeBot/1.0)"}
 
-    for source_name, url in RSS_SOURCES:
+    for source_name, url in _get_sources():
         try:
             feed = feedparser.parse(url, request_headers=headers)
             count = 0
@@ -448,15 +473,13 @@ def send_to_discord(webhook_url: str, content: str) -> None:
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get("DISCORD_AUTO_CANDIDATES_WEBHOOK")
+    webhook_env = _get_webhook_env()
+    webhook_url = os.environ.get(webhook_env)
 
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
     if not webhook_url:
-        raise EnvironmentError(
-            "DISCORD_AUTO_CANDIDATES_WEBHOOK 환경변수가 설정되지 않았습니다.\n"
-            "Discord에 #auto-candidates 채널과 웹훅을 생성하고 GitHub Secret에 등록하세요."
-        )
+        raise EnvironmentError(f"{webhook_env} 환경변수가 설정되지 않았습니다.")
 
     client = Anthropic(api_key=api_key)
 
@@ -484,9 +507,7 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    header = f"🎵 **AI Music Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    messages = build_discord_messages(selected, header)
+    messages = build_discord_messages(selected, _get_header())
     if len(messages) <= 1:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return

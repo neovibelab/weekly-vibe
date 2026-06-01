@@ -422,15 +422,12 @@ def send_to_discord(webhook_url: str, content: str) -> None:
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get("DISCORD_AUTO_CANDIDATES_WEBHOOK")
+    webhook_url = os.environ.get("DISCORD_CHINA_ASIA_WEBHOOK")
 
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
     if not webhook_url:
-        raise EnvironmentError(
-            "DISCORD_AUTO_CANDIDATES_WEBHOOK 환경변수가 설정되지 않았습니다.\n"
-            "Discord에 #auto-candidates 채널과 웹훅을 생성하고 GitHub Secret에 등록하세요."
-        )
+        raise EnvironmentError("DISCORD_CHINA_ASIA_WEBHOOK 환경변수가 설정되지 않았습니다.")
 
     client = Anthropic(api_key=api_key)
 

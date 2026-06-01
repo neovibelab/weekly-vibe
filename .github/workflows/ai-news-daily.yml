@@ -10,7 +10,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
-  # ── AI 음악 채널 ──────────────────────────────
+  # ── AI·엔터 뉴스 (AM) + 영어 음악·씬 (PM) ──────
   ai-music:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -21,15 +21,16 @@ jobs:
           python-version: '3.12'
       - name: 의존 라이브러리 설치
         run: pip install feedparser anthropic requests python-dateutil
-      - name: AI Music Vibe 수집
+      - name: AI·음악 Vibe 수집
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
+          DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
         run: python scripts/ai_news_digest.py
 
-  # ── 중국 엔터 채널 ────────────────────────────
+  # ── 중국&아시아 ────────────────────────────────
   china-ent:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -43,12 +44,12 @@ jobs:
       - name: China & Asia Vibe 수집
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          DISCORD_CHINA_ASIA_WEBHOOK: ${{ secrets.DISCORD_CHINA_ASIA_WEBHOOK }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
         run: python scripts/china_ent_digest.py
 
-  # ── Z세대 라이프스타일 채널 (신규) ─────────────
+  # ── Z세대 바이브 ───────────────────────────────
   z-lifestyle:
     runs-on: ubuntu-latest
     timeout-minutes: 20
