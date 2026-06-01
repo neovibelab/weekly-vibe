@@ -1,13 +1,13 @@
 """
-Z-Gen Lifestyle — Vibe Signal Collector
------------------------------------------
-도시·소비·서브컬처 소스에서 Z세대 Vibe 후보를 수집.
-DISCORD_AUTO_CANDIDATES_WEBHOOK
-스코어링: Vibe & Signal 밀도 5지표
+Deals — Investment & M&A Collector
+-------------------------------------
+투자·M&A 소스에서 딜 신호를 수집.
+DISCORD_DEALS_WEBHOOK
+스코어링: Vibe & Signal 밀도 5지표 (INDICATOR_CUTOFF=1)
 
 환경변수:
-  ANTHROPIC_API_KEY                  Claude API 키
-  DISCORD_AUTO_CANDIDATES_WEBHOOK    Discord 웹훅
+  ANTHROPIC_API_KEY      Claude API 키
+  DISCORD_DEALS_WEBHOOK  Discord 웹훅
 """
 
 import os
@@ -29,42 +29,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    # 글로벌 스트리트·라이프스타일
-    ("Highsnobiety",        "https://www.highsnobiety.com/feed/"),
-    ("Hypebeast",           "https://hypebeast.com/feed"),
-    ("Dazed",               "https://www.dazeddigital.com/rss"),
-    ("i-D",                 "https://i-d.co/feed/"),
-    ("Business of Fashion", "https://www.businessoffashion.com/arc/outboundfeeds/rss/"),
-    ("Cool Hunting",        "https://www.coolhunting.com/feed/"),
-    ("Aftermath",           "https://aftermath.site/rss"),
-    # 비서구권 도시·소비 (china에서 이동)
-    ("Rest of World",       "https://restofworld.org/feed/"),
-    ("SCMP Lifestyle",      "https://www.scmp.com/rss/94/feed"),
-    # 아시아 도시
-    ("Time Out Tokyo",      "https://www.timeout.com/tokyo/feed.rss"),
-    ("Time Out Bangkok",    "https://www.timeout.com/bangkok/feed.rss"),
-    ("Time Out Singapore",  "https://www.timeout.com/singapore/feed.rss"),
-    ("Time Out Seoul",      "https://www.timeout.com/seoul/feed.rss"),
-    ("Coconuts Bangkok",    "https://coconuts.co/bangkok/feed/"),
-    ("Coconuts Jakarta",    "https://coconuts.co/jakarta/feed/"),
-    ("Coconuts Manila",     "https://coconuts.co/manila/feed/"),
-    ("Coconuts Singapore",  "https://coconuts.co/singapore/feed/"),
-    ("NYLON Singapore",     "https://www.nylon.com.sg/feed/"),
-    ("Metropolis Japan",    "https://metropolisjapan.com/feed/"),
-    ("Hypebeast Japan",     "https://hypebeast.com/jp/feed"),
-    ("Hypebeast Korea",     "https://www.hypebeast.kr/feed"),
-    ("VnExpress Life",      "https://e.vnexpress.net/rss/life.rss"),
-    # Reddit 도시·라이프스타일
-    ("r/streetwear",        "https://www.reddit.com/r/streetwear/.rss"),
-    ("r/seoullife",         "https://www.reddit.com/r/seoullife/.rss"),
-    ("r/tokyo",             "https://www.reddit.com/r/Tokyo/.rss"),
-    ("r/bangkok",           "https://www.reddit.com/r/bangkok/.rss"),
+    ("TechCrunch Fundings",     "https://techcrunch.com/tag/fundings-exits/feed/"),
+    ("Music Business Worldwide","https://www.musicbusinessworldwide.com/feed/"),
+    ("Crunchbase News",         "https://news.crunchbase.com/feed/"),
+    ("DealStreetAsia",          "https://www.dealstreetasia.com/feed/"),
+    ("Tech in Asia",            "https://www.techinasia.com/feed"),
+    ("Variety Business",        "https://variety.com/v/business/feed/"),
+    ("Deadline Business",       "https://deadline.com/category/business-media/feed/"),
 ]
 
 HOURS_WINDOW = 48
 MAX_CANDIDATES = 5
 MAX_PER_SOURCE = 3
-INDICATOR_CUTOFF = 2
+# 딜 소스 자체가 필터이므로 컷오프를 낮게 설정
+INDICATOR_CUTOFF = 1
 INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
 
@@ -87,12 +65,11 @@ VIBE_SCORE_PROMPT = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "당신은 도시·소비·Z세대 문화 Vibe 신호 분석가입니다.\n"
+    "당신은 투자·M&A 신호 분석가입니다.\n"
     "주어진 신호를 200자 이내 2~3문장으로 기술합니다.\n"
     "레이블·소제목·번호 없이 이어서 씁니다.\n"
-    "첫 문장은 사실 중심(과장 없이), 이어지는 문장은 도시 결·소비 균열·교차정체성 관점.\n"
-    "본문에 도시·장소가 실제로 언급될 때만 명시. 없으면 쓰지 않는다.\n"
-    "한국어. 일반론 금지. 사실에 없는 내용 금지."
+    "딜 규모·구조·산업 함의 중심으로 기술합니다.\n"
+    "한국어. 사실에 없는 내용 금지."
 )
 
 BATCH_SIZE = 15
@@ -119,28 +96,6 @@ def _parse_entry_time(entry) -> datetime.datetime | None:
     return None
 
 
-def _city_from_source(source_name: str) -> str:
-    mapping = {
-        "Time Out Tokyo": "도쿄",
-        "Time Out Bangkok": "방콕",
-        "Time Out Singapore": "싱가포르",
-        "Time Out Seoul": "서울",
-        "Coconuts Bangkok": "방콕",
-        "Coconuts Jakarta": "자카르타",
-        "Coconuts Manila": "마닐라",
-        "Coconuts Singapore": "싱가포르",
-        "NYLON Singapore": "싱가포르",
-        "Metropolis Japan": "도쿄",
-        "Hypebeast Japan": "도쿄",
-        "Hypebeast Korea": "서울",
-        "VnExpress Life": "호치민/하노이",
-        "r/seoullife": "서울",
-        "r/tokyo": "도쿄",
-        "r/bangkok": "방콕",
-    }
-    return mapping.get(source_name, "")
-
-
 def fetch_rss_articles() -> list[dict]:
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=HOURS_WINDOW)
     articles = []
@@ -150,7 +105,6 @@ def fetch_rss_articles() -> list[dict]:
         try:
             feed = feedparser.parse(url, request_headers=headers)
             count = 0
-            city = _city_from_source(source_name)
             for entry in feed.entries:
                 if count >= MAX_PER_SOURCE:
                     break
@@ -161,16 +115,13 @@ def fetch_rss_articles() -> list[dict]:
                 raw_body = entry.get("summary", "") or ""
                 body = re.sub(r"<[^>]+>", " ", raw_body)
                 body = html.unescape(re.sub(r"\s+", " ", body)).strip()
-                if city and city not in title:
-                    body = f"[{city}] {body}"
                 articles.append({
                     "source": source_name,
                     "title": title,
                     "url": entry.get("link", ""),
                     "body": body or title,
                     "published": pub_time.isoformat(),
-                    "channel": "vibe/z-lifestyle",
-                    "city": city,
+                    "channel": "vibe/deals",
                 })
                 count += 1
             if count:
@@ -235,11 +186,9 @@ def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
                 scored.append(a)
 
     for a in scored:
-        city_tag = f" [{a.get('city','')}]" if a.get("city") else ""
-        log.info("  [%d지표] %s%s | %s",
+        log.info("  [%d지표] %s | %s",
                  a["indicator_count"],
                  "·".join(a["indicators"]),
-                 city_tag,
                  a["title"][:60])
 
     scored.sort(key=lambda x: x["indicator_count"], reverse=True)
@@ -290,10 +239,9 @@ def summarize_article(client: Anthropic, article: dict) -> str:
         if fetched:
             body = fetched
 
-    city_hint = f"[도시: {article['city']}] " if article.get("city") else ""
     prompt = (
         f"제목: {article['title']}\n"
-        f"출처: {article['source']} {city_hint}\n"
+        f"출처: {article['source']}\n"
         f"본문: {body[:1000]}"
     )
     try:
@@ -317,13 +265,11 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
             continue
         badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
         indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
-        city = a.get("city", "")
-        city_tag = f" `{city}`" if city else ""
         title = a["title"][:100]
         url = a.get("url", "")
         title_part = f"[**{title}**]({url})" if url else f"**{title}**"
         summary = (a.get("summary", "") or "").strip()[:500]
-        msg = f"{badge}{city_tag} {title_part} `{indicators}`"
+        msg = f"{badge} {title_part} `{indicators}`"
         if summary:
             msg += f"\n> {summary}"
         messages.append(msg[:1900])
@@ -340,12 +286,12 @@ def send_to_discord(webhook_url: str, content: str) -> None:
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get("DISCORD_AUTO_CANDIDATES_WEBHOOK")
+    webhook_url = os.environ.get("DISCORD_DEALS_WEBHOOK")
 
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
     if not webhook_url:
-        raise EnvironmentError("DISCORD_AUTO_CANDIDATES_WEBHOOK 환경변수가 설정되지 않았습니다.")
+        raise EnvironmentError("DISCORD_DEALS_WEBHOOK 환경변수가 설정되지 않았습니다.")
 
     client = Anthropic(api_key=api_key)
     today = datetime.date.today().strftime("%Y-%m-%d")
@@ -362,19 +308,6 @@ def main() -> None:
     if not candidates:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
-
-    seen_file = os.environ.get("SEEN_FILE", ".seen-titles.txt")
-    seen_titles: list[str] = []
-    if os.path.exists(seen_file):
-        with open(seen_file, encoding="utf-8") as f:
-            seen_titles = [l.strip() for l in f if l.strip()]
-        log.info("채널간 중복 제거: seen_titles %d건 로드", len(seen_titles))
-
-    def _is_cross_dup(title: str) -> bool:
-        t = title.lower()
-        return any(SequenceMatcher(None, t, s.lower()).ratio() >= 0.75 for s in seen_titles)
-
-    candidates = [a for a in candidates if not _is_cross_dup(a["title"])]
 
     seen_sources: set[str] = set()
     diverse: list[dict] = []
@@ -398,7 +331,7 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    header = f"🌏 **Z세대·도시 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    header = f"💰 **투자·M&A | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
     if not messages:
         return
@@ -406,11 +339,6 @@ def main() -> None:
         send_to_discord(webhook_url, msg)
         if i < len(messages) - 1:
             time.sleep(1)
-
-    with open(seen_file, "a", encoding="utf-8") as f:
-        for a in selected:
-            f.write(a["title"] + "\n")
-    log.info("seen-titles 갱신: %d건 추가 → 총 %d건", len(selected), len(seen_titles) + len(selected))
 
 
 if __name__ == "__main__":

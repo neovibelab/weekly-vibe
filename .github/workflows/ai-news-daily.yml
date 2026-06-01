@@ -34,9 +34,6 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
           DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
-          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SESSION: ${{ inputs.session }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/ai_news_digest.py
@@ -49,9 +46,42 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 2nd: 중국&아시아 (ai-music 완료 후) ──────────
-  china-ent:
+  # ── 2nd: 한국 엔터 (ai-music 완료 후) ─────────────
+  korea-ent:
     needs: ai-music
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존 라이브러리 설치
+        run: pip install feedparser anthropic requests python-dateutil
+      - name: seen-titles 다운로드
+        uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+          path: .
+        continue-on-error: true
+      - name: 한국 엔터 Vibe 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_KOREA_ENT_WEBHOOK: ${{ secrets.DISCORD_KOREA_ENT_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/korea_ent_digest.py
+      - name: seen-titles 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
+
+  # ── 3rd: 중국 엔터 (korea-ent 완료 후) ─────────────
+  china-ent:
+    needs: korea-ent
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -71,9 +101,6 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_CHINA_ASIA_WEBHOOK: ${{ secrets.DISCORD_CHINA_ASIA_WEBHOOK }}
-          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/china_ent_digest.py
       - name: seen-titles 업로드
@@ -85,7 +112,7 @@ jobs:
           if-no-files-found: warn
           overwrite: true
 
-  # ── 3rd: Z세대 바이브 (china-ent 완료 후) ─────────
+  # ── 4th: Z세대·도시 (china-ent 완료 후) ─────────────
   z-lifestyle:
     needs: china-ent
     runs-on: ubuntu-latest
@@ -107,8 +134,31 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
-          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
         run: python scripts/z_lifestyle_digest.py
+      - name: seen-titles 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
+
+  # ── 5th: 투자·M&A (z-lifestyle 완료 후, seen-titles 독립) ──
+  deals:
+    needs: z-lifestyle
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 의존 라이브러리 설치
+        run: pip install feedparser anthropic requests python-dateutil
+      - name: 투자·M&A Deals 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
+        run: python scripts/deals_digest.py

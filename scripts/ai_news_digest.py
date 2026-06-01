@@ -1,29 +1,24 @@
 """
 AI Music & Culture — Vibe Signal Collector
 -------------------------------------------
-AM (09:00 KST): 한국어 AI·엔터 뉴스 → #ai-뉴스-다이제스트 (DISCORD_AI_NEWS_WEBHOOK)
-PM (15:00 KST): 영어 음악·씬 소스  → #영어-음악-뉴스   (DISCORD_EN_MUSIC_WEBHOOK)
-소스: RSS(씬·니치 매체) + IMAP(tmifmdj 구독 메일)
+AM (09:00 KST): AI·음악 기술 → DISCORD_AI_NEWS_WEBHOOK
+PM (15:00 KST): 서양 음악·씬   → DISCORD_EN_MUSIC_WEBHOOK
 스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
   ANTHROPIC_API_KEY        Claude API 키
-  DISCORD_AI_NEWS_WEBHOOK  AM — 한국어 AI 뉴스 웹훅
-  DISCORD_EN_MUSIC_WEBHOOK PM — 영어 음악 뉴스 웹훅
-  GMAIL_USER               tmifmdj@gmail.com
-  GMAIL_APP_PASS           Gmail 앱 비밀번호
+  DISCORD_AI_NEWS_WEBHOOK  AM 웹훅
+  DISCORD_EN_MUSIC_WEBHOOK PM 웹훅
 """
 
 import os
 import re
 import html
-import email
-import imaplib
 import json
 import logging
 import datetime
+import time
 from difflib import SequenceMatcher
-from email.header import decode_header
 from html.parser import HTMLParser
 
 import feedparser
@@ -34,43 +29,33 @@ from dateutil import parser as dateparser
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────
-# AM: 한국어 AI·엔터·씬 소스 (09:00 KST)
-# ──────────────────────────────────────────────
-# ── AM: AI 전용 소스 (09:00 KST) ─────────────────
+# ── AM: AI 음악·기술 소스 (09:00 KST) ─────────────────
 AM_SOURCES = [
-    ("AI Music NL",       "https://aimusicnewsletter.substack.com/feed"),
-    ("MusicTech",         "https://www.musictech.com/news/feed/"),
-    ("CDM",               "https://cdm.link/feed/"),
-    ("Synthtopia",        "https://www.synthtopia.com/feed/"),
-    ("Waxy",              "https://waxy.org/feed/"),
-    ("404 Media",         "https://www.404media.co/rss/"),
-    ("r/aimusic",         "https://www.reddit.com/r/aimusic/.rss"),
+    ("AI Music NL",           "https://aimusicnewsletter.substack.com/feed"),
+    ("MusicTech",             "https://www.musictech.com/news/feed/"),
+    ("CDM",                   "https://cdm.link/feed/"),
+    ("Synthtopia",            "https://www.synthtopia.com/feed/"),
+    ("Waxy",                  "https://waxy.org/feed/"),
+    ("404 Media",             "https://www.404media.co/rss/"),
+    ("r/aimusic",             "https://www.reddit.com/r/aimusic/.rss"),
     ("r/WeAreTheMusicMakers", "https://www.reddit.com/r/WeAreTheMusicMakers/.rss"),
 ]
 
-# ── PM: 영어 음악·씬 + K-pop 소스 (15:00 KST) ───
+# ── PM: 서양 음악·씬 소스 (15:00 KST) ─────────────────
 PM_SOURCES = [
-    # 씬·평론
-    ("Pitchfork News",    "https://pitchfork.com/feed/feed-news/rss"),
-    ("The Line of Best Fit", "https://www.thelineofbestfit.com/feed"),
-    ("Bandcamp Daily",    "https://daily.bandcamp.com/feed"),
-    ("Stereogum",         "https://www.stereogum.com/feed/"),
-    ("FACT Magazine",     "https://www.factmag.com/feed/"),
-    # 클럽 씬
-    ("DJ Mag",            "https://djmag.com/rss.xml"),
-    ("Mixmag",            "https://mixmag.net/rss.xml"),
-    # K-pop (중국 채널에서 이동)
-    ("Soompi",            "https://www.soompi.com/feed"),
-    ("Koreaboo",          "https://www.koreaboo.com/feed/"),
-    ("Hypebeast Korea",   "https://www.hypebeast.kr/feed"),
-    ("r/kpop",            "https://www.reddit.com/r/kpop/.rss"),
+    ("Pitchfork News",        "https://pitchfork.com/feed/feed-news/rss"),
+    ("The Line of Best Fit",  "https://www.thelineofbestfit.com/feed"),
+    ("Bandcamp Daily",        "https://daily.bandcamp.com/feed"),
+    ("Stereogum",             "https://www.stereogum.com/feed/"),
+    ("FACT Magazine",         "https://www.factmag.com/feed/"),
+    ("Attack Magazine",       "https://www.attackmagazine.com/feed/"),
+    ("DJ Mag",                "https://djmag.com/rss.xml"),
+    ("Mixmag",                "https://mixmag.net/rss.xml"),
 ]
 
-# 48시간 이내 신호만 수집
 HOURS_WINDOW = 48
 MAX_CANDIDATES = 5
-MAX_PER_SOURCE = 3   # 수집 단계: 소스당 최대 수집 건수
+MAX_PER_SOURCE = 3
 
 def _get_session() -> str:
     override = os.environ.get("SESSION", "").upper()
@@ -88,17 +73,11 @@ def _get_header() -> str:
     today = datetime.date.today().strftime("%Y-%m-%d")
     if _get_session() == "AM":
         return f"🤖 **AI 음악·기술 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    return f"🎵 **영어 음악·K-pop Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    return f"🎵 **서양 음악·씬 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# 5지표 컷오프
-INDICATOR_CUTOFF = 2      # 이상 = 후보 통과
-INDICATOR_HIGHLIGHT = 3   # 이상 = 강조 (🔴)
-
+INDICATOR_CUTOFF = 2
+INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
-
-# ──────────────────────────────────────────────
-# 5지표 스코어링 프롬프트
-# ──────────────────────────────────────────────
 
 VIBE_SCORE_PROMPT = (
     "아래 신호(기사/콘텐츠) 목록을 보고 각각에 대해 Vibe & Signal 밀도 5지표를 채점하라.\n\n"
@@ -129,9 +108,6 @@ SUMMARY_SYSTEM_PROMPT = (
 
 BATCH_SIZE = 15
 
-# ──────────────────────────────────────────────
-# RSS 수집
-# ──────────────────────────────────────────────
 
 def _parse_entry_time(entry) -> datetime.datetime | None:
     for attr in ("published_parsed", "updated_parsed"):
@@ -192,151 +168,6 @@ def fetch_rss_articles() -> list[dict]:
     return articles
 
 
-# ──────────────────────────────────────────────
-# IMAP 수집 (tmifmdj 구독 메일)
-# ──────────────────────────────────────────────
-
-def _decode_header_value(value: str) -> str:
-    parts = decode_header(value)
-    result = []
-    for part, charset in parts:
-        if isinstance(part, bytes):
-            result.append(part.decode(charset or "utf-8", errors="replace"))
-        else:
-            result.append(str(part))
-    return "".join(result)
-
-
-_SKIP_URL_PATTERNS = re.compile(
-    r'(unsubscribe|tracking|pixel|open\.php|click\.php|mailto:|1x1|'
-    r'list-manage|mailchimp|sendgrid|list\.hubspot|email\.mg\.|'
-    r'\.(png|jpg|gif|ico|svg|woff|css|js)\b)',
-    re.I
-)
-
-def _extract_email_url(msg) -> str:
-    """이메일 HTML 본문에서 기사 원문 URL 추출 — 트래킹·이미지·구독해제 링크 제외."""
-    html_body = ""
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/html":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    html_body = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
-                    break
-    else:
-        if msg.get_content_type() == "text/html":
-            payload = msg.get_payload(decode=True)
-            if payload:
-                html_body = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-
-    if not html_body:
-        return ""
-
-    # href= 속성에서 https:// URL 추출, 오염·트래킹 제외
-    urls = re.findall(r'href=["\']?(https://[^\s"\'<>]{20,})["\']?', html_body)
-    for url in urls:
-        if _SKIP_URL_PATTERNS.search(url):
-            continue
-        # 도메인만 있고 경로 없는 링크(홈) 제외
-        path = url.split("/", 3)[3] if url.count("/") >= 3 else ""
-        if len(path) < 3:
-            continue
-        return url.split("?")[0]  # UTM 파라미터 제거
-    return ""
-
-
-def _extract_email_text(msg) -> str:
-    """멀티파트 메일에서 텍스트 본문 추출 (text/plain 우선, text/html 폴백)"""
-    text_plain = []
-    text_html = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            ct = part.get_content_type()
-            if ct == "text/plain":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    text_plain.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
-            elif ct == "text/html":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    text_html.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
-    else:
-        payload = msg.get_payload(decode=True)
-        if payload:
-            ct = msg.get_content_type()
-            decoded = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-            if ct == "text/plain":
-                text_plain.append(decoded)
-            else:
-                text_html.append(decoded)
-
-    if text_plain:
-        return " ".join(text_plain)[:800]
-
-    # HTML 폴백: 태그 제거
-    raw = " ".join(text_html)
-    cleaned = re.sub(r"<[^>]+>", " ", raw)
-    cleaned = html.unescape(re.sub(r"\s+", " ", cleaned)).strip()
-    return cleaned[:800]
-
-
-def fetch_email_articles() -> list[dict]:
-    gmail_user = os.environ.get("GMAIL_USER", "")
-    gmail_pass = os.environ.get("GMAIL_APP_PASS", "")
-    if not gmail_user or not gmail_pass:
-        log.info("GMAIL 환경변수 없음 — 이메일 수집 스킵")
-        return []
-
-    articles = []
-    try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com")
-        mail.login(gmail_user, gmail_pass)
-        mail.select("inbox")
-
-        since_date = (datetime.date.today() - datetime.timedelta(days=2)).strftime("%d-%b-%Y")
-        _, data = mail.search(None, "SINCE", since_date)
-        msg_ids = data[0].split() if data[0] else []
-        log.info("[IMAP] 대상 메일: %d건", len(msg_ids))
-
-        for msg_id in msg_ids[-50:]:  # 최대 50건
-            try:
-                _, msg_data = mail.fetch(msg_id, "(RFC822)")
-                raw_email = msg_data[0][1]
-                msg = email.message_from_bytes(raw_email)
-
-                subject = _decode_header_value(msg.get("Subject", ""))
-                sender = _decode_header_value(msg.get("From", ""))
-                body = _extract_email_text(msg)
-                url = _extract_email_url(msg)
-
-                # 빈 메일·시스템 메일 스킵
-                if not subject or not body or len(body) < 50:
-                    continue
-
-                articles.append({
-                    "source": f"📧 {sender[:60]}",
-                    "title": subject[:200],
-                    "url": url,
-                    "body": body,
-                    "published": "",
-                    "channel": "vibe/email",
-                })
-            except Exception as e:
-                log.warning("[IMAP] 메일 파싱 실패: %s", e)
-
-        mail.logout()
-        log.info("[IMAP] 수집 완료: %d건", len(articles))
-    except Exception as exc:
-        log.warning("[IMAP] 연결 실패: %s", exc)
-
-    return articles
-
-
-# ──────────────────────────────────────────────
-# 중복 제거
-# ──────────────────────────────────────────────
-
 def deduplicate(articles: list[dict]) -> list[dict]:
     unique = []
     for candidate in articles:
@@ -352,10 +183,6 @@ def deduplicate(articles: list[dict]) -> list[dict]:
         log.info("중복 제거: %d건 → %d건", len(articles), len(unique))
     return unique
 
-
-# ──────────────────────────────────────────────
-# 5지표 스코어링
-# ──────────────────────────────────────────────
 
 def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
     if not articles:
@@ -400,14 +227,9 @@ def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
                  "·".join(a["indicators"]),
                  a["title"][:60])
 
-    # 지표 수 내림차순 정렬
     scored.sort(key=lambda x: x["indicator_count"], reverse=True)
     return scored
 
-
-# ──────────────────────────────────────────────
-# 요약 생성
-# ──────────────────────────────────────────────
 
 class _TextExtractor(HTMLParser):
     def __init__(self):
@@ -471,12 +293,7 @@ def summarize_article(client: Anthropic, article: dict) -> str:
         return article["title"]
 
 
-# ──────────────────────────────────────────────
-# Discord #auto-candidates 카드 빌드
-# ──────────────────────────────────────────────
-
 def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
-    """헤더 1개 + 후보 1건당 1메시지. 큐레이션 스테이징용."""
     messages = [header]
     for a in candidates:
         count = a["indicator_count"]
@@ -495,18 +312,6 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
     return messages if len(messages) > 1 else []
 
 
-_DEAL_RE = re.compile(
-    r'\b(acqui|merger|acquis|M&A|IPO|funding|invest|raises?\s+\$|'
-    r'series\s+[A-E]\b|valuation|stake|buyout|takeover|'
-    r'인수|합병|투자|펀딩|상장|밸류에이션|지분|매각)\b',
-    re.I
-)
-
-def _is_deal(article: dict) -> bool:
-    text = article.get("title", "") + " " + article.get("body", "")[:300]
-    return bool(_DEAL_RE.search(text))
-
-
 def send_to_discord(webhook_url: str, content: str) -> None:
     payload = {"content": content[:2000], "flags": 4}
     response = requests.post(webhook_url, json=payload, timeout=15)
@@ -514,10 +319,6 @@ def send_to_discord(webhook_url: str, content: str) -> None:
         raise RuntimeError(f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}")
     log.info("Discord 전송 완료 (HTTP %d)", response.status_code)
 
-
-# ──────────────────────────────────────────────
-# 메인
-# ──────────────────────────────────────────────
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -531,26 +332,19 @@ def main() -> None:
 
     client = Anthropic(api_key=api_key)
 
-    # 수집: RSS + IMAP 통합
-    rss_articles = fetch_rss_articles()
-    email_articles = fetch_email_articles()
-    all_articles = rss_articles + email_articles
-
-    if not all_articles:
+    articles = fetch_rss_articles()
+    if not articles:
         log.info("수집된 신호 없음 — 전송 생략")
         return
 
-    articles = deduplicate(all_articles)
+    articles = deduplicate(articles)
     articles = score_vibe(client, articles)
 
-    # 컷오프 필터
     candidates = [a for a in articles if a["indicator_count"] >= INDICATOR_CUTOFF]
     if not candidates:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
-    # 소스 다양성 보장: 소스당 1건, 지표 수 내림차순
-    # 채널 간 중복 제거: 이전 채널이 이미 선택한 제목 로드
     seen_file = os.environ.get("SEEN_FILE", ".seen-titles.txt")
     seen_titles: list[str] = []
     if os.path.exists(seen_file):
@@ -564,7 +358,6 @@ def main() -> None:
 
     candidates = [a for a in candidates if not _is_cross_dup(a["title"])]
 
-    # 소스 다양성 보장: 소스당 1건
     seen_sources: set[str] = set()
     diverse: list[dict] = []
     for a in candidates:
@@ -582,34 +375,19 @@ def main() -> None:
                 break
     selected = diverse[:MAX_CANDIDATES]
     log.info("소스 다양성 적용: %d개 소스 → %d건 선택", len(seen_sources), len(selected))
+
     for a in selected:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    deals_webhook = os.environ.get("DISCORD_DEALS_WEBHOOK", "")
-    deal_items = [a for a in selected if _is_deal(a)]
-    vibe_items  = [a for a in selected if not _is_deal(a)]
-    log.info("딜 분류: 딜 %d건 / Vibe %d건", len(deal_items), len(vibe_items))
+    messages = build_discord_messages(selected, _get_header())
+    if not messages:
+        return
+    for i, msg in enumerate(messages):
+        send_to_discord(webhook_url, msg)
+        if i < len(messages) - 1:
+            time.sleep(1)
 
-    import time
-
-    def _send_batch(items: list[dict], hook: str, header: str) -> None:
-        if not items or not hook:
-            return
-        msgs = build_discord_messages(items, header)
-        if not msgs:
-            return
-        for i, msg in enumerate(msgs):
-            send_to_discord(hook, msg)
-            if i < len(msgs) - 1:
-                time.sleep(1)
-
-    today = datetime.date.today().strftime("%Y-%m-%d")
-    _send_batch(vibe_items, webhook_url, _get_header())
-    _send_batch(deal_items, deals_webhook,
-                f"💰 **투자·M&A | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-
-    # 선택된 제목을 seen-titles에 추가 (다음 채널 중복 제거용)
     with open(seen_file, "a", encoding="utf-8") as f:
         for a in selected:
             f.write(a["title"] + "\n")

@@ -1,27 +1,23 @@
 """
 China Ent & Culture — Vibe Signal Collector
 ---------------------------------------------
-중국 청년문화·서브컬처·도시 씬 소스에서 Vibe 후보를 수집해 #auto-candidates로 전달.
-소스: RSS(Radii·Sixth Tone·씬 매체) + IMAP(tmifmdj vibe/cn-asia 메일)
+중국 청년문화·서브컬처·도시 씬 소스에서 Vibe 후보를 수집.
+DISCORD_CHINA_ASIA_WEBHOOK
 스코어링: Vibe & Signal 밀도 5지표
 
 환경변수:
-  ANTHROPIC_API_KEY                  Claude API 키
-  DISCORD_AUTO_CANDIDATES_WEBHOOK    Discord #auto-candidates 웹훅
-  GMAIL_USER                         tmifmdj@gmail.com
-  GMAIL_APP_PASS                     Gmail 앱 비밀번호
+  ANTHROPIC_API_KEY        Claude API 키
+  DISCORD_CHINA_ASIA_WEBHOOK  Discord 웹훅
 """
 
 import os
 import re
 import html
-import email
-import imaplib
 import json
 import logging
 import datetime
+import time
 from difflib import SequenceMatcher
-from email.header import decode_header
 from html.parser import HTMLParser
 
 import feedparser
@@ -32,26 +28,14 @@ from dateutil import parser as dateparser
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────
-# Vibe RSS 소스 — 중국 청년문화·도시·씬 (Signal 후행 재경 소스 제거)
-# ──────────────────────────────────────────────
-
 RSS_SOURCES = [
-    # 중국 청년문화·서브컬처 (핵심)
     ("Radii",          "https://radii.co/feed/"),
     ("Sixth Tone",     "https://www.sixthtone.com/rss"),
-    # 중국 테크·소비 트렌드
     ("Pandaily",       "https://pandaily.com/feed/"),
     ("TechNode",       "https://technode.com/feed/"),
     ("PingWest",       "https://www.pingwest.com/feed"),
-    # 동남아·아시아 도시
-    ("Rest of World",  "https://restofworld.org/feed/"),
-    ("Coconuts",       "https://coconuts.co/feed/"),
-    ("SCMP Lifestyle", "https://www.scmp.com/rss/94/feed"),
-    # Reddit 중국·C-pop 커뮤니티
     ("r/cpop",         "https://www.reddit.com/r/cpop/.rss"),
     ("r/China_irl",    "https://www.reddit.com/r/China_irl/.rss"),
-    # Soompi·K-pop 제거 — 영어 음악 채널로 이동
 ]
 
 HOURS_WINDOW = 48
@@ -60,10 +44,6 @@ MAX_PER_SOURCE = 3
 INDICATOR_CUTOFF = 2
 INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
-
-# ──────────────────────────────────────────────
-# 5지표 스코어링 프롬프트
-# ──────────────────────────────────────────────
 
 VIBE_SCORE_PROMPT = (
     "아래 신호(기사/콘텐츠) 목록을 보고 각각에 대해 Vibe & Signal 밀도 5지표를 채점하라.\n\n"
@@ -94,10 +74,6 @@ SUMMARY_SYSTEM_PROMPT = (
 
 BATCH_SIZE = 15
 
-
-# ──────────────────────────────────────────────
-# RSS 수집
-# ──────────────────────────────────────────────
 
 def _parse_entry_time(entry) -> datetime.datetime | None:
     for attr in ("published_parsed", "updated_parsed"):
@@ -157,138 +133,6 @@ def fetch_rss_articles() -> list[dict]:
     return articles
 
 
-# ──────────────────────────────────────────────
-# IMAP 수집 (tmifmdj 구독 메일)
-# ──────────────────────────────────────────────
-
-def _decode_header_value(value: str) -> str:
-    parts = decode_header(value)
-    result = []
-    for part, charset in parts:
-        if isinstance(part, bytes):
-            result.append(part.decode(charset or "utf-8", errors="replace"))
-        else:
-            result.append(str(part))
-    return "".join(result)
-
-
-_SKIP_URL_PATTERNS = re.compile(
-    r'(unsubscribe|tracking|pixel|open\.php|click\.php|mailto:|1x1|'
-    r'list-manage|mailchimp|sendgrid|list\.hubspot|email\.mg\.|'
-    r'\.(png|jpg|gif|ico|svg|woff|css|js)\b)',
-    re.I
-)
-
-def _extract_email_url(msg) -> str:
-    html_body = ""
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/html":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    html_body = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
-                    break
-    else:
-        if msg.get_content_type() == "text/html":
-            payload = msg.get_payload(decode=True)
-            if payload:
-                html_body = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-    if not html_body:
-        return ""
-    urls = re.findall(r'href=["\']?(https://[^\s"\'<>]{20,})["\']?', html_body)
-    for url in urls:
-        if _SKIP_URL_PATTERNS.search(url):
-            continue
-        path = url.split("/", 3)[3] if url.count("/") >= 3 else ""
-        if len(path) < 3:
-            continue
-        return url.split("?")[0]
-    return ""
-
-
-def _extract_email_text(msg) -> str:
-    text_plain = []
-    text_html = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            ct = part.get_content_type()
-            if ct == "text/plain":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    text_plain.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
-            elif ct == "text/html":
-                payload = part.get_payload(decode=True)
-                if payload:
-                    text_html.append(payload.decode(part.get_content_charset() or "utf-8", errors="replace"))
-    else:
-        payload = msg.get_payload(decode=True)
-        if payload:
-            decoded = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
-            if msg.get_content_type() == "text/plain":
-                text_plain.append(decoded)
-            else:
-                text_html.append(decoded)
-
-    if text_plain:
-        return " ".join(text_plain)[:800]
-
-    raw = " ".join(text_html)
-    cleaned = re.sub(r"<[^>]+>", " ", raw)
-    return html.unescape(re.sub(r"\s+", " ", cleaned)).strip()[:800]
-
-
-def fetch_email_articles() -> list[dict]:
-    gmail_user = os.environ.get("GMAIL_USER", "")
-    gmail_pass = os.environ.get("GMAIL_APP_PASS", "")
-    if not gmail_user or not gmail_pass:
-        log.info("GMAIL 환경변수 없음 — 이메일 수집 스킵")
-        return []
-
-    articles = []
-    try:
-        mail = imaplib.IMAP4_SSL("imap.gmail.com")
-        mail.login(gmail_user, gmail_pass)
-        mail.select("inbox")
-
-        since_date = (datetime.date.today() - datetime.timedelta(days=2)).strftime("%d-%b-%Y")
-        _, data = mail.search(None, "SINCE", since_date)
-        msg_ids = data[0].split() if data[0] else []
-        log.info("[IMAP] 대상 메일: %d건", len(msg_ids))
-
-        for msg_id in msg_ids[-50:]:
-            try:
-                _, msg_data = mail.fetch(msg_id, "(RFC822)")
-                raw_email = msg_data[0][1]
-                msg = email.message_from_bytes(raw_email)
-                subject = _decode_header_value(msg.get("Subject", ""))
-                sender = _decode_header_value(msg.get("From", ""))
-                body = _extract_email_text(msg)
-                url = _extract_email_url(msg)
-                if not subject or not body or len(body) < 50:
-                    continue
-                articles.append({
-                    "source": f"📧 {sender[:60]}",
-                    "title": subject[:200],
-                    "url": url,
-                    "body": body,
-                    "published": "",
-                    "channel": "vibe/cn-asia",
-                })
-            except Exception as e:
-                log.warning("[IMAP] 메일 파싱 실패: %s", e)
-
-        mail.logout()
-        log.info("[IMAP] 수집 완료: %d건", len(articles))
-    except Exception as exc:
-        log.warning("[IMAP] 연결 실패: %s", exc)
-
-    return articles
-
-
-# ──────────────────────────────────────────────
-# 중복 제거
-# ──────────────────────────────────────────────
-
 def deduplicate(articles: list[dict]) -> list[dict]:
     unique = []
     for candidate in articles:
@@ -303,10 +147,6 @@ def deduplicate(articles: list[dict]) -> list[dict]:
         log.info("중복 제거: %d건 → %d건", len(articles), len(unique))
     return unique
 
-
-# ──────────────────────────────────────────────
-# 5지표 스코어링
-# ──────────────────────────────────────────────
 
 def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
     if not articles:
@@ -354,10 +194,6 @@ def score_vibe(client: Anthropic, articles: list[dict]) -> list[dict]:
     scored.sort(key=lambda x: x["indicator_count"], reverse=True)
     return scored
 
-
-# ──────────────────────────────────────────────
-# 요약
-# ──────────────────────────────────────────────
 
 class _TextExtractor(HTMLParser):
     def __init__(self):
@@ -421,10 +257,6 @@ def summarize_article(client: Anthropic, article: dict) -> str:
         return article["title"]
 
 
-# ──────────────────────────────────────────────
-# Discord #auto-candidates 카드
-# ──────────────────────────────────────────────
-
 def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
     messages = [header]
     for a in candidates:
@@ -444,18 +276,6 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
     return messages if len(messages) > 1 else []
 
 
-_DEAL_RE = re.compile(
-    r'\b(acqui|merger|acquis|M&A|IPO|funding|invest|raises?\s+\$|'
-    r'series\s+[A-E]\b|valuation|stake|buyout|takeover|'
-    r'인수|합병|투자|펀딩|상장|밸류에이션|지분|매각)\b',
-    re.I
-)
-
-def _is_deal(article: dict) -> bool:
-    text = article.get("title", "") + " " + article.get("body", "")[:300]
-    return bool(_DEAL_RE.search(text))
-
-
 def send_to_discord(webhook_url: str, content: str) -> None:
     payload = {"content": content[:2000], "flags": 4}
     response = requests.post(webhook_url, json=payload, timeout=15)
@@ -463,10 +283,6 @@ def send_to_discord(webhook_url: str, content: str) -> None:
         raise RuntimeError(f"Discord 웹훅 실패 (HTTP {response.status_code}): {response.text[:200]}")
     log.info("Discord 전송 완료 (HTTP %d)", response.status_code)
 
-
-# ──────────────────────────────────────────────
-# 메인
-# ──────────────────────────────────────────────
 
 def main() -> None:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -478,16 +294,14 @@ def main() -> None:
         raise EnvironmentError("DISCORD_CHINA_ASIA_WEBHOOK 환경변수가 설정되지 않았습니다.")
 
     client = Anthropic(api_key=api_key)
+    today = datetime.date.today().strftime("%Y-%m-%d")
 
-    rss_articles = fetch_rss_articles()
-    email_articles = fetch_email_articles()
-    all_articles = rss_articles + email_articles
-
-    if not all_articles:
+    articles = fetch_rss_articles()
+    if not articles:
         log.info("수집된 신호 없음 — 전송 생략")
         return
 
-    articles = deduplicate(all_articles)
+    articles = deduplicate(articles)
     articles = score_vibe(client, articles)
 
     candidates = [a for a in articles if a["indicator_count"] >= INDICATOR_CUTOFF]
@@ -525,33 +339,19 @@ def main() -> None:
                 break
     selected = diverse[:MAX_CANDIDATES]
     log.info("소스 다양성 적용: %d개 소스 → %d건 선택", len(seen_sources), len(selected))
+
     for a in selected:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    deals_webhook = os.environ.get("DISCORD_DEALS_WEBHOOK", "")
-    deal_items = [a for a in selected if _is_deal(a)]
-    vibe_items  = [a for a in selected if not _is_deal(a)]
-    log.info("딜 분류: 딜 %d건 / Vibe %d건", len(deal_items), len(vibe_items))
-
-    import time
-    today = datetime.date.today().strftime("%Y-%m-%d")
-
-    def _send_batch(items, hook, header):
-        if not items or not hook:
-            return
-        msgs = build_discord_messages(items, header)
-        if not msgs:
-            return
-        for i, msg in enumerate(msgs):
-            send_to_discord(hook, msg)
-            if i < len(msgs) - 1:
-                time.sleep(1)
-
-    _send_batch(vibe_items, webhook_url,
-                f"🀄 **China & Asia Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    _send_batch(deal_items, deals_webhook,
-                f"💰 **투자·M&A | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    header = f"🀄 **중국 엔터 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    messages = build_discord_messages(selected, header)
+    if not messages:
+        return
+    for i, msg in enumerate(messages):
+        send_to_discord(webhook_url, msg)
+        if i < len(messages) - 1:
+            time.sleep(1)
 
     with open(seen_file, "a", encoding="utf-8") as f:
         for a in selected:
