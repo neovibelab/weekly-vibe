@@ -70,6 +70,7 @@ PM_SOURCES = [
 # 48시간 이내 신호만 수집
 HOURS_WINDOW = 48
 MAX_CANDIDATES = 5
+MAX_PER_SOURCE = 3   # 수집 단계: 소스당 최대 수집 건수
 
 def _get_session() -> str:
     override = os.environ.get("SESSION", "").upper()
@@ -164,6 +165,8 @@ def fetch_rss_articles() -> list[dict]:
             feed = feedparser.parse(url, request_headers=headers)
             count = 0
             for entry in feed.entries:
+                if count >= MAX_PER_SOURCE:
+                    break
                 pub_time = _parse_entry_time(entry)
                 if pub_time is None or pub_time < cutoff:
                     continue
@@ -494,8 +497,25 @@ def main() -> None:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
-    # 상위 N건 요약
-    selected = candidates[:MAX_CANDIDATES]
+    # 소스 다양성 보장: 소스당 1건, 지표 수 내림차순
+    seen_sources: set[str] = set()
+    diverse: list[dict] = []
+    for a in candidates:                          # 이미 지표 수 내림차순 정렬됨
+        src = a["source"]
+        if src not in seen_sources:
+            seen_sources.add(src)
+            diverse.append(a)
+        if len(diverse) >= MAX_CANDIDATES:
+            break
+    # 소스 다양성 적용 후 부족하면 남은 후보로 보충
+    if len(diverse) < MAX_CANDIDATES:
+        for a in candidates:
+            if a not in diverse:
+                diverse.append(a)
+            if len(diverse) >= MAX_CANDIDATES:
+                break
+    selected = diverse[:MAX_CANDIDATES]
+    log.info("소스 다양성 적용: %d개 소스 → %d건 선택", len(seen_sources), len(selected))
     for a in selected:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])

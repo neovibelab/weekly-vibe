@@ -56,6 +56,7 @@ RSS_SOURCES = [
 
 HOURS_WINDOW = 48
 MAX_CANDIDATES = 5
+MAX_PER_SOURCE = 3
 INDICATOR_CUTOFF = 2
 INDICATOR_HIGHLIGHT = 3
 DUPLICATE_THRESHOLD = 0.80
@@ -129,6 +130,8 @@ def fetch_rss_articles() -> list[dict]:
             feed = feedparser.parse(url, request_headers=headers)
             count = 0
             for entry in feed.entries:
+                if count >= MAX_PER_SOURCE:
+                    break
                 pub_time = _parse_entry_time(entry)
                 if pub_time is None or pub_time < cutoff:
                     continue
@@ -445,7 +448,23 @@ def main() -> None:
         log.info("5지표 %d개 이상 신호 없음 — 전송 생략", INDICATOR_CUTOFF)
         return
 
-    selected = candidates[:MAX_CANDIDATES]
+    seen_sources: set[str] = set()
+    diverse: list[dict] = []
+    for a in candidates:
+        src = a["source"]
+        if src not in seen_sources:
+            seen_sources.add(src)
+            diverse.append(a)
+        if len(diverse) >= MAX_CANDIDATES:
+            break
+    if len(diverse) < MAX_CANDIDATES:
+        for a in candidates:
+            if a not in diverse:
+                diverse.append(a)
+            if len(diverse) >= MAX_CANDIDATES:
+                break
+    selected = diverse[:MAX_CANDIDATES]
+    log.info("소스 다양성 적용: %d개 소스 → %d건 선택", len(seen_sources), len(selected))
     for a in selected:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
