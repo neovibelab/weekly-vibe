@@ -64,6 +64,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: seen-titles
+          path: .
         continue-on-error: true
       - name: China & Asia Vibe 수집
         env:
@@ -98,6 +99,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: seen-titles
+          path: .
         continue-on-error: true
       - name: Z-Gen & City Vibe 수집
         env:
