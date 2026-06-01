@@ -86,8 +86,9 @@ VIBE_SCORE_PROMPT = (
 SUMMARY_SYSTEM_PROMPT = (
     "당신은 중국·동아시아 청년문화 Vibe 신호 분석가입니다.\n"
     "주어진 신호를 **한 문장(40자 이내)**으로 기술합니다.\n"
-    "어떤 결·균열·교차가 감지되는가를 한 줄로. 도시명·씬명 포함 권장.\n"
-    "한국어. Signal 후행 분석 금지."
+    "어떤 결·균열·교차가 감지되는가를 한 줄로.\n"
+    "본문에 도시·장소가 실제로 언급될 때만 명시. 없으면 쓰지 않는다.\n"
+    "한국어. Signal 후행 분석 금지. 사실에 없는 내용 금지."
 )
 
 BATCH_SIZE = 15
@@ -387,25 +388,22 @@ def summarize_article(client: Anthropic, article: dict) -> str:
 # ──────────────────────────────────────────────
 
 def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
-    lines = [header, ""]
+    messages = [header]
     for a in candidates:
         count = a["indicator_count"]
         if count < INDICATOR_CUTOFF:
             continue
         badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
         indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
-        title = a["title"][:80]
+        title = a["title"][:100]
         url = a.get("url", "")
         title_part = f"[**{title}**]({url})" if url else f"**{title}**"
-        summary = (a.get("summary", "") or "").strip()[:80]
-        lines.append(f"{badge} {title_part} `{indicators}`")
+        summary = (a.get("summary", "") or "").strip()[:120]
+        msg = f"{badge} {title_part} `{indicators}`"
         if summary:
-            lines.append(f"> {summary}")
-        lines.append("")
-    content = "\n".join(lines).strip()
-    if len(content) <= len(header) + 5:
-        return []
-    return [content[:1900]]
+            msg += f"\n> {summary}"
+        messages.append(msg[:1900])
+    return messages if len(messages) > 1 else []
 
 
 def send_to_discord(webhook_url: str, content: str) -> None:
@@ -459,8 +457,11 @@ def main() -> None:
         log.info("Discord 카드 빌드 결과 없음 — 전송 생략")
         return
 
-    for msg in messages:
+    import time
+    for i, msg in enumerate(messages):
         send_to_discord(webhook_url, msg)
+        if i < len(messages) - 1:
+            time.sleep(1)
 
 
 if __name__ == "__main__":
