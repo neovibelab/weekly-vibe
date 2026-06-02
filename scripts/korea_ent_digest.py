@@ -29,15 +29,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    # 4대 언론 엔터·문화 섹션 — 스포츠신문(OSEN·스타뉴스·스포츠조선 등) 도메인 명시 제외
-    ("조선 문화",   "https://news.google.com/rss/search?q=문화+엔터+음악+분석+-site:sportschosun.com+site:chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
-    ("중앙 문화",   "https://news.google.com/rss/search?q=문화+음악+엔터+분석+-site:isplus.com+site:joongang.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("경향 문화",   "https://news.google.com/rss/search?q=문화+엔터+음악+-스포츠+site:khan.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    ("한겨레 문화", "https://news.google.com/rss/search?q=문화+엔터+음악+분석+site:hani.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
-    # 음악 웹진·매거진
-    ("Weiv",        "https://www.weiv.co.kr/rss"),
-    ("GQ Korea",    "https://www.gqkorea.co.kr/feed/"),
-    ("Vogue Korea", "https://www.vogue.co.kr/feed/"),
+    # 4대 언론 엔터·문화 분석 기사 — 스포츠신문 도메인 제외, 분석·칼럼 키워드 강화
+    ("조선 문화",   "https://news.google.com/rss/search?q=(분석+OR+칼럼+OR+특집+OR+리뷰)+엔터+OR+음악+OR+케이팝+-site:sportschosun.com+site:chosun.com&hl=ko&gl=KR&ceid=KR:ko"),
+    ("중앙 문화",   "https://news.google.com/rss/search?q=(분석+OR+칼럼+OR+특집+OR+리뷰)+문화+OR+음악+OR+케이팝+-site:isplus.com+site:joongang.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("경향 문화",   "https://news.google.com/rss/search?q=(분석+OR+칼럼+OR+리뷰)+문화+OR+음악+OR+엔터+site:khan.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    ("한겨레 문화", "https://news.google.com/rss/search?q=(분석+OR+칼럼+OR+특집+OR+리뷰)+문화+OR+음악+OR+케이팝+site:hani.co.kr&hl=ko&gl=KR&ceid=KR:ko"),
+    # Reddit K-pop 분석 커뮤니티
+    ("r/kpop",        "https://www.reddit.com/r/kpop/.rss"),
+    ("r/koreanmusic", "https://www.reddit.com/r/koreanmusic/.rss"),
 ]
 
 HOURS_WINDOW = 48

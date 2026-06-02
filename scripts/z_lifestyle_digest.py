@@ -37,6 +37,9 @@ RSS_SOURCES = [
     ("Business of Fashion", "https://www.businessoffashion.com/arc/outboundfeeds/rss/"),
     ("Cool Hunting",        "https://www.coolhunting.com/feed/"),
     ("Aftermath",           "https://aftermath.site/rss"),
+    # 한국 패션·라이프스타일 매거진
+    ("GQ Korea",            "https://www.gqkorea.co.kr/feed/"),
+    ("Vogue Korea",         "https://www.vogue.co.kr/feed/"),
     # 비서구권 도시·소비·동아시아 문화
     ("Radii",               "https://radii.co/feed/"),
     ("Rest of World",       "https://restofworld.org/feed/"),

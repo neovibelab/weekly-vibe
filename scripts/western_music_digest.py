@@ -29,14 +29,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    ("Pitchfork News",        "https://pitchfork.com/feed/feed-news/rss"),
-    ("The Line of Best Fit",  "https://www.thelineofbestfit.com/feed"),
-    ("Bandcamp Daily",        "https://daily.bandcamp.com/feed"),
-    ("Stereogum",             "https://www.stereogum.com/feed/"),
-    ("FACT Magazine",         "https://www.factmag.com/feed/"),
-    ("Attack Magazine",       "https://www.attackmagazine.com/feed/"),
-    ("DJ Mag",                "https://djmag.com/rss.xml"),
-    ("Mixmag",                "https://mixmag.net/rss.xml"),
+    # EDM·클럽·일렉트로닉 씬
+    ("DJ Mag",          "https://djmag.com/rss.xml"),
+    ("Mixmag",          "https://mixmag.net/rss.xml"),
+    ("Attack Magazine", "https://www.attackmagazine.com/feed/"),
+    ("FACT Magazine",   "https://www.factmag.com/feed/"),
+    # 밴드·펑크·얼터너티브·인디 씬
+    ("NME",             "https://www.nme.com/news/music/feed"),
+    ("Alt Press",       "https://www.altpress.com/feed/"),
+    ("Clash Music",     "https://www.clashmusic.com/feed/"),
+    ("Consequence",     "https://consequenceofsound.net/feed/"),
+    ("Loudwire",        "https://www.loudwire.com/feed/"),
+    # 인디·언더그라운드
+    ("Bandcamp Daily",  "https://daily.bandcamp.com/feed"),
+    ("The Line of Best Fit", "https://www.thelineofbestfit.com/feed"),
 ]
 
 HOURS_WINDOW = 48

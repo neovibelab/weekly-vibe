@@ -65,8 +65,8 @@ VIBE_SCORE_PROMPT = (
 )
 
 SUMMARY_SYSTEM_PROMPT = (
-    "당신은 AI 음악·기술 Vibe 신호 분석가입니다. "
-    "200자 이내 2~3문장. 레이블 없이 이어서. 씬·기술·흐름 관점. 본문에 있는 내용만. 한국어."
+    "당신은 AI 음악 Vibe 신호 분석가입니다. "
+    "200자 이내 2~3문장. 레이블 없이 이어서. AI 음악 씬·도구·흐름 관점. 본문에 있는 내용만. 한국어."
 )
 
 BATCH_SIZE = 15
@@ -368,7 +368,7 @@ def main() -> None:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
 
-    header = f"🤖 **AI 음악·기술 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    header = f"🤖 **AI 음악 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
     if not messages:
         return
