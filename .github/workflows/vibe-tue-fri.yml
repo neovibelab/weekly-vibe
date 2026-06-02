@@ -1,0 +1,56 @@
+name: Vibe 화·금 (서양음악 + 한국엔터)
+
+on:
+  schedule:
+    - cron: '0 1 * * 2,5'   # 화·금 10:00 KST
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  SEEN_FILE: seen-titles.txt
+
+jobs:
+  western-music:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install feedparser anthropic requests python-dateutil
+      - name: 서양 음악·씬 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/western_music_digest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
+
+  korea-ent:
+    needs: western-music
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install feedparser anthropic requests python-dateutil
+      - uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+          path: .
+        continue-on-error: true
+      - name: 한국 엔터 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_KOREA_ENT_WEBHOOK: ${{ secrets.DISCORD_KOREA_ENT_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/korea_ent_digest.py

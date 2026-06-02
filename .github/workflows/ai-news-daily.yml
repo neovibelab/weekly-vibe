@@ -1,9 +1,7 @@
-name: Vibe 신호 수집 데일리
+name: Vibe 전체 수동 테스트 (스케줄 없음)
+# 스케줄은 vibe-daily/tue-fri/wed-sat/mon-thu.yml로 분리됨
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST (00:00 UTC)
-    - cron: '0 6 * * *'   # 매일 15:00 KST (06:00 UTC)
   workflow_dispatch:
 
 env:

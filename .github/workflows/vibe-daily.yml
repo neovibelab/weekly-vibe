@@ -1,0 +1,56 @@
+name: Vibe 매일 (AI음악 + 투자·M&A)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # 매일 09:00 KST
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  SEEN_FILE: seen-titles.txt
+
+jobs:
+  ai-music:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install feedparser anthropic requests python-dateutil
+      - name: AI 음악 Vibe 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/ai_music_digest.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seen-titles
+          path: ${{ env.SEEN_FILE }}
+          if-no-files-found: warn
+          overwrite: true
+
+  deals:
+    needs: ai-music
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install feedparser anthropic requests python-dateutil
+      - uses: actions/download-artifact@v4
+        with:
+          name: seen-titles
+          path: .
+        continue-on-error: true
+      - name: 투자·M&A 수집
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/deals_digest.py

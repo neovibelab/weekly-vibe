@@ -348,7 +348,7 @@ def main() -> None:
     for i, msg in enumerate(messages):
         send_to_discord(webhook_url, msg)
         if i < len(messages) - 1:
-            time.sleep(1)
+            time.sleep(30)
 
 
 if __name__ == "__main__":

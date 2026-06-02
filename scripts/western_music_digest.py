@@ -367,7 +367,7 @@ def main() -> None:
     for i, msg in enumerate(messages):
         send_to_discord(webhook_url, msg)
         if i < len(messages) - 1:
-            time.sleep(1)
+            time.sleep(30)
 
     with open(seen_file, "a", encoding="utf-8") as f:
         for a in selected:
