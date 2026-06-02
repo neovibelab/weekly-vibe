@@ -309,6 +309,23 @@ def main() -> None:
         return
 
     articles = deduplicate(articles)
+
+    # AI 음악 전용 키워드 프리필터 — AI 무관 기사 제거
+    _AI_KW = re.compile(
+        r'\b(AI|artificial intelligence|generative|machine learning|'
+        r'LLM|GPT|diffusion|neural|인공지능|생성형|AI 음악|AI music|'
+        r'Suno|Udio|Boomy|AIVA|Soundraw|ElevenLabs|Stable Audio|'
+        r'MusicGen|copyright.*AI|AI.*copyright|royalt)\b',
+        re.I
+    )
+    before = len(articles)
+    articles = [a for a in articles
+                if _AI_KW.search(a["title"] + " " + a.get("body", "")[:300])]
+    log.info("AI 키워드 필터: %d건 → %d건", before, len(articles))
+    if not articles:
+        log.info("AI 관련 신호 없음 — 전송 생략")
+        return
+
     articles = score_vibe(client, articles)
 
     candidates = [a for a in articles if a["indicator_count"] >= INDICATOR_CUTOFF]
