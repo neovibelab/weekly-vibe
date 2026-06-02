@@ -261,7 +261,7 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
         count = a["indicator_count"]
         if count < INDICATOR_CUTOFF:
             continue
-        badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
+        badge = "🟢" if count >= INDICATOR_HIGHLIGHT else "🟡"
         indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
         title = a["title"][:100]
         url = a.get("url", "")

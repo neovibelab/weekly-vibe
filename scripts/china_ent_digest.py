@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 RSS_SOURCES = [
-    ("Radii",          "https://radii.co/feed/"),
+    # Radii → z_lifestyle로 이동 (동아시아·동남아 전반 커버, 중국 전용 아님)
     ("Sixth Tone",     "https://www.sixthtone.com/rss"),
     ("Pandaily",       "https://pandaily.com/feed/"),
     ("TechNode",       "https://technode.com/feed/"),
@@ -265,7 +265,7 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
         count = a["indicator_count"]
         if count < INDICATOR_CUTOFF:
             continue
-        badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
+        badge = "🟢" if count >= INDICATOR_HIGHLIGHT else "🟡"
         indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
         title = a["title"][:100]
         url = a.get("url", "")

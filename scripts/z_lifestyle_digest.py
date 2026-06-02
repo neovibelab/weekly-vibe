@@ -37,7 +37,8 @@ RSS_SOURCES = [
     ("Business of Fashion", "https://www.businessoffashion.com/arc/outboundfeeds/rss/"),
     ("Cool Hunting",        "https://www.coolhunting.com/feed/"),
     ("Aftermath",           "https://aftermath.site/rss"),
-    # 비서구권 도시·소비 (china에서 이동)
+    # 비서구권 도시·소비·동아시아 문화
+    ("Radii",               "https://radii.co/feed/"),
     ("Rest of World",       "https://restofworld.org/feed/"),
     ("SCMP Lifestyle",      "https://www.scmp.com/rss/94/feed"),
     # 아시아 도시
@@ -315,7 +316,7 @@ def build_discord_messages(candidates: list[dict], header: str) -> list[str]:
         count = a["indicator_count"]
         if count < INDICATOR_CUTOFF:
             continue
-        badge = "🔴" if count >= INDICATOR_HIGHLIGHT else "🟡"
+        badge = "🟢" if count >= INDICATOR_HIGHLIGHT else "🟡"
         indicators = "·".join(a["indicators"][:3]) if a["indicators"] else "—"
         city = a.get("city", "")
         city_tag = f" `{city}`" if city else ""
