@@ -130,15 +130,27 @@ def fetch_rss_articles() -> list[dict]:
     return articles
 
 
+def _is_dup(candidate: dict, kept: dict) -> bool:
+    """제목 OR 본문 유사도로 중복 판별."""
+    title_sim = SequenceMatcher(
+        None, candidate["title"].lower(), kept["title"].lower()
+    ).ratio()
+    if title_sim >= DUPLICATE_THRESHOLD:
+        return True
+    # 제목이 달라도 본문 앞부분이 유사하면 같은 사건 보도로 처리
+    body_c = candidate.get("body", "")[:200].lower()
+    body_k = kept.get("body", "")[:200].lower()
+    if len(body_c) > 50 and len(body_k) > 50:
+        body_sim = SequenceMatcher(None, body_c, body_k).ratio()
+        if body_sim >= 0.60:
+            return True
+    return False
+
+
 def deduplicate(articles: list[dict]) -> list[dict]:
     unique = []
     for candidate in articles:
-        title_c = candidate["title"].lower()
-        is_dup = any(
-            SequenceMatcher(None, title_c, kept["title"].lower()).ratio() >= DUPLICATE_THRESHOLD
-            for kept in unique
-        )
-        if not is_dup:
+        if not any(_is_dup(candidate, kept) for kept in unique):
             unique.append(candidate)
     removed = len(articles) - len(unique)
     if removed:
