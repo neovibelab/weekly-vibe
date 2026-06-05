@@ -358,7 +358,7 @@ def main() -> None:
 
     for a in selected:
         a["summary"] = summarize_article(client, a)
-        log.info("선택: [%d지표] %s", a["indicator_count"], a["title"][:60])
+        log.info("선택: [%d지표] %s | %s", a["indicator_count"], a["title"][:60], a.get("url", ""))
 
     header = f"🎵 **서양 음악·씬 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
