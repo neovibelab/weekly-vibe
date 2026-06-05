@@ -411,6 +411,7 @@ def main() -> None:
     for a in selected:
         a["summary"] = summarize_article(client, a)
         log.info("선택: [%d지표] %s | %s", a["indicator_count"], a["title"][:60], a.get("url", ""))
+        log.info("선택메타: %s", json.dumps({"summary": (a.get("summary") or "")[:200], "indicators": a.get("indicators", [])}, ensure_ascii=False))
 
     header = f"🌏 **Z세대·도시 Vibe | {today}**\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     messages = build_discord_messages(selected, header)
