@@ -1,186 +1,65 @@
-name: Vibe 전체 수동 테스트 (스케줄 없음)
-# 스케줄은 vibe-daily/tue-fri/wed-sat/mon-thu.yml로 분리됨
+name: Vibe 후보 수집 (매일)
+# v2: web_search 기반 통합 수집. 6개 주제를 단일 job에서 순차 실행.
+# 구 RSS 기반 스크립트(ai_music_digest.py 등)는 이 워크플로에서 더 이상 사용하지 않음.
 
 on:
+  schedule:
+    - cron: '0 0 * * *'   # 매일 09:00 KST
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  SEEN_FILE: seen-titles.txt   # 채널 간 중복 제거용 공유 파일
+  SEEN_FILE: seen-titles.txt
 
 jobs:
-  # ── 1st: AI·음악 ────────────────────────────────
-  ai-music:
+  collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: AI·음악 Vibe 수집
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_AI_NEWS_WEBHOOK: ${{ secrets.DISCORD_AI_NEWS_WEBHOOK }}
-          SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/ai_music_digest.py
-      - name: seen-titles 업로드
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seen-titles
-          path: ${{ env.SEEN_FILE }}
-          if-no-files-found: warn
-          overwrite: true
+      - run: pip install anthropic requests
 
-  # ── 2nd: 서양 음악·씬 (ai-music 완료 후) ─────────────
-  western-music:
-    needs: ai-music
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: seen-titles 다운로드
-        uses: actions/download-artifact@v4
-        with:
-          name: seen-titles
-          path: .
-        continue-on-error: true
-      - name: 서양 음악·씬 Vibe 수집
+      - name: 팬 행동
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_EN_MUSIC_WEBHOOK: ${{ secrets.DISCORD_EN_MUSIC_WEBHOOK }}
+          DISCORD_FAN_BEHAVIOR_WEBHOOK: ${{ secrets.DISCORD_FAN_BEHAVIOR_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/western_music_digest.py
-      - name: seen-titles 업로드
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seen-titles
-          path: ${{ env.SEEN_FILE }}
-          if-no-files-found: warn
-          overwrite: true
+        run: python scripts/vibe_search.py fan-behavior || echo "[warn] fan-behavior 실패"
 
-  # ── 3rd: 한국 엔터 (western-music 완료 후) ─────────────
-  korea-ent:
-    needs: western-music
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: seen-titles 다운로드
-        uses: actions/download-artifact@v4
-        with:
-          name: seen-titles
-          path: .
-        continue-on-error: true
-      - name: 한국 엔터 Vibe 수집
+      - name: 소비자 행동
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_KOREA_ENT_WEBHOOK: ${{ secrets.DISCORD_KOREA_ENT_WEBHOOK }}
+          DISCORD_CONSUMER_BEHAVIOR_WEBHOOK: ${{ secrets.DISCORD_CONSUMER_BEHAVIOR_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/korea_ent_digest.py
-      - name: seen-titles 업로드
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seen-titles
-          path: ${{ env.SEEN_FILE }}
-          if-no-files-found: warn
-          overwrite: true
+        run: python scripts/vibe_search.py consumer-behavior || echo "[warn] consumer-behavior 실패"
 
-  # ── 4th: 중국 엔터 (korea-ent 완료 후) ─────────────
-  china-ent:
-    needs: korea-ent
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: seen-titles 다운로드
-        uses: actions/download-artifact@v4
-        with:
-          name: seen-titles
-          path: .
-        continue-on-error: true
-      - name: China & Asia Vibe 수집
+      - name: 엔터업계 딜
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_CHINA_ASIA_WEBHOOK: ${{ secrets.DISCORD_CHINA_ASIA_WEBHOOK }}
+          DISCORD_ENT_DEALS_WEBHOOK: ${{ secrets.DISCORD_ENT_DEALS_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/china_ent_digest.py
-      - name: seen-titles 업로드
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seen-titles
-          path: ${{ env.SEEN_FILE }}
-          if-no-files-found: warn
-          overwrite: true
+        run: python scripts/vibe_search.py ent-deals || echo "[warn] ent-deals 실패"
 
-  # ── 5th: Z세대·도시 (china-ent 완료 후) ─────────────
-  z-lifestyle:
-    needs: china-ent
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: seen-titles 다운로드
-        uses: actions/download-artifact@v4
-        with:
-          name: seen-titles
-          path: .
-        continue-on-error: true
-      - name: Z-Gen & City Vibe 수집
+      - name: IP 비즈니스 사례
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_AUTO_CANDIDATES_WEBHOOK: ${{ secrets.DISCORD_AUTO_CANDIDATES_WEBHOOK }}
+          DISCORD_IP_BUSINESS_WEBHOOK: ${{ secrets.DISCORD_IP_BUSINESS_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/z_lifestyle_digest.py
-      - name: seen-titles 업로드
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seen-titles
-          path: ${{ env.SEEN_FILE }}
-          if-no-files-found: warn
-          overwrite: true
+        run: python scripts/vibe_search.py ip-business || echo "[warn] ip-business 실패"
 
-  # ── 6th: 투자·M&A (z-lifestyle 완료 후, seen-titles 독립) ──
-  deals:
-    needs: z-lifestyle
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: 의존 라이브러리 설치
-        run: pip install feedparser anthropic requests python-dateutil
-      - name: 투자·M&A Deals 수집
+      - name: 아티스트 오너십
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_DEALS_WEBHOOK: ${{ secrets.DISCORD_DEALS_WEBHOOK }}
-        run: python scripts/deals_digest.py
+          DISCORD_ARTIST_OWNERSHIP_WEBHOOK: ${{ secrets.DISCORD_ARTIST_OWNERSHIP_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/vibe_search.py artist-ownership || echo "[warn] artist-ownership 실패"
+
+      - name: 테크 이슈
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          DISCORD_TECH_ISSUES_WEBHOOK: ${{ secrets.DISCORD_TECH_ISSUES_WEBHOOK }}
+          SEEN_FILE: ${{ env.SEEN_FILE }}
+        run: python scripts/vibe_search.py tech-issues || echo "[warn] tech-issues 실패"

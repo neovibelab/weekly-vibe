@@ -1,8 +1,7 @@
-name: Vibe 월·목 (Z세대·도시)
+name: "[deprecated] Vibe 월·목 (Z세대·도시)"
+# deprecated 2026-06-08: ai-news-daily.yml (vibe_search.py v2)로 통합됨
 
 on:
-  schedule:
-    - cron: '0 1 * * 1,4'   # 월·목 10:00 KST
   workflow_dispatch:
 
 env:

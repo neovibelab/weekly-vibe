@@ -1,8 +1,7 @@
-name: Vibe 매일 (AI음악 + 투자·M&A)
+name: "[deprecated] Vibe 매일 (AI음악 + 투자·M&A)"
+# deprecated 2026-06-08: ai-news-daily.yml (vibe_search.py v2)로 통합됨
 
 on:
-  schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST
   workflow_dispatch:
 
 env:

@@ -1,8 +1,7 @@
-name: Vibe 수·토 (중국 엔터)
+name: "[deprecated] Vibe 수·토 (중국 엔터)"
+# deprecated 2026-06-08: ai-news-daily.yml (vibe_search.py v2)로 통합됨
 
 on:
-  schedule:
-    - cron: '0 1 * * 3,6'   # 수·토 10:00 KST
   workflow_dispatch:
 
 env:
