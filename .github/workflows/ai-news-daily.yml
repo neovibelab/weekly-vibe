@@ -1,10 +1,10 @@
 name: Vibe 후보 수집 (매일)
-# v2: web_search 기반 통합 수집. 6개 주제를 단일 job에서 순차 실행.
-# 구 RSS 기반 스크립트(ai_music_digest.py 등)는 이 워크플로에서 더 이상 사용하지 않음.
+# v3: 지역·언어 기반 수집. 5개 지역을 단일 job에서 순차 실행.
+# 한국(한국어)·글로벌(영어)·중국(중국어)·일본(일본어)·동남아(영어+현지)
 
 on:
   schedule:
-    - cron: '0 0 * * *'   # 매일 09:00 KST
+    - cron: '0 22 * * *'   # 매일 07:00 KST (전일 22:00 UTC) — 8AM 배달용
   workflow_dispatch:
 
 env:
@@ -22,44 +22,37 @@ jobs:
           python-version: '3.12'
       - run: pip install anthropic requests
 
-      - name: 팬 행동
+      - name: 한국
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_FAN_BEHAVIOR_WEBHOOK: ${{ secrets.DISCORD_FAN_BEHAVIOR_WEBHOOK }}
+          DISCORD_KOREA_WEBHOOK: ${{ secrets.DISCORD_KOREA_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py fan-behavior || echo "[warn] fan-behavior 실패"
+        run: python scripts/vibe_search.py korea || echo "[warn] korea 실패"
 
-      - name: 소비자 행동
+      - name: 글로벌(영어)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_CONSUMER_BEHAVIOR_WEBHOOK: ${{ secrets.DISCORD_CONSUMER_BEHAVIOR_WEBHOOK }}
+          DISCORD_GLOBAL_EN_WEBHOOK: ${{ secrets.DISCORD_GLOBAL_EN_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py consumer-behavior || echo "[warn] consumer-behavior 실패"
+        run: python scripts/vibe_search.py global-en || echo "[warn] global-en 실패"
 
-      - name: 엔터업계 딜
+      - name: 중국
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_ENT_DEALS_WEBHOOK: ${{ secrets.DISCORD_ENT_DEALS_WEBHOOK }}
+          DISCORD_CHINA_WEBHOOK: ${{ secrets.DISCORD_CHINA_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py ent-deals || echo "[warn] ent-deals 실패"
+        run: python scripts/vibe_search.py china || echo "[warn] china 실패"
 
-      - name: IP 비즈니스 사례
+      - name: 일본
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_IP_BUSINESS_WEBHOOK: ${{ secrets.DISCORD_IP_BUSINESS_WEBHOOK }}
+          DISCORD_JAPAN_WEBHOOK: ${{ secrets.DISCORD_JAPAN_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py ip-business || echo "[warn] ip-business 실패"
+        run: python scripts/vibe_search.py japan || echo "[warn] japan 실패"
 
-      - name: 아티스트 오너십
+      - name: 동남아
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_ARTIST_OWNERSHIP_WEBHOOK: ${{ secrets.DISCORD_ARTIST_OWNERSHIP_WEBHOOK }}
+          DISCORD_SOUTHEAST_ASIA_WEBHOOK: ${{ secrets.DISCORD_SOUTHEAST_ASIA_WEBHOOK }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py artist-ownership || echo "[warn] artist-ownership 실패"
-
-      - name: 테크 이슈
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_TECH_ISSUES_WEBHOOK: ${{ secrets.DISCORD_TECH_ISSUES_WEBHOOK }}
-          SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py tech-issues || echo "[warn] tech-issues 실패"
+        run: python scripts/vibe_search.py southeast-asia || echo "[warn] southeast-asia 실패"
