@@ -33,6 +33,12 @@ from difflib import SequenceMatcher
 import requests
 from anthropic import Anthropic
 
+try:
+    from supabase_writer import save_items as supabase_save, fetch_recent_titles
+except ImportError:
+    supabase_save = None
+    fetch_recent_titles = None
+
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
@@ -419,8 +425,13 @@ def main() -> int:
 
     log.info("[%s] 후보 %d건 수집", region_name, len(candidates))
 
-    # 2. 채널 간 중복 제거
+    # 2. 채널 간 중복 제거 (Supabase + 로컬 파일 병행)
     seen_titles = load_seen_titles(seen_file)
+    if fetch_recent_titles:
+        db_titles = fetch_recent_titles(7)
+        if db_titles:
+            seen_titles = list(set(seen_titles + db_titles))
+            log.info("[%s] Supabase 제목 %d건 로드 (중복 제거용)", region_name, len(db_titles))
     candidates = [c for c in candidates if not is_cross_dup(c["title"], seen_titles)]
     if not candidates:
         log.info("[%s] 중복 제거 후 후보 없음", region_name)
@@ -463,7 +474,15 @@ def main() -> int:
         time.sleep(2)
         send_to_discord(webhook_url, build_discord_message(c))
 
-    # 5. seen-titles 갱신
+    # 5. Supabase 저장
+    if supabase_save:
+        try:
+            n = supabase_save(selected, args.region)
+            log.info("[%s] Supabase 저장: %d건", region_name, n)
+        except Exception as exc:
+            log.warning("[%s] Supabase 저장 실패 (Discord 전송은 완료): %s", region_name, exc)
+
+    # 6. seen-titles 갱신 (로컬 fallback 유지)
     with open(seen_file, "a", encoding="utf-8") as f:
         for c in selected:
             f.write(c["title"] + "\n")

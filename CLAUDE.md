@@ -3,6 +3,8 @@
 > **골격·제작 절차 정본**: `.claude/skills/weekly-vibe/SKILL.md` — 2026-05-22 재구성(섹터별 Vibe 묶음 + 산업 번역). 본 문서의 "US 2 / CN 2 / JP 2" 구조는 옛 모델(~2026-05-21)이며, 제작 시 SKILL.md를 따른다. 아래 디자인 시스템·태그·금액 표기·검증 체크리스트는 여전히 유효.
 >
 > **일일 수집 v3 (2026-06-08)**: `scripts/vibe_search.py`가 주제 기반(6 토픽)에서 **지역·언어 기반**(5 지역: 한국/글로벌/중국/일본/동남아)으로 재설계됨. 6개 주제는 검색 필터 겸 태깅 기준으로 전환. 워크플로: `.github/workflows/ai-news-daily.yml`. Discord 채널도 5개 지역 채널로 전환 필요.
+>
+> **Supabase 연동 (2026-06-09)**: 수집 결과가 Discord + Supabase `radar_items` 테이블에 동시 적재됨. `scripts/supabase_writer.py`가 REST API로 upsert. nvl-vibe-radar 대시보드에서 collector/region 필터로 큐레이션 가능. radar 자체 수집기는 폐기 — vibe_search가 유일한 수집 엔진. 환경변수: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets).
 
 ## 프로젝트 개요
 
