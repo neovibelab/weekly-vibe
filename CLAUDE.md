@@ -5,6 +5,8 @@
 > **일일 수집 v3 (2026-06-08)**: `scripts/vibe_search.py`가 주제 기반(6 토픽)에서 **지역·언어 기반**(5 지역: 한국/글로벌/중국/일본/동남아)으로 재설계됨. 6개 주제는 검색 필터 겸 태깅 기준으로 전환. 워크플로: `.github/workflows/ai-news-daily.yml`. Discord 채널도 5개 지역 채널로 전환 필요.
 >
 > **Supabase 연동 (2026-06-09)**: 수집 결과가 Discord + Supabase `radar_items` 테이블에 동시 적재됨. `scripts/supabase_writer.py`가 REST API로 upsert. nvl-vibe-radar 대시보드에서 collector/region 필터로 큐레이션 가능. radar 자체 수집기는 폐기 — vibe_search가 유일한 수집 엔진. 환경변수: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets).
+>
+> **품질 게이트 (2026-06-10)**: Anthropic web_search 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제. ① 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구 ② `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정) ③ 점수순 정렬 후 URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) ④ 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출. 발행일 불명 기사는 제외됨. 단위 테스트: `scripts/test_quality_gate.py`.
 
 ## 프로젝트 개요
 

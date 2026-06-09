@@ -65,7 +65,9 @@ def _to_row(item: dict, region: str) -> dict:
         "carousel_fit": item.get("carousel_fit", 0),
         "reliability_score": item.get("reliability", 0),
         "total_score": item.get("total_score", 0),
-        "published_date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        # 기사 실제 발행일 (vibe_search가 검증해 넘김). 없으면 수집 시각 폴백.
+        "published_date": item.get("published_date")
+        or datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
 
 

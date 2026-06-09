@@ -4,3 +4,7 @@ TEST_*.html
 
 # 워크플로우 staging (GH Actions 임시 산출물)
 .briefing-staging/
+
+# Python bytecode
+__pycache__/
+*.pyc

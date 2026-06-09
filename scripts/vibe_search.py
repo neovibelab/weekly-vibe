@@ -206,11 +206,17 @@ REGIONS: dict[str, dict] = {
 
 MAX_CANDIDATES = 5
 DUPLICATE_THRESHOLD = 0.75
+MIN_TOTAL_SCORE = 3
+MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
+URL_CHECK_TIMEOUT = 8
+SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability")
+HANGUL_RE = re.compile(r"[가-힣]")
+KST = datetime.timezone(datetime.timedelta(hours=9))
 
 # ── 프롬프트 ──────────────────────────────────────────────
 
 
-def build_search_prompt(region: dict) -> str:
+def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.date) -> str:
     topic_sections = []
     for i, (key, terms) in enumerate(region["search_terms"].items(), 1):
         label = TOPIC_LABELS[key]
@@ -225,7 +231,11 @@ def build_search_prompt(region: dict) -> str:
         f"## 수집 지역: {region['name']} ({region['language']})\n\n"
         f"## 검색 지시\n\n"
         f"{region['search_instruction']}\n"
-        "최근 48시간 이내의 뉴스·기사·보도를 웹 검색으로 찾으세요.\n"
+        f"오늘은 {today.isoformat()} (KST)입니다.\n"
+        f"최근 {MAX_AGE_HOURS}시간 이내({cutoff.isoformat()} ~ {today.isoformat()} 발행)의 "
+        "뉴스·기사·보도만 웹 검색으로 찾으세요.\n"
+        "검색 결과의 page_age와 기사 본문의 발행일을 확인해, "
+        f"{cutoff.isoformat()} 이전에 발행된 기사는 제외하세요.\n"
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
         "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
         "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n\n"
@@ -237,7 +247,9 @@ def build_search_prompt(region: dict) -> str:
         "- 여러 사건의 연결고리를 보여주는 분석 기사 우선 (단순 보도보다)\n"
         "- 하나의 기사가 여러 주제에 걸칠 수 있음 — topics에 복수 태깅 가능\n"
         "- 요약(summary)은 **반드시 한국어**로 작성 (원문 언어와 무관)\n"
-        "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n\n"
+        "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n"
+        "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age나 본문 날짜로 확인된 것만 적으세요. "
+        "추정하지 말고, 확인 불가하면 null (해당 기사는 자동 제외됩니다).\n\n"
         "## 선별 기준 (각 0~2점)\n"
         "1. **소재적합**(newsletter_fit): 뉴스레터 칼럼 소재로서 해석 가능한 구체적 사례·데이터가 있는가\n"
         "   (0=일반 뉴스, 1=관점 가능, 2=풍부한 사례+데이터)\n"
@@ -254,6 +266,7 @@ def build_search_prompt(region: dict) -> str:
         '    "title": "기사 제목 (한국어로 번역)",\n'
         '    "url": "출처 URL",\n'
         '    "source": "매체명",\n'
+        '    "published_date": "YYYY-MM-DD (기사 발행일, 확인 불가 시 null)",\n'
         f'    "topics": ["해당 주제 키 — 유효값: {valid_keys}"],\n'
         '    "summary": "200자 이내 한국어 요약. 원문 언어와 무관하게 반드시 한국어로.",\n'
         '    "newsletter_fit": 0,\n'
@@ -323,13 +336,15 @@ def _parse_json_robust(raw: str) -> list[dict]:
 # ── 검색 ──────────────────────────────────────────────────
 
 
-def search_and_analyze(client: Anthropic, region: dict) -> list[dict]:
-    prompt = build_search_prompt(region)
+def search_and_analyze(
+    client: Anthropic, region: dict, today: datetime.date, cutoff: datetime.date
+) -> list[dict]:
+    prompt = build_search_prompt(region, today, cutoff)
 
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=4096,
-        tools=[{"type": "web_search_20260209", "name": "web_search"}],
+        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
         messages=[{"role": "user", "content": prompt}],
     )
 
@@ -365,6 +380,110 @@ def search_and_analyze(client: Anthropic, region: dict) -> list[dict]:
             c["topics"] = [t for t in c.get("topics", []) if t in TOPIC_LABELS]
 
     return [c for c in candidates if isinstance(c, dict)]
+
+
+# ── 품질 게이트 ───────────────────────────────────────────
+
+
+def _parse_date(value) -> datetime.date | None:
+    if not value or not isinstance(value, str):
+        return None
+    m = re.search(r"(\d{4})-(\d{1,2})-(\d{1,2})", value)
+    if not m:
+        return None
+    try:
+        return datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def validate_candidates(
+    candidates: list[dict], cutoff: datetime.date, today: datetime.date
+) -> tuple[list[dict], dict]:
+    """형식·점수·발행일 검증. 프롬프트 지시를 코드 레벨에서 재강제한다."""
+    valid: list[dict] = []
+    drops = {"format": 0, "score": 0, "no_date": 0, "stale": 0}
+
+    for c in candidates:
+        title = (c.get("title") or "").strip()
+        url = (c.get("url") or "").strip()
+        summary = (c.get("summary") or "").strip()
+
+        if not title or not url.startswith("http") or not summary:
+            drops["format"] += 1
+            log.info("제외(필수 필드 누락): %s", (title or url)[:80])
+            continue
+        if not HANGUL_RE.search(summary):
+            drops["format"] += 1
+            log.info("제외(요약 한국어 아님): %s", title[:80])
+            continue
+
+        total = sum(int(c.get(k) or 0) for k in SCORE_KEYS)
+        if total != c.get("total_score"):
+            log.info("점수 재계산: %s → %d | %s", c.get("total_score"), total, title[:60])
+            c["total_score"] = total
+        if total < MIN_TOTAL_SCORE:
+            drops["score"] += 1
+            log.info("제외(점수 %d < %d): %s", total, MIN_TOTAL_SCORE, title[:80])
+            continue
+
+        pub = _parse_date(c.get("published_date"))
+        if pub is None:
+            drops["no_date"] += 1
+            log.info("제외(발행일 불명): %s", title[:80])
+            continue
+        if pub > today + datetime.timedelta(days=1):
+            drops["no_date"] += 1
+            log.info("제외(미래 발행일 %s): %s", pub, title[:80])
+            continue
+        if pub < cutoff:
+            drops["stale"] += 1
+            log.info("제외(발행일 %s < 컷오프 %s): %s", pub, cutoff, title[:80])
+            continue
+
+        c["title"], c["url"], c["summary"] = title, url, summary
+        c["published_date"] = pub.isoformat()
+        valid.append(c)
+
+    return valid, drops
+
+
+def check_url_alive(url: str) -> bool:
+    """URL 생존 확인. 할루시네이션 링크(없는 도메인·404) 차단이 목적.
+    봇 차단(403 등)·서버 오류·타임아웃은 실재 URL일 수 있어 통과시킨다."""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+        )
+    }
+    try:
+        resp = requests.head(
+            url, headers=headers, timeout=URL_CHECK_TIMEOUT, allow_redirects=True
+        )
+        if resp.status_code in (404, 405, 410):
+            resp = requests.get(
+                url, headers=headers, timeout=URL_CHECK_TIMEOUT,
+                allow_redirects=True, stream=True,
+            )
+            resp.close()
+        return resp.status_code not in (404, 410)
+    except requests.Timeout:
+        return True
+    except requests.RequestException:
+        return False
+
+
+def write_step_summary(region_name: str, stats: str) -> None:
+    """GitHub Actions 실행 페이지에 지역별 수집 통계 노출."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"- **{region_name}**: {stats}\n")
+    except OSError:
+        pass
 
 
 # ── 중복 제거 ─────────────────────────────────────────────
@@ -418,8 +537,9 @@ def build_discord_message(c: dict) -> str:
     source = c.get("source", "")
 
     msg = f"{badge} {title_part} `{tags}`"
-    if source:
-        msg += f"\n📰 {source}"
+    meta = " · ".join(x for x in (source, c.get("published_date", "")) if x)
+    if meta:
+        msg += f"\n📰 {meta}"
     if summary:
         msg += f"\n> {summary}"
     return msg[:1900]
@@ -459,37 +579,72 @@ def main() -> int:
         return 0
 
     client = Anthropic(api_key=api_key)
-    today = datetime.date.today().strftime("%Y-%m-%d")
+    now_kst = datetime.datetime.now(KST)
+    today_date = now_kst.date()
+    cutoff_date = (now_kst - datetime.timedelta(hours=MAX_AGE_HOURS)).date()
+    today = today_date.isoformat()
 
     # 1. 웹 검색 + 분석
-    log.info("[%s] 웹 검색 시작 (%s)", region_name, region["language"])
+    log.info(
+        "[%s] 웹 검색 시작 (%s) | 발행일 컷오프: %s",
+        region_name, region["language"], cutoff_date,
+    )
     try:
-        candidates = search_and_analyze(client, region)
+        candidates = search_and_analyze(client, region, today_date, cutoff_date)
     except Exception as exc:
         log.error("[%s] 검색 실패: %s", region_name, exc)
+        write_step_summary(region_name, f"⚠️ 검색 실패: {exc}")
         return 0
 
+    collected = len(candidates)
     if not candidates:
         log.info("[%s] 후보 없음 — 전송 생략", region_name)
+        write_step_summary(region_name, "후보 0건")
         return 0
 
-    log.info("[%s] 후보 %d건 수집", region_name, len(candidates))
+    log.info("[%s] 후보 %d건 수집", region_name, collected)
 
-    # 2. 채널 간 중복 제거 (Supabase + 로컬 파일 병행)
+    # 2. 품질 게이트 (형식·점수·발행일)
+    candidates, drops = validate_candidates(candidates, cutoff_date, today_date)
+
+    # 3. 채널 간 중복 제거 (Supabase + 로컬 파일 병행)
     seen_titles = load_seen_titles(seen_file)
     if fetch_recent_titles:
         db_titles = fetch_recent_titles(7)
         if db_titles:
             seen_titles = list(set(seen_titles + db_titles))
             log.info("[%s] Supabase 제목 %d건 로드 (중복 제거용)", region_name, len(db_titles))
+    before_dup = len(candidates)
     candidates = [c for c in candidates if not is_cross_dup(c["title"], seen_titles)]
-    if not candidates:
-        log.info("[%s] 중복 제거 후 후보 없음", region_name)
+    dup_cnt = before_dup - len(candidates)
+
+    # 4. 점수순 정렬 → URL 생존 확인하며 상위 N개 선별
+    candidates.sort(key=lambda c: c.get("total_score", 0), reverse=True)
+    selected: list[dict] = []
+    dead_links = 0
+    for c in candidates:
+        if len(selected) >= MAX_CANDIDATES:
+            break
+        if not check_url_alive(c["url"]):
+            dead_links += 1
+            log.info("제외(링크 불량): %s | %s", c["title"][:60], c["url"])
+            continue
+        selected.append(c)
+
+    stats = (
+        f"수집 {collected} → 게재 {len(selected)}"
+        f" (제외: 형식 {drops['format']} · 점수 {drops['score']}"
+        f" · 발행일불명 {drops['no_date']} · 기한경과 {drops['stale']}"
+        f" · 중복 {dup_cnt} · 링크불량 {dead_links})"
+    )
+    log.info("[%s] %s", region_name, stats)
+    write_step_summary(region_name, stats)
+
+    if not selected:
+        log.info("[%s] 품질 게이트 통과 후보 없음 — 전송 생략", region_name)
         return 0
 
-    selected = candidates[:MAX_CANDIDATES]
-
-    # 3. 선택 로그
+    # 5. 선택 로그
     for c in selected:
         indicators = _score_indicators(c)
         log.info(
@@ -514,9 +669,10 @@ def main() -> int:
         print(json.dumps(selected, ensure_ascii=False, indent=2))
         return 0
 
-    # 4. Discord 전송
+    # 6. Discord 전송
     header = (
         f"{region['emoji']} **{region_name} Vibe | {today}**\n"
+        f"-# {stats}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     )
     send_to_discord(webhook_url, header)
@@ -524,7 +680,7 @@ def main() -> int:
         time.sleep(2)
         send_to_discord(webhook_url, build_discord_message(c))
 
-    # 5. Supabase 저장
+    # 7. Supabase 저장
     if supabase_save:
         try:
             n = supabase_save(selected, args.region)
@@ -532,7 +688,7 @@ def main() -> int:
         except Exception as exc:
             log.warning("[%s] Supabase 저장 실패 (Discord 전송은 완료): %s", region_name, exc)
 
-    # 6. seen-titles 갱신 (로컬 fallback 유지)
+    # 8. seen-titles 갱신 (로컬 fallback 유지)
     with open(seen_file, "a", encoding="utf-8") as f:
         for c in selected:
             f.write(c["title"] + "\n")
