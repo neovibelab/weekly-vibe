@@ -301,11 +301,21 @@ def search_and_analyze(client: Anthropic, region: dict) -> list[dict]:
         log.warning("JSON 파싱 실패: %s", text[:300])
         return []
 
+    raw_json = match.group()
     try:
-        candidates = json.loads(match.group())
+        candidates = json.loads(raw_json)
     except json.JSONDecodeError as exc:
-        log.warning("JSON 디코드 실패: %s", exc)
-        return []
+        log.warning("JSON 디코드 실패 (1차): %s", exc)
+        # 간단한 JSON 수리 시도: trailing comma, 제어문자 제거
+        repaired = re.sub(r",\s*([}\]])", r"\1", raw_json)       # trailing comma
+        repaired = re.sub(r"[\x00-\x1f]", " ", repaired)         # control chars
+        repaired = repaired.replace("\\'", "'")                    # escaped single quote
+        try:
+            candidates = json.loads(repaired)
+            log.info("JSON 수리 성공")
+        except json.JSONDecodeError:
+            log.warning("JSON 수리 실패, 원문 500자: %s", raw_json[:500])
+            return []
 
     for c in candidates:
         if isinstance(c, dict):
