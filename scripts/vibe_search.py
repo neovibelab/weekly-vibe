@@ -267,6 +267,59 @@ def build_search_prompt(region: dict) -> str:
     )
 
 
+# ── JSON 파싱 (견고) ──────────────────────────────────────
+
+
+def _parse_json_robust(raw: str) -> list[dict]:
+    """JSON 배열 파싱. 실패 시 수리 → 개별 객체 추출 폴백."""
+    # 1차: 원본 그대로
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        log.warning("JSON 디코드 실패 (1차): %s", exc)
+
+    # 2차: 간단한 수리
+    repaired = re.sub(r",\s*([}\]])", r"\1", raw)       # trailing comma
+    repaired = re.sub(r"[\x00-\x1f]", " ", repaired)    # control chars
+    repaired = repaired.replace("\\'", "'")
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError:
+        log.warning("JSON 수리 실패 (2차)")
+
+    # 3차: 개별 JSON 객체를 하나씩 추출
+    results = []
+    depth = 0
+    start = None
+    for i, ch in enumerate(raw):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                fragment = raw[start : i + 1]
+                try:
+                    obj = json.loads(fragment)
+                    results.append(obj)
+                except json.JSONDecodeError:
+                    # 개별 객체도 수리 시도
+                    frag2 = re.sub(r",\s*}", "}", fragment)
+                    frag2 = re.sub(r"[\x00-\x1f]", " ", frag2)
+                    try:
+                        obj = json.loads(frag2)
+                        results.append(obj)
+                    except json.JSONDecodeError:
+                        log.warning("개별 객체 파싱 실패: %s", fragment[:120])
+                start = None
+    if results:
+        log.info("개별 객체 추출 성공: %d건", len(results))
+    else:
+        log.warning("모든 파싱 실패, 원문 500자: %s", raw[:500])
+    return results
+
+
 # ── 검색 ──────────────────────────────────────────────────
 
 
@@ -302,20 +355,7 @@ def search_and_analyze(client: Anthropic, region: dict) -> list[dict]:
         return []
 
     raw_json = match.group()
-    try:
-        candidates = json.loads(raw_json)
-    except json.JSONDecodeError as exc:
-        log.warning("JSON 디코드 실패 (1차): %s", exc)
-        # 간단한 JSON 수리 시도: trailing comma, 제어문자 제거
-        repaired = re.sub(r",\s*([}\]])", r"\1", raw_json)       # trailing comma
-        repaired = re.sub(r"[\x00-\x1f]", " ", repaired)         # control chars
-        repaired = repaired.replace("\\'", "'")                    # escaped single quote
-        try:
-            candidates = json.loads(repaired)
-            log.info("JSON 수리 성공")
-        except json.JSONDecodeError:
-            log.warning("JSON 수리 실패, 원문 500자: %s", raw_json[:500])
-            return []
+    candidates = _parse_json_robust(raw_json)
 
     for c in candidates:
         if isinstance(c, dict):
