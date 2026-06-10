@@ -44,17 +44,18 @@ def test_validate():
     valid, drops = vs.validate_candidates([_cand()], cutoff, today)
     assert len(valid) == 1 and sum(drops.values()) == 0
 
-    # 발행일 없음 → 제외
+    # 발행일 미상 → 플래그(None)로 게재 유지
     valid, drops = vs.validate_candidates([_cand(published_date=None)], cutoff, today)
-    assert len(valid) == 0 and drops["no_date"] == 1
+    assert len(valid) == 1 and valid[0]["published_date"] is None
+    assert sum(drops.values()) == 0
 
     # 기한 경과 → 제외
     valid, drops = vs.validate_candidates([_cand(published_date="2026-06-01")], cutoff, today)
     assert len(valid) == 0 and drops["stale"] == 1
 
-    # 미래 발행일 → 제외
+    # 미래 발행일 → 제외 (할루시네이션 의심)
     valid, drops = vs.validate_candidates([_cand(published_date="2026-07-01")], cutoff, today)
-    assert len(valid) == 0 and drops["no_date"] == 1
+    assert len(valid) == 0 and drops["future"] == 1
 
     # 점수 미달 → 제외
     valid, drops = vs.validate_candidates(

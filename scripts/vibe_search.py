@@ -234,8 +234,9 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         f"오늘은 {today.isoformat()} (KST)입니다.\n"
         f"최근 {MAX_AGE_HOURS}시간 이내({cutoff.isoformat()} ~ {today.isoformat()} 발행)의 "
         "뉴스·기사·보도만 웹 검색으로 찾으세요.\n"
-        "검색 결과의 page_age 등 메타데이터로 발행일을 판단해 "
-        f"{cutoff.isoformat()} 이전 발행 기사는 제외하세요. "
+        "검색 결과의 page_age 등 메타데이터로 발행일을 판단하세요. "
+        f"{cutoff.isoformat()}보다 확실히 오래된 기사만 제외하고, "
+        "발행일이 불확실해도 최신으로 보이는 기사는 포함하세요. "
         "발행일 확인만을 위해 기사 원문을 일일이 열지 마세요.\n"
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
         "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
@@ -250,7 +251,7 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "- 요약(summary)은 **반드시 한국어**로 작성 (원문 언어와 무관)\n"
         "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n"
         "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age 등으로 확인된 날짜만 적고, "
-        "추정하지 마세요. 확인 불가하면 null.\n\n"
+        "추정하지 마세요. 확인 불가하면 null로 두되 기사 자체는 포함하세요.\n\n"
         "## 선별 기준 (각 0~2점)\n"
         "1. **소재적합**(newsletter_fit): 뉴스레터 칼럼 소재로서 해석 가능한 구체적 사례·데이터가 있는가\n"
         "   (0=일반 뉴스, 1=관점 가능, 2=풍부한 사례+데이터)\n"
@@ -369,6 +370,16 @@ def search_and_analyze(
     if response.stop_reason == "max_tokens":
         log.warning("응답이 max_tokens로 잘림 — 일부 결과만 사용")
 
+    queries = [
+        getattr(block, "input", {}).get("query", "")
+        for block in response.content
+        if getattr(block, "type", "") == "server_tool_use"
+    ]
+    if queries:
+        log.info(
+            "검색 %d회: %s", len(queries), " | ".join(q[:40] for q in queries if q)
+        )
+
     text = ""
     for block in response.content:
         if hasattr(block, "text"):
@@ -397,7 +408,10 @@ def search_and_analyze(
                 c["topics"] = [topics]
             c["topics"] = [t for t in c.get("topics", []) if t in TOPIC_LABELS]
 
-    return [c for c in candidates if isinstance(c, dict)]
+    result = [c for c in candidates if isinstance(c, dict)]
+    if not result:
+        log.warning("후보 0건 — 모델 응답 앞 600자: %s", text[:600])
+    return result
 
 
 # ── 품질 게이트 ───────────────────────────────────────────
@@ -418,9 +432,13 @@ def _parse_date(value) -> datetime.date | None:
 def validate_candidates(
     candidates: list[dict], cutoff: datetime.date, today: datetime.date
 ) -> tuple[list[dict], dict]:
-    """형식·점수·발행일 검증. 프롬프트 지시를 코드 레벨에서 재강제한다."""
+    """형식·점수·발행일 검증. 프롬프트 지시를 코드 레벨에서 재강제한다.
+
+    발행일 미상은 제외하지 않고 플래그(published_date=None)로 게재한다 —
+    한국 언론사 등 page_age 미제공 사이트가 많아 하드 컷이면 전멸한다
+    (2026-06-10 실측, 2연속 0건). 확인된 구식·미래 날짜만 제외."""
     valid: list[dict] = []
-    drops = {"format": 0, "score": 0, "no_date": 0, "stale": 0}
+    drops = {"format": 0, "score": 0, "stale": 0, "future": 0}
 
     for c in candidates:
         title = (c.get("title") or "").strip()
@@ -446,21 +464,21 @@ def validate_candidates(
             continue
 
         pub = _parse_date(c.get("published_date"))
-        if pub is None:
-            drops["no_date"] += 1
-            log.info("제외(발행일 불명): %s", title[:80])
-            continue
-        if pub > today + datetime.timedelta(days=1):
-            drops["no_date"] += 1
-            log.info("제외(미래 발행일 %s): %s", pub, title[:80])
-            continue
-        if pub < cutoff:
-            drops["stale"] += 1
-            log.info("제외(발행일 %s < 컷오프 %s): %s", pub, cutoff, title[:80])
-            continue
+        if pub is not None:
+            if pub > today + datetime.timedelta(days=1):
+                drops["future"] += 1
+                log.info("제외(미래 발행일 %s — 할루시네이션 의심): %s", pub, title[:80])
+                continue
+            if pub < cutoff:
+                drops["stale"] += 1
+                log.info("제외(발행일 %s < 컷오프 %s): %s", pub, cutoff, title[:80])
+                continue
+            c["published_date"] = pub.isoformat()
+        else:
+            c["published_date"] = None
+            log.info("발행일 미상 — 플래그로 게재 유지: %s", title[:80])
 
         c["title"], c["url"], c["summary"] = title, url, summary
-        c["published_date"] = pub.isoformat()
         valid.append(c)
 
     return valid, drops
@@ -555,7 +573,8 @@ def build_discord_message(c: dict) -> str:
     source = c.get("source", "")
 
     msg = f"{badge} {title_part} `{tags}`"
-    meta = " · ".join(x for x in (source, c.get("published_date", "")) if x)
+    pub = c.get("published_date") or "발행일 미상"
+    meta = " · ".join(x for x in (source, pub) if x)
     if meta:
         msg += f"\n📰 {meta}"
     if summary:
@@ -636,8 +655,11 @@ def main() -> int:
     candidates = [c for c in candidates if not is_cross_dup(c["title"], seen_titles)]
     dup_cnt = before_dup - len(candidates)
 
-    # 4. 점수순 정렬 → URL 생존 확인하며 상위 N개 선별
-    candidates.sort(key=lambda c: c.get("total_score", 0), reverse=True)
+    # 4. 점수순 정렬(동점이면 발행일 확인분 우선) → URL 생존 확인하며 상위 N개 선별
+    candidates.sort(
+        key=lambda c: (c.get("total_score", 0), c.get("published_date") is not None),
+        reverse=True,
+    )
     selected: list[dict] = []
     dead_links = 0
     for c in candidates:
@@ -649,12 +671,15 @@ def main() -> int:
             continue
         selected.append(c)
 
+    date_unknown = sum(1 for c in selected if not c.get("published_date"))
     stats = (
         f"수집 {collected} → 게재 {len(selected)}"
         f" (제외: 형식 {drops['format']} · 점수 {drops['score']}"
-        f" · 발행일불명 {drops['no_date']} · 기한경과 {drops['stale']}"
+        f" · 기한경과 {drops['stale']} · 미래일자 {drops['future']}"
         f" · 중복 {dup_cnt} · 링크불량 {dead_links})"
     )
+    if date_unknown:
+        stats += f" · 발행일 미상 {date_unknown}건 포함"
     log.info("[%s] %s", region_name, stats)
     write_step_summary(region_name, stats)
 
