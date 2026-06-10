@@ -1,0 +1,21 @@
+name: 도메인 프로브 (수동)
+# allowed_domains 화이트리스트의 Anthropic 크롤러 접근성 검증.
+# 화이트리스트에 매체를 추가·변경할 때 수동 실행해 차단 도메인을 걸러낸다.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic requests
+      - name: 프로브 실행
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+        run: python scripts/probe_domains.py
