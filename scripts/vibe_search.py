@@ -76,17 +76,19 @@ REGIONS: dict[str, dict] = {
             "일반 헤드라인 반복이 아니라, 숫자·데이터가 담긴 기사나 "
             "여러 사건의 연결고리를 보여주는 분석 기사를 우선하세요."
         ),
+        # 조선·중앙·동아·한겨레·매경·연합은 Anthropic 크롤러 차단(robots.txt)으로
+        # allowed_domains에 넣을 수 없음 — 2026-06-10 프로브 실측. 변경 시 domain-probe.yml로 재검증.
         "trusted_sources": (
-            "한국경제(텐아시아 포함), 매일경제, 조선일보·조선비즈·IT조선, 중앙일보, "
-            "동아일보, 한겨레, 경향신문·스포츠경향, 연합뉴스, 뉴스1, 뉴시스, "
-            "서울경제, 전자신문, 디지털데일리, 미디어오늘, 빌보드코리아, 시사IN, 더밀크"
+            "한국경제(텐아시아 포함), 한국일보, 서울신문, 경향신문·스포츠경향, "
+            "서울경제, 헤럴드경제, 이데일리, 아시아경제, 파이낸셜뉴스, 뉴스1, 뉴시스, "
+            "YTN, 전자신문, 디지털데일리, 미디어오늘, 빌보드코리아, 시사IN, 더밀크"
         ),
         "allowed_domains": [
-            "hankyung.com", "mk.co.kr", "chosun.com", "joongang.co.kr",
-            "donga.com", "hani.co.kr", "khan.co.kr", "yna.co.kr",
-            "news1.kr", "newsis.com", "sedaily.com", "etnews.com",
-            "ddaily.co.kr", "mediatoday.co.kr", "billboard.co.kr",
-            "sisain.co.kr", "themilk.com",
+            "hankyung.com", "hankookilbo.com", "seoul.co.kr", "khan.co.kr",
+            "sedaily.com", "heraldcorp.com", "edaily.co.kr", "asiae.co.kr",
+            "fnnews.com", "news1.kr", "newsis.com", "ytn.co.kr",
+            "etnews.com", "ddaily.co.kr", "mediatoday.co.kr",
+            "billboard.co.kr", "sisain.co.kr", "themilk.com",
         ],
         "search_terms": {
             "fan-behavior": ["케이팝 팬덤 소비", "콘서트 투어 매출", "위버스 팬 플랫폼"],
@@ -111,19 +113,22 @@ REGIONS: dict[str, dict] = {
             "K-pop·한류의 글로벌 비즈니스 임팩트, 영미권 음악 산업 M&A·투자, "
             "그리고 아시아 엔터 산업에 대한 영어권 매체의 보도가 핵심입니다."
         ),
+        # FT·Reuters·WSJ·NYT·Guardian·Pitchfork·Economist는 Anthropic 크롤러 차단 —
+        # 2026-06-10 프로브 실측. 변경 시 domain-probe.yml로 재검증.
         "trusted_sources": (
             "Billboard, Variety, Music Business Worldwide, "
-            "Hits Daily Double, TechCrunch, Financial Times, Bloomberg, Reuters, "
-            "The Guardian, The New York Times, The Wall Street Journal, "
-            "The Hollywood Reporter, Pitchfork, Rolling Stone, NME, "
+            "Hits Daily Double, TechCrunch, Bloomberg, Axios, "
+            "The Hollywood Reporter, Rolling Stone, NME, "
+            "Music Ally, Digital Music News, CMU, "
             "IFPI, MIDiA Research, Luminate"
         ),
         "allowed_domains": [
             "billboard.com", "variety.com", "musicbusinessworldwide.com",
-            "hitsdailydouble.com", "techcrunch.com", "ft.com", "bloomberg.com",
-            "reuters.com", "theguardian.com", "nytimes.com", "wsj.com",
-            "hollywoodreporter.com", "pitchfork.com", "rollingstone.com",
-            "nme.com", "ifpi.org", "midiaresearch.com", "luminatedata.com",
+            "hitsdailydouble.com", "techcrunch.com", "bloomberg.com",
+            "axios.com", "hollywoodreporter.com", "rollingstone.com",
+            "nme.com", "musically.com", "digitalmusicnews.com",
+            "completemusicupdate.com", "ifpi.org", "midiaresearch.com",
+            "luminatedata.com",
         ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom economy", "concert touring revenue 2026", "fan platform engagement"],
@@ -179,15 +184,16 @@ REGIONS: dict[str, dict] = {
             "영어권에서 잘 보도되지 않는 일본 시장 내부 동향이 핵심 가치입니다. "
             "K-pop의 일본 시장 전략, J-pop·보카로이드·VTuber 동향도 포함합니다."
         ),
+        # 朝日·毎日는 Anthropic 크롤러 차단 — 2026-06-10 프로브 실측.
         "trusted_sources": (
             "日経エンタテインメント!, 音楽ナタリー, ORICON NEWS, "
             "Billboard JAPAN, リアルサウンド, BARKS, "
-            "日本経済新聞, 東洋経済, ITmedia, MANTANWEB, 朝日新聞, 毎日新聞"
+            "日本経済新聞, 東洋経済, ITmedia, MANTANWEB"
         ),
         "allowed_domains": [
             "nikkei.com", "natalie.mu", "oricon.co.jp", "billboard-japan.com",
             "realsound.jp", "barks.jp", "toyokeizai.net", "itmedia.co.jp",
-            "mantan-web.jp", "asahi.com", "mainichi.jp",
+            "mantan-web.jp",
         ],
         "search_terms": {
             "fan-behavior": ["推し活 消費 トレンド", "コンサート ライブ 市場", "ファンクラブ 会員数"],
@@ -213,16 +219,17 @@ REGIONS: dict[str, dict] = {
             "현지 아티스트(SB19, BINI, 4th Impact 등)의 부상, "
             "한류와 현지 문화의 접점 사례를 우선합니다."
         ),
+        # Straits Times·CNA는 Anthropic 크롤러 차단 — 2026-06-10 프로브 실측.
         "trusted_sources": (
-            "Rappler, Bangkok Post, Kompas, The Straits Times, "
+            "Rappler, Bangkok Post, Kompas, "
             "Nikkei Asia, South China Morning Post, "
             "Philippine Daily Inquirer, VnExpress International, "
-            "The Jakarta Post, Channel NewsAsia"
+            "The Jakarta Post"
         ),
         "allowed_domains": [
             "rappler.com", "bangkokpost.com", "kompas.com",
-            "straitstimes.com", "nikkei.com", "scmp.com", "inquirer.net",
-            "vnexpress.net", "thejakartapost.com", "channelnewsasia.com",
+            "nikkei.com", "scmp.com", "inquirer.net",
+            "vnexpress.net", "thejakartapost.com",
         ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom Southeast Asia", "SB19 BINI fan community", "concert market ASEAN"],
