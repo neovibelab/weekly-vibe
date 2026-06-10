@@ -3,7 +3,8 @@
 Vibe Signal Collector v3 — 지역·언어 기반 통합 수집기
 --------------------------------------------------------------
 5개 지역(한국·글로벌·중국·일본·동남아)을 각 지역의 네이티브 언어로 검색.
-6개 주제(팬행동·소비행동·딜·IP·오너십·테크)는 검색 필터 겸 태깅 기준.
+7개 주제(팬행동·소비행동·딜·IP·오너십·테크·Z세대)는 검색 필터 겸 태깅 기준.
+Z세대 주제는 엔터 밖 소비 시장 전반(패션·뷰티·F&B·여행·리테일) 체크용.
 Anthropic web_search 서버 사이드 도구로 검색+분석+요약을 단일 API 호출로 처리.
 
 사용법:
@@ -56,6 +57,9 @@ TOPIC_LABELS: dict[str, str] = {
     "ip-business": "IP",
     "artist-ownership": "오너십",
     "tech-issues": "테크",
+    # 엔터 밖 소비 시장 체크용 — Z세대 문화·가치관·소비행태·라이프스타일
+    # (패션·뷰티·F&B·여행·리테일 등, 2026-06-10 대표 지시)
+    "gen-z-lifestyle": "Z세대",
 }
 
 TOPIC_KEYS = list(TOPIC_LABELS.keys())
@@ -97,6 +101,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP 사업 확장", "캐릭터 라이선싱", "웹툰 영상화"],
             "artist-ownership": ["아티스트 독립 레이블", "음악 저작권 분쟁", "자체 기획사"],
             "tech-issues": ["AI 음악 생성 저작권", "스트리밍 정산", "음악 플랫폼 정책"],
+            "gen-z-lifestyle": ["Z세대 소비 트렌드 조사", "Z세대 가치관 라이프스타일", "잘파세대 소비 행태"],
         },
     },
     "global-en": {
@@ -137,6 +142,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["music IP licensing deal", "entertainment franchise expansion", "cross-media IP"],
             "artist-ownership": ["artist-owned label", "master recording ownership", "creator economy music"],
             "tech-issues": ["AI music copyright", "streaming platform policy change", "music tech startup funding"],
+            "gen-z-lifestyle": ["Gen Z consumer trends report", "Gen Z values lifestyle survey", "Gen Z spending habits 2026"],
         },
     },
     "china": {
@@ -169,6 +175,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP授权 衍生品", "动漫 游戏 联动", "文娱IP 商业化"],
             "artist-ownership": ["艺人 独立 厂牌", "音乐人 版权 归属", "艺人 工作室"],
             "tech-issues": ["AI音乐 版权", "流媒体 平台 竞争", "音乐科技 创业"],
+            "gen-z-lifestyle": ["Z世代 消费 趋势 报告", "00后 价值观 生活方式", "年轻人 消费 行为 变化"],
         },
     },
     "japan": {
@@ -202,6 +209,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP ライセンス ビジネス", "アニメ ゲーム 連動", "キャラクター 商品化"],
             "artist-ownership": ["アーティスト 独立 レーベル", "音楽 著作権 問題", "クリエイター エコノミー"],
             "tech-issues": ["AI 音楽 著作権", "サブスク ストリーミング", "音楽テック スタートアップ"],
+            "gen-z-lifestyle": ["Z世代 消費 トレンド 調査", "Z世代 価値観 ライフスタイル", "若者 消費行動 変化"],
         },
     },
     "southeast-asia": {
@@ -238,6 +246,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["anime manga licensing Southeast Asia", "entertainment IP ASEAN", "webtoon adaptation Asia"],
             "artist-ownership": ["independent artist Southeast Asia", "P-pop industry Philippines", "local music industry ASEAN"],
             "tech-issues": ["music streaming Southeast Asia", "TikTok music ASEAN", "digital entertainment platform Asia"],
+            "gen-z-lifestyle": ["Gen Z consumer trends Southeast Asia", "Gen Z lifestyle values ASEAN", "youth spending behavior Southeast Asia"],
         },
     },
 }
@@ -273,7 +282,7 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
     valid_keys = ", ".join(TOPIC_KEYS)
 
     return (
-        "당신은 엔터테인먼트·음악 산업 전문 Vibe 신호 수집기입니다.\n\n"
+        "당신은 엔터테인먼트·음악 산업과 Z세대 소비 시장의 Vibe 신호 수집기입니다.\n\n"
         f"## 수집 지역: {region['name']} ({region['language']})\n\n"
         f"## 검색 지시\n\n"
         f"{region['search_instruction']}\n"
@@ -286,8 +295,11 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "web_fetch로 그 기사 페이지를 열어 본문의 발행일을 확인하세요 "
         "(최종 후보가 아닌 기사는 열지 마세요).\n"
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
-        "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
-        "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n\n"
+        "다음 7개 주제 영역을 커버하도록 **최소 5회** 다양한 검색어로 검색하세요.\n"
+        "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n"
+        "**Z세대(gen-z-lifestyle) 주제는 별도로 최소 1회 검색**하세요 — 이 주제는 "
+        "엔터테인먼트에 국한하지 않습니다. 패션·뷰티·F&B·여행·리테일·테크 소비 등 "
+        "소비 시장 전반에서 Z세대의 문화·가치관·소비행태·라이프스타일 신호를 수집합니다.\n\n"
         f"{topics_block}\n\n"
         "## 검색 대상 매체 (화이트리스트)\n"
         "검색은 다음 매체로 제한됩니다 — 주요 일간지·주간지·매거진·전문지 위주:\n"
@@ -407,7 +419,7 @@ def search_and_analyze(
         {
             "type": "web_search_20250305",
             "name": "web_search",
-            "max_uses": 6,
+            "max_uses": 8,
             "allowed_domains": region["allowed_domains"],
         },
         {

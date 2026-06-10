@@ -29,7 +29,7 @@
 - **엔진**: `scripts/vibe_search.py` — Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 최소 1~최대 5건, 기준 충족 후보 없으면 그날은 생략.
 - **적재**: `scripts/supabase_writer.py` — REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 — vibe_search가 유일한 수집 엔진이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
 - **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
-- **태깅**: 6렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues`, `topics` 배열) + 비엔터 교차 소재는 `cross-industry` 병기.
+- **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `gen-z-lifestyle`, `topics` 배열). `gen-z-lifestyle`(Z세대)은 엔터 밖 소비 시장 체크용 — 패션·뷰티·F&B·여행·리테일 등 Z세대 문화·가치관·소비행태·라이프스타일 (2026-06-10 추가).
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
 
