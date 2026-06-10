@@ -540,6 +540,39 @@ def check_url_alive(url: str) -> bool:
         return False
 
 
+def select_candidates(candidates: list[dict]) -> tuple[list[dict], int, int]:
+    """점수순 정렬(동점이면 발행일 확인분 우선) 후 배치 내 중복과
+    죽은 링크를 걸러 상위 MAX_CANDIDATES개 선별.
+
+    배치 내 중복: 모델 JSON이 깨져 개별 객체 폴백이 돌면 같은 기사가
+    2벌씩 추출될 수 있다 (2026-06-10 실측) — URL·제목 유사도로 차단."""
+    candidates.sort(
+        key=lambda c: (c.get("total_score", 0), c.get("published_date") is not None),
+        reverse=True,
+    )
+    selected: list[dict] = []
+    sel_urls: set[str] = set()
+    sel_titles: list[str] = []
+    dead_links = 0
+    batch_dups = 0
+    for c in candidates:
+        if len(selected) >= MAX_CANDIDATES:
+            break
+        url_key = c["url"].rstrip("/").lower()
+        if url_key in sel_urls or is_cross_dup(c["title"], sel_titles):
+            batch_dups += 1
+            log.info("제외(배치 내 중복): %s", c["title"][:60])
+            continue
+        if not check_url_alive(c["url"]):
+            dead_links += 1
+            log.info("제외(링크 불량): %s | %s", c["title"][:60], c["url"])
+            continue
+        selected.append(c)
+        sel_urls.add(url_key)
+        sel_titles.append(c["title"])
+    return selected, dead_links, batch_dups
+
+
 def write_step_summary(region_name: str, stats: str) -> None:
     """GitHub Actions 실행 페이지에 지역별 수집 통계 노출."""
     path = os.environ.get("GITHUB_STEP_SUMMARY")
@@ -685,28 +718,16 @@ def main() -> int:
     candidates = [c for c in candidates if not is_cross_dup(c["title"], seen_titles)]
     dup_cnt = before_dup - len(candidates)
 
-    # 4. 점수순 정렬(동점이면 발행일 확인분 우선) → URL 생존 확인하며 상위 N개 선별
-    candidates.sort(
-        key=lambda c: (c.get("total_score", 0), c.get("published_date") is not None),
-        reverse=True,
-    )
-    selected: list[dict] = []
-    dead_links = 0
-    for c in candidates:
-        if len(selected) >= MAX_CANDIDATES:
-            break
-        if not check_url_alive(c["url"]):
-            dead_links += 1
-            log.info("제외(링크 불량): %s | %s", c["title"][:60], c["url"])
-            continue
-        selected.append(c)
+    # 4. 점수순 정렬 → 배치 내 중복·죽은 링크 걸러 상위 N개 선별
+    selected, dead_links, batch_dups = select_candidates(candidates)
 
     date_unknown = sum(1 for c in selected if not c.get("published_date"))
     stats = (
         f"수집 {collected} → 게재 {len(selected)}"
         f" (제외: 형식 {drops['format']} · 점수 {drops['score']}"
         f" · 기한경과 {drops['stale']} · 미래일자 {drops['future']}"
-        f" · 출처차단 {drops['blocked']} · 중복 {dup_cnt} · 링크불량 {dead_links})"
+        f" · 출처차단 {drops['blocked']} · 중복 {dup_cnt + batch_dups}"
+        f" · 링크불량 {dead_links})"
     )
     if date_unknown:
         stats += f" · 발행일 미상 {date_unknown}건 포함"

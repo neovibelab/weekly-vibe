@@ -94,9 +94,34 @@ def test_url_alive():
     print("  check_url_alive OK")
 
 
+def test_select_batch_dedup():
+    # 네트워크 차단: URL 생존 확인을 항상 통과로 모킹
+    original = vs.check_url_alive
+    vs.check_url_alive = lambda url: True
+    try:
+        # 같은 URL 2벌 + 제목만 살짝 다른 1벌 + 별개 기사 1벌
+        batch = [
+            _cand(title="AI 작곡 저작권 등록 금지 — KOMCA 강경 방침", url="https://a.com/1", total_score=5, reliability=2, carousel_fit=2),
+            _cand(title="AI 작곡 저작권 등록 금지 — KOMCA 방침과 업계 논란", url="https://a.com/1", total_score=4),
+            _cand(title="AI 작곡 저작권 등록 금지 — KOMCA 강경 방침 확산", url="https://a.com/2", total_score=4),
+            _cand(title="하이브 브랜드평판 1위", url="https://b.com/9", total_score=4),
+        ]
+        selected, dead, dups = vs.select_candidates(batch)
+        assert dups == 2, f"배치 중복 2건이어야 함: {dups}"
+        assert len(selected) == 2
+        urls = {c["url"] for c in selected}
+        assert urls == {"https://a.com/1", "https://b.com/9"}
+        # 점수순 정렬 확인 (5점이 먼저)
+        assert selected[0]["total_score"] == 5
+    finally:
+        vs.check_url_alive = original
+    print("  select_candidates 배치 중복 제거 OK")
+
+
 if __name__ == "__main__":
     test_parse_date()
     test_validate()
     test_url_alive()
+    test_select_batch_dedup()
     print("ALL TESTS PASSED")
     sys.exit(0)
