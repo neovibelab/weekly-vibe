@@ -462,15 +462,25 @@ def search_and_analyze(
     if response.stop_reason == "max_tokens":
         log.warning("응답이 max_tokens로 잘림 — 일부 결과만 사용")
 
-    queries = [
-        getattr(block, "input", {}).get("query", "")
-        for block in response.content
-        if getattr(block, "type", "") == "server_tool_use"
-    ]
+    queries: list[str] = []
+    fetches: list[str] = []
+    for block in response.content:
+        if getattr(block, "type", "") != "server_tool_use":
+            continue
+        name = getattr(block, "name", "")
+        inp = getattr(block, "input", {}) or {}
+        if name == "web_search":
+            queries.append(inp.get("query", ""))
+        elif name == "web_fetch":
+            fetches.append(inp.get("url", ""))
     if queries:
         log.info(
             "검색 %d회: %s", len(queries), " | ".join(q[:40] for q in queries if q)
         )
+    log.info(
+        "fetch %d회%s", len(fetches),
+        ": " + " | ".join(u[:60] for u in fetches) if fetches else "",
+    )
 
     text = ""
     for block in response.content:
@@ -502,7 +512,7 @@ def search_and_analyze(
 
     result = [c for c in candidates if isinstance(c, dict)]
     if not result:
-        log.warning("후보 0건 — 모델 응답 앞 600자: %s", text[:600])
+        log.warning("후보 0건 — 모델 응답 앞 2000자: %s", text[:2000])
     return result
 
 
