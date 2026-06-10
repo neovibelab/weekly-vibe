@@ -105,6 +105,37 @@ def test_validate():
     print("  validate_candidates OK")
 
 
+def test_date_from_url():
+    import datetime
+    assert vs._date_from_url("https://k.com/article/2026/06/09/abc") == datetime.date(2026, 6, 9)
+    assert vs._date_from_url("https://k.com/news/2026-06-09-title") == datetime.date(2026, 6, 9)
+    assert vs._date_from_url("https://k.com/view/20260609123456") == datetime.date(2026, 6, 9)
+    assert vs._date_from_url("https://k.com/articleView.html?idxno=456980") is None
+    assert vs._date_from_url("https://k.com/plain-path") is None
+    # 무효 날짜(13월)는 무시
+    assert vs._date_from_url("https://k.com/20261340/") is None
+    print("  _date_from_url OK")
+
+
+def test_validate_url_date_fallback():
+    import datetime
+    today = datetime.date(2026, 6, 10)
+    cutoff = datetime.date(2026, 6, 8)
+    # 모델이 발행일 못 채워도 URL에서 추출해 통과
+    valid, drops = vs.validate_candidates(
+        [_cand(published_date=None, url="https://k.com/article/2026/06/09/abc")],
+        cutoff, today,
+    )
+    assert len(valid) == 1 and valid[0]["published_date"] == "2026-06-09"
+    # URL 날짜가 컷오프 이전이면 기한경과로 제외
+    valid, drops = vs.validate_candidates(
+        [_cand(published_date=None, url="https://k.com/article/2026/04/29/abc")],
+        cutoff, today,
+    )
+    assert len(valid) == 0 and drops["stale"] == 1
+    print("  validate URL 날짜 폴백 OK")
+
+
 def test_url_alive():
     assert vs.check_url_alive("https://www.google.com") is True
     assert vs.check_url_alive("https://www.google.com/nonexistent-page-404-test-xyz") is False
@@ -138,7 +169,9 @@ def test_select_batch_dedup():
 
 if __name__ == "__main__":
     test_parse_date()
+    test_date_from_url()
     test_validate()
+    test_validate_url_date_fallback()
     test_url_alive()
     test_select_batch_dedup()
     print("ALL TESTS PASSED")

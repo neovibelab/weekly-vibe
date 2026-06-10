@@ -281,9 +281,10 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         f"최근 {MAX_AGE_HOURS}시간 이내({cutoff.isoformat()} ~ {today.isoformat()} 발행)의 "
         "뉴스·기사·보도만 웹 검색으로 찾으세요.\n"
         "검색 결과의 page_age 등 메타데이터로 발행일을 판단하세요. "
-        f"{cutoff.isoformat()}보다 확실히 오래된 기사만 제외하고, "
-        "발행일이 불확실해도 최신으로 보이는 기사는 포함하세요. "
-        "발행일 확인만을 위해 기사 원문을 일일이 열지 마세요.\n"
+        f"{cutoff.isoformat()}보다 확실히 오래된 기사는 제외하세요. "
+        "최종 후보로 선택할 기사인데 메타데이터로 발행일이 확인되지 않으면, "
+        "web_fetch로 그 기사 페이지를 열어 본문의 발행일을 확인하세요 "
+        "(최종 후보가 아닌 기사는 열지 마세요).\n"
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
         "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
         "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n\n"
@@ -299,8 +300,8 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "- 하나의 기사가 여러 주제에 걸칠 수 있음 — topics에 복수 태깅 가능\n"
         "- 요약(summary)은 **반드시 한국어**로 작성 (원문 언어와 무관)\n"
         "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n"
-        "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age 등으로 확인된 날짜만 적고, "
-        "추정하지 마세요. 확인 불가하면 null로 두되 기사 자체는 포함하세요.\n"
+        "- published_date는 기사 발행일(YYYY-MM-DD). page_age 또는 web_fetch로 확인된 날짜만 적고, "
+        "추정하지 마세요. 그래도 확인 불가하면 null로 두되 기사 자체는 포함하세요.\n"
         "- 나무위키 등 위키 문서·커뮤니티 게시글은 출처(url)로 사용하지 마세요. "
         "언론 보도·공식 발표를 출처로 하세요.\n\n"
         "## 선별 기준 (각 0~2점)\n"
@@ -396,17 +397,26 @@ def search_and_analyze(
 ) -> list[dict]:
     prompt = build_search_prompt(region, today, cutoff)
     messages: list[dict] = [{"role": "user", "content": prompt}]
-    # 20250305 고정: 20260209(dynamic filtering)는 검색마다 코드 실행
+    # 20250305/20250910 고정: 2026 버전(dynamic filtering)은 코드 실행
     # 컨테이너를 돌려 단순 큐레이션에 과부하 — 세그먼트 28분 실측 (2026-06-10).
-    # allowed_domains 화이트리스트로 검색을 신뢰 매체로 제한 (대표 지시).
+    # allowed_domains 화이트리스트로 검색·fetch를 신뢰 매체로 제한 (대표 지시).
     # allowed/blocked는 동시 사용 불가 — 차단 도메인은 코드 검증에서 처리.
+    # web_fetch: 검색 메타데이터에 발행일이 없는 최종 후보의 기사 페이지를
+    # 직접 열어 발행일을 확인 (화이트리스트 매체 기사도 page_age 누락이 잦음).
     tools = [
         {
             "type": "web_search_20250305",
             "name": "web_search",
             "max_uses": 6,
             "allowed_domains": region["allowed_domains"],
-        }
+        },
+        {
+            "type": "web_fetch_20250910",
+            "name": "web_fetch",
+            "max_uses": 5,
+            "allowed_domains": region["allowed_domains"],
+            "max_content_tokens": 10000,
+        },
     ]
 
     # 스트리밍 필수: 서버사이드 검색 루프가 길어지면 비스트리밍은 10분
@@ -501,6 +511,25 @@ def _parse_date(value) -> datetime.date | None:
         return None
 
 
+# URL 경로의 날짜 패턴 — 구분자형(/2026/06/10/, 2026-06-10) 우선, 연속 8자리 폴백
+URL_DATE_SEP_RE = re.compile(r"(20[12]\d)[/\-.]([01]?\d)[/\-.]([0-3]?\d)")
+URL_DATE_RAW_RE = re.compile(r"(20[12]\d)([01]\d)([0-3]\d)")
+
+
+def _date_from_url(url: str) -> datetime.date | None:
+    """기사 URL에 박힌 발행일 추출 (한국 언론 URL 관행). 모델이 발행일을
+    못 채웠을 때의 코드 레벨 폴백 — 유효하지 않은 날짜는 무시."""
+    for pattern in (URL_DATE_SEP_RE, URL_DATE_RAW_RE):
+        for m in pattern.finditer(url):
+            try:
+                d = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                continue
+            if d >= datetime.date(2024, 1, 1):
+                return d
+    return None
+
+
 def validate_candidates(
     candidates: list[dict],
     cutoff: datetime.date,
@@ -550,6 +579,10 @@ def validate_candidates(
             continue
 
         pub = _parse_date(c.get("published_date"))
+        if pub is None:
+            pub = _date_from_url(url)
+            if pub is not None:
+                log.info("발행일 URL 추출(%s): %s", pub, title[:60])
         if pub is not None:
             if pub > today + datetime.timedelta(days=1):
                 drops["future"] += 1
