@@ -258,7 +258,8 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "3. **출처신뢰**(reliability): 출처가 확인 가능하고 1차 자료에 근거하는가\n"
         "   (0=출처 불분명, 1=2차 보도, 2=1차 자료/공식 발표)\n\n"
         "## 출력\n\n"
-        f"total_score(3개 합산) 3점 이상인 후보를 최대 {MAX_CANDIDATES}개 선택하세요.\n"
+        f"total_score(3개 합산) {MIN_TOTAL_SCORE}점 이상인 후보를 최소 1개, 최대 {MAX_CANDIDATES}개 선택하세요.\n"
+        "좋은 후보가 1~2개뿐이면 그만큼만 출력하세요. 개수를 채우려고 기준 미달 기사를 포함하지 마세요.\n"
         "JSON 배열만 출력하고 다른 텍스트는 추가하지 마세요.\n\n"
         "```json\n"
         "[\n"
@@ -276,7 +277,7 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "  }\n"
         "]\n"
         "```\n\n"
-        "후보가 없으면 빈 배열 `[]`을 출력하세요."
+        "기준을 충족하는 후보가 하나도 없으면 빈 배열 `[]`을 출력하세요. 억지로 1개를 만들지 마세요."
     )
 
 
