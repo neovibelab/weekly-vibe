@@ -29,6 +29,7 @@ import re
 import sys
 import time
 from difflib import SequenceMatcher
+from urllib.parse import urlparse
 
 import requests
 from anthropic import Anthropic
@@ -213,6 +214,10 @@ SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability")
 HANGUL_RE = re.compile(r"[가-힣]")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
+# 출처 차단 도메인 — 검색(blocked_domains)과 검증 양쪽에서 제외.
+# 나무위키: 위키 특성상 1차 출처 아님 (2026-06-10 대표 지시)
+BLOCKED_DOMAINS = ("namu.wiki",)
+
 # ── 프롬프트 ──────────────────────────────────────────────
 
 
@@ -251,7 +256,9 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "- 요약(summary)은 **반드시 한국어**로 작성 (원문 언어와 무관)\n"
         "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n"
         "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age 등으로 확인된 날짜만 적고, "
-        "추정하지 마세요. 확인 불가하면 null로 두되 기사 자체는 포함하세요.\n\n"
+        "추정하지 마세요. 확인 불가하면 null로 두되 기사 자체는 포함하세요.\n"
+        "- 나무위키 등 위키 문서·커뮤니티 게시글은 출처(url)로 사용하지 마세요. "
+        "언론 보도·공식 발표를 출처로 하세요.\n\n"
         "## 선별 기준 (각 0~2점)\n"
         "1. **소재적합**(newsletter_fit): 뉴스레터 칼럼 소재로서 해석 가능한 구체적 사례·데이터가 있는가\n"
         "   (0=일반 뉴스, 1=관점 가능, 2=풍부한 사례+데이터)\n"
@@ -347,7 +354,14 @@ def search_and_analyze(
     messages: list[dict] = [{"role": "user", "content": prompt}]
     # 20250305 고정: 20260209(dynamic filtering)는 검색마다 코드 실행
     # 컨테이너를 돌려 단순 큐레이션에 과부하 — 세그먼트 28분 실측 (2026-06-10).
-    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}]
+    tools = [
+        {
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 6,
+            "blocked_domains": list(BLOCKED_DOMAINS),
+        }
+    ]
 
     # 스트리밍 필수: 서버사이드 검색 루프가 길어지면 비스트리밍은 10분
     # HTTP 타임아웃 → SDK 재시도로 검색 비용만 중복 과금된다 (2026-06-10 실측).
@@ -424,6 +438,11 @@ def search_and_analyze(
 # ── 품질 게이트 ───────────────────────────────────────────
 
 
+def _is_blocked_domain(url: str) -> bool:
+    host = (urlparse(url).netloc or "").split(":")[0].lower()
+    return any(host == d or host.endswith("." + d) for d in BLOCKED_DOMAINS)
+
+
 def _parse_date(value) -> datetime.date | None:
     if not value or not isinstance(value, str):
         return None
@@ -445,7 +464,7 @@ def validate_candidates(
     한국 언론사 등 page_age 미제공 사이트가 많아 하드 컷이면 전멸한다
     (2026-06-10 실측, 2연속 0건). 확인된 구식·미래 날짜만 제외."""
     valid: list[dict] = []
-    drops = {"format": 0, "score": 0, "stale": 0, "future": 0}
+    drops = {"format": 0, "score": 0, "stale": 0, "future": 0, "blocked": 0}
 
     for c in candidates:
         title = (c.get("title") or "").strip()
@@ -455,6 +474,10 @@ def validate_candidates(
         if not title or not url.startswith("http") or not summary:
             drops["format"] += 1
             log.info("제외(필수 필드 누락): %s", (title or url)[:80])
+            continue
+        if _is_blocked_domain(url):
+            drops["blocked"] += 1
+            log.info("제외(차단 도메인): %s | %s", title[:60], url)
             continue
         if not HANGUL_RE.search(summary):
             drops["format"] += 1
@@ -683,7 +706,7 @@ def main() -> int:
         f"수집 {collected} → 게재 {len(selected)}"
         f" (제외: 형식 {drops['format']} · 점수 {drops['score']}"
         f" · 기한경과 {drops['stale']} · 미래일자 {drops['future']}"
-        f" · 중복 {dup_cnt} · 링크불량 {dead_links})"
+        f" · 출처차단 {drops['blocked']} · 중복 {dup_cnt} · 링크불량 {dead_links})"
     )
     if date_unknown:
         stats += f" · 발행일 미상 {date_unknown}건 포함"

@@ -40,6 +40,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
 2. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). 발행일 미상은 제외하지 않고 "발행일 미상" 플래그로 게재(한국 언론사 등 page_age 미제공 사이트가 많아 하드 컷이면 전멸 — 2026-06-10 실측 2연속 0건). 확인된 구식·미래 날짜만 제외
 3. 점수순 정렬 후 URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단)
+3-1. 출처 차단: `BLOCKED_DOMAINS`(나무위키 — 신뢰성, 2026-06-10 대표 지시)를 검색 `blocked_domains` + 코드 검증 양쪽에서 제외
 4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
 단위 테스트: `scripts/test_quality_gate.py`.

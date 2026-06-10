@@ -76,6 +76,14 @@ def test_validate():
     # URL 형식 불량 → 제외
     valid, drops = vs.validate_candidates([_cand(url="notaurl")], cutoff, today)
     assert len(valid) == 0 and drops["format"] == 1
+
+    # 차단 도메인(나무위키) → 제외 (서브도메인 포함)
+    for bad in ("https://namu.wiki/w/BTS", "https://www.namu.wiki/w/BTS"):
+        valid, drops = vs.validate_candidates([_cand(url=bad)], cutoff, today)
+        assert len(valid) == 0 and drops["blocked"] == 1
+    # 유사 도메인은 통과 (suffix 오탐 방지)
+    valid, drops = vs.validate_candidates([_cand(url="https://notnamu.wiki/a")], cutoff, today)
+    assert len(valid) == 1
     print("  validate_candidates OK")
 
 
