@@ -345,17 +345,21 @@ def search_and_analyze(
 ) -> list[dict]:
     prompt = build_search_prompt(region, today, cutoff)
     messages: list[dict] = [{"role": "user", "content": prompt}]
-    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 6}]
+    # 20250305 고정: 20260209(dynamic filtering)는 검색마다 코드 실행
+    # 컨테이너를 돌려 단순 큐레이션에 과부하 — 세그먼트 28분 실측 (2026-06-10).
+    tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 6}]
 
     # 스트리밍 필수: 서버사이드 검색 루프가 길어지면 비스트리밍은 10분
     # HTTP 타임아웃 → SDK 재시도로 검색 비용만 중복 과금된다 (2026-06-10 실측).
     response = None
+    extra: dict = {}
     for _ in range(3):  # pause_turn(서버 루프 한도) 연속 재개 최대 2회
         with client.messages.stream(
             model="claude-sonnet-4-6",
             max_tokens=4096,
             tools=tools,
             messages=messages,
+            **extra,
         ) as stream:
             response = stream.get_final_message()
 
@@ -366,6 +370,9 @@ def search_and_analyze(
             {"role": "user", "content": prompt},
             {"role": "assistant", "content": response.content},
         ]
+        # 코드 실행 동반 응답은 같은 컨테이너로 재개해야 함 (없으면 400)
+        if getattr(response, "container", None):
+            extra["container"] = response.container.id
 
     if response.stop_reason == "max_tokens":
         log.warning("응답이 max_tokens로 잘림 — 일부 결과만 사용")
