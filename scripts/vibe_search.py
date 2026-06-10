@@ -77,10 +77,17 @@ REGIONS: dict[str, dict] = {
             "여러 사건의 연결고리를 보여주는 분석 기사를 우선하세요."
         ),
         "trusted_sources": (
-            "한국경제, 매일경제, 조선비즈, 텐아시아, 스포츠경향, "
-            "마이데일리, 뉴시스, 연합뉴스, 더밀크, 미디어오늘, "
-            "IT조선, 디지털데일리, 한겨레, 경향신문"
+            "한국경제(텐아시아 포함), 매일경제, 조선일보·조선비즈·IT조선, 중앙일보, "
+            "동아일보, 한겨레, 경향신문·스포츠경향, 연합뉴스, 뉴스1, 뉴시스, "
+            "서울경제, 전자신문, 디지털데일리, 미디어오늘, 빌보드코리아, 시사IN, 더밀크"
         ),
+        "allowed_domains": [
+            "hankyung.com", "mk.co.kr", "chosun.com", "joongang.co.kr",
+            "donga.com", "hani.co.kr", "khan.co.kr", "yna.co.kr",
+            "news1.kr", "newsis.com", "sedaily.com", "etnews.com",
+            "ddaily.co.kr", "mediatoday.co.kr", "billboard.co.kr",
+            "sisain.co.kr", "themilk.com",
+        ],
         "search_terms": {
             "fan-behavior": ["케이팝 팬덤 소비", "콘서트 투어 매출", "위버스 팬 플랫폼"],
             "consumer-behavior": ["엔터 브랜드 콜라보", "MZ세대 문화 소비", "굿즈 시장 규모"],
@@ -106,10 +113,18 @@ REGIONS: dict[str, dict] = {
         ),
         "trusted_sources": (
             "Billboard, Variety, Music Business Worldwide, "
-            "Hits Daily Double, TechCrunch, Financial Times, Bloomberg, "
+            "Hits Daily Double, TechCrunch, Financial Times, Bloomberg, Reuters, "
+            "The Guardian, The New York Times, The Wall Street Journal, "
             "The Hollywood Reporter, Pitchfork, Rolling Stone, NME, "
             "IFPI, MIDiA Research, Luminate"
         ),
+        "allowed_domains": [
+            "billboard.com", "variety.com", "musicbusinessworldwide.com",
+            "hitsdailydouble.com", "techcrunch.com", "ft.com", "bloomberg.com",
+            "reuters.com", "theguardian.com", "nytimes.com", "wsj.com",
+            "hollywoodreporter.com", "pitchfork.com", "rollingstone.com",
+            "nme.com", "ifpi.org", "midiaresearch.com", "luminatedata.com",
+        ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom economy", "concert touring revenue 2026", "fan platform engagement"],
             "consumer-behavior": ["entertainment brand collaboration", "Gen Z cultural consumption", "music merch market"],
@@ -133,10 +148,15 @@ REGIONS: dict[str, dict] = {
             "아이돌 시장(选秀·饭圈) 동향, 음악 저작권 거래에 주목하세요."
         ),
         "trusted_sources": (
-            "36氪, 虎嗅, 界面新闻, 第一财经, "
+            "36氪, 虎嗅, 界面新闻, 第一财经, 财新, "
             "南方周末, 澎湃新闻, 新浪娱乐, "
-            "腾讯娱乐, 音乐财经, 每日经济新闻"
+            "腾讯娱乐, 每日经济新闻"
         ),
+        "allowed_domains": [
+            "36kr.com", "huxiu.com", "jiemian.com", "yicai.com",
+            "caixin.com", "infzm.com", "thepaper.cn", "sina.com.cn",
+            "qq.com", "nbd.com.cn",
+        ],
         "search_terms": {
             "fan-behavior": ["粉丝经济 趋势", "演唱会市场 规模", "饭圈消费"],
             "consumer-behavior": ["文娱消费 趋势", "品牌跨界 合作", "Z世代 消费 文化"],
@@ -162,8 +182,13 @@ REGIONS: dict[str, dict] = {
         "trusted_sources": (
             "日経エンタテインメント!, 音楽ナタリー, ORICON NEWS, "
             "Billboard JAPAN, リアルサウンド, BARKS, "
-            "日本経済新聞, 東洋経済, ITmedia, MANTANWEB"
+            "日本経済新聞, 東洋経済, ITmedia, MANTANWEB, 朝日新聞, 毎日新聞"
         ),
+        "allowed_domains": [
+            "nikkei.com", "natalie.mu", "oricon.co.jp", "billboard-japan.com",
+            "realsound.jp", "barks.jp", "toyokeizai.net", "itmedia.co.jp",
+            "mantan-web.jp", "asahi.com", "mainichi.jp",
+        ],
         "search_terms": {
             "fan-behavior": ["推し活 消費 トレンド", "コンサート ライブ 市場", "ファンクラブ 会員数"],
             "consumer-behavior": ["エンタメ ブランド コラボ", "Z世代 文化消費", "グッズ市場 規模"],
@@ -194,6 +219,11 @@ REGIONS: dict[str, dict] = {
             "Philippine Daily Inquirer, VnExpress International, "
             "The Jakarta Post, Channel NewsAsia"
         ),
+        "allowed_domains": [
+            "rappler.com", "bangkokpost.com", "kompas.com",
+            "straitstimes.com", "nikkei.com", "scmp.com", "inquirer.net",
+            "vnexpress.net", "thejakartapost.com", "channelnewsasia.com",
+        ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom Southeast Asia", "SB19 BINI fan community", "concert market ASEAN"],
             "consumer-behavior": ["entertainment consumption Southeast Asia", "Gen Z cultural trends ASEAN", "Hallyu brand impact"],
@@ -214,9 +244,13 @@ SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability")
 HANGUL_RE = re.compile(r"[가-힣]")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
-# 출처 차단 도메인 — 검색(blocked_domains)과 검증 양쪽에서 제외.
+# 출처 차단 도메인 — 코드 검증에서 제외 (화이트리스트와 별개의 방어선).
 # 나무위키: 위키 특성상 1차 출처 아님 (2026-06-10 대표 지시)
 BLOCKED_DOMAINS = ("namu.wiki",)
+
+# 발행일 미상 기사 게재 허용 여부 (기본 제외 — 2026-06-10 대표 지시).
+# 화이트리스트 매체가 검색에서 안 잡혀 0건이 반복되면 "1"로 임시 완화.
+ALLOW_UNDATED = os.environ.get("ALLOW_UNDATED", "0") == "1"
 
 # ── 프롬프트 ──────────────────────────────────────────────
 
@@ -247,7 +281,10 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
         "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n\n"
         f"{topics_block}\n\n"
-        f"## 신뢰 매체 (우선)\n{region['trusted_sources']}\n\n"
+        "## 검색 대상 매체 (화이트리스트)\n"
+        "검색은 다음 매체로 제한됩니다 — 주요 일간지·주간지·매거진·전문지 위주:\n"
+        f"{region['trusted_sources']}\n"
+        "보도자료 재가공·어그리게이터·위키·커뮤니티는 출처로 쓰지 마세요.\n\n"
         f"## 차별화 포인트\n{region['edge_note']}\n\n"
         "## 공통 원칙\n"
         "- 구체적 수치·데이터·사례가 포함된 기사 우선\n"
@@ -354,12 +391,14 @@ def search_and_analyze(
     messages: list[dict] = [{"role": "user", "content": prompt}]
     # 20250305 고정: 20260209(dynamic filtering)는 검색마다 코드 실행
     # 컨테이너를 돌려 단순 큐레이션에 과부하 — 세그먼트 28분 실측 (2026-06-10).
+    # allowed_domains 화이트리스트로 검색을 신뢰 매체로 제한 (대표 지시).
+    # allowed/blocked는 동시 사용 불가 — 차단 도메인은 코드 검증에서 처리.
     tools = [
         {
             "type": "web_search_20250305",
             "name": "web_search",
             "max_uses": 6,
-            "blocked_domains": list(BLOCKED_DOMAINS),
+            "allowed_domains": region["allowed_domains"],
         }
     ]
 
@@ -438,9 +477,9 @@ def search_and_analyze(
 # ── 품질 게이트 ───────────────────────────────────────────
 
 
-def _is_blocked_domain(url: str) -> bool:
+def _host_matches(url: str, domains) -> bool:
     host = (urlparse(url).netloc or "").split(":")[0].lower()
-    return any(host == d or host.endswith("." + d) for d in BLOCKED_DOMAINS)
+    return any(host == d or host.endswith("." + d) for d in domains)
 
 
 def _parse_date(value) -> datetime.date | None:
@@ -456,15 +495,21 @@ def _parse_date(value) -> datetime.date | None:
 
 
 def validate_candidates(
-    candidates: list[dict], cutoff: datetime.date, today: datetime.date
+    candidates: list[dict],
+    cutoff: datetime.date,
+    today: datetime.date,
+    allowed_domains=(),
 ) -> tuple[list[dict], dict]:
-    """형식·점수·발행일 검증. 프롬프트 지시를 코드 레벨에서 재강제한다.
+    """형식·출처·점수·발행일 검증. 프롬프트 지시를 코드 레벨에서 재강제한다.
 
-    발행일 미상은 제외하지 않고 플래그(published_date=None)로 게재한다 —
-    한국 언론사 등 page_age 미제공 사이트가 많아 하드 컷이면 전멸한다
-    (2026-06-10 실측, 2연속 0건). 확인된 구식·미래 날짜만 제외."""
+    발행일 미상은 기본 제외(신뢰성 — 2026-06-10 대표 지시). 화이트리스트
+    매체는 날짜 메타데이터가 대체로 깔끔하지만, 0건이 반복되면
+    ALLOW_UNDATED=1로 임시 완화 가능(플래그 게재)."""
     valid: list[dict] = []
-    drops = {"format": 0, "score": 0, "stale": 0, "future": 0, "blocked": 0}
+    drops = {
+        "format": 0, "score": 0, "stale": 0,
+        "future": 0, "blocked": 0, "no_date": 0,
+    }
 
     for c in candidates:
         title = (c.get("title") or "").strip()
@@ -475,9 +520,13 @@ def validate_candidates(
             drops["format"] += 1
             log.info("제외(필수 필드 누락): %s", (title or url)[:80])
             continue
-        if _is_blocked_domain(url):
+        if _host_matches(url, BLOCKED_DOMAINS):
             drops["blocked"] += 1
             log.info("제외(차단 도메인): %s | %s", title[:60], url)
+            continue
+        if allowed_domains and not _host_matches(url, allowed_domains):
+            drops["blocked"] += 1
+            log.info("제외(화이트리스트 외 출처): %s | %s", title[:60], url)
             continue
         if not HANGUL_RE.search(summary):
             drops["format"] += 1
@@ -504,9 +553,13 @@ def validate_candidates(
                 log.info("제외(발행일 %s < 컷오프 %s): %s", pub, cutoff, title[:80])
                 continue
             c["published_date"] = pub.isoformat()
-        else:
+        elif ALLOW_UNDATED:
             c["published_date"] = None
-            log.info("발행일 미상 — 플래그로 게재 유지: %s", title[:80])
+            log.info("발행일 미상 — 플래그로 게재 유지 (ALLOW_UNDATED): %s", title[:80])
+        else:
+            drops["no_date"] += 1
+            log.info("제외(발행일 불명): %s", title[:80])
+            continue
 
         c["title"], c["url"], c["summary"] = title, url, summary
         valid.append(c)
@@ -547,7 +600,11 @@ def select_candidates(candidates: list[dict]) -> tuple[list[dict], int, int]:
     배치 내 중복: 모델 JSON이 깨져 개별 객체 폴백이 돌면 같은 기사가
     2벌씩 추출될 수 있다 (2026-06-10 실측) — URL·제목 유사도로 차단."""
     candidates.sort(
-        key=lambda c: (c.get("total_score", 0), c.get("published_date") is not None),
+        key=lambda c: (
+            c.get("total_score", 0),
+            c.get("reliability", 0),
+            c.get("published_date") is not None,
+        ),
         reverse=True,
     )
     selected: list[dict] = []
@@ -704,8 +761,10 @@ def main() -> int:
 
     log.info("[%s] 후보 %d건 수집", region_name, collected)
 
-    # 2. 품질 게이트 (형식·점수·발행일)
-    candidates, drops = validate_candidates(candidates, cutoff_date, today_date)
+    # 2. 품질 게이트 (형식·출처 화이트리스트·점수·발행일)
+    candidates, drops = validate_candidates(
+        candidates, cutoff_date, today_date, region["allowed_domains"]
+    )
 
     # 3. 채널 간 중복 제거 (Supabase + 로컬 파일 병행)
     seen_titles = load_seen_titles(seen_file)
@@ -726,8 +785,8 @@ def main() -> int:
         f"수집 {collected} → 게재 {len(selected)}"
         f" (제외: 형식 {drops['format']} · 점수 {drops['score']}"
         f" · 기한경과 {drops['stale']} · 미래일자 {drops['future']}"
-        f" · 출처차단 {drops['blocked']} · 중복 {dup_cnt + batch_dups}"
-        f" · 링크불량 {dead_links})"
+        f" · 발행일불명 {drops['no_date']} · 출처차단 {drops['blocked']}"
+        f" · 중복 {dup_cnt + batch_dups} · 링크불량 {dead_links})"
     )
     if date_unknown:
         stats += f" · 발행일 미상 {date_unknown}건 포함"

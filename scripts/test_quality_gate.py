@@ -44,10 +44,17 @@ def test_validate():
     valid, drops = vs.validate_candidates([_cand()], cutoff, today)
     assert len(valid) == 1 and sum(drops.values()) == 0
 
-    # 발행일 미상 → 플래그(None)로 게재 유지
+    # 발행일 미상 → 기본 제외 (2026-06-10 대표 지시)
     valid, drops = vs.validate_candidates([_cand(published_date=None)], cutoff, today)
-    assert len(valid) == 1 and valid[0]["published_date"] is None
-    assert sum(drops.values()) == 0
+    assert len(valid) == 0 and drops["no_date"] == 1
+
+    # ALLOW_UNDATED=1이면 플래그(None)로 게재 유지
+    vs.ALLOW_UNDATED = True
+    try:
+        valid, drops = vs.validate_candidates([_cand(published_date=None)], cutoff, today)
+        assert len(valid) == 1 and valid[0]["published_date"] is None
+    finally:
+        vs.ALLOW_UNDATED = False
 
     # 기한 경과 → 제외
     valid, drops = vs.validate_candidates([_cand(published_date="2026-06-01")], cutoff, today)
@@ -83,6 +90,17 @@ def test_validate():
         assert len(valid) == 0 and drops["blocked"] == 1
     # 유사 도메인은 통과 (suffix 오탐 방지)
     valid, drops = vs.validate_candidates([_cand(url="https://notnamu.wiki/a")], cutoff, today)
+    assert len(valid) == 1
+
+    # 화이트리스트: 목록 외 출처 제외, 목록 내(서브도메인 포함) 통과
+    allowed = ("hankyung.com", "yna.co.kr")
+    valid, drops = vs.validate_candidates(
+        [_cand(url="https://www.aitimes.com/news/1")], cutoff, today, allowed
+    )
+    assert len(valid) == 0 and drops["blocked"] == 1
+    valid, drops = vs.validate_candidates(
+        [_cand(url="https://tenasia.hankyung.com/article/1")], cutoff, today, allowed
+    )
     assert len(valid) == 1
     print("  validate_candidates OK")
 

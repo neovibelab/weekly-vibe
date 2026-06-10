@@ -38,9 +38,9 @@
 Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제한다.
 
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
-2. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). 발행일 미상은 제외하지 않고 "발행일 미상" 플래그로 게재(한국 언론사 등 page_age 미제공 사이트가 많아 하드 컷이면 전멸 — 2026-06-10 실측 2연속 0건). 확인된 구식·미래 날짜만 제외
-3. 점수순 정렬 후 URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단)
-3-1. 출처 차단: `BLOCKED_DOMAINS`(나무위키 — 신뢰성, 2026-06-10 대표 지시)를 검색 `blocked_domains` + 코드 검증 양쪽에서 제외
+2. **출처 화이트리스트** — 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외 (AI타임스·에너지신문류 보도자료 재가공 매체 차단, 2026-06-10 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
+3. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). **발행일 미상은 제외**(신뢰성 — 2026-06-10 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재)
+4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
 4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
 단위 테스트: `scripts/test_quality_gate.py`.
