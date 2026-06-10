@@ -234,8 +234,9 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         f"오늘은 {today.isoformat()} (KST)입니다.\n"
         f"최근 {MAX_AGE_HOURS}시간 이내({cutoff.isoformat()} ~ {today.isoformat()} 발행)의 "
         "뉴스·기사·보도만 웹 검색으로 찾으세요.\n"
-        "검색 결과의 page_age와 기사 본문의 발행일을 확인해, "
-        f"{cutoff.isoformat()} 이전에 발행된 기사는 제외하세요.\n"
+        "검색 결과의 page_age 등 메타데이터로 발행일을 판단해 "
+        f"{cutoff.isoformat()} 이전 발행 기사는 제외하세요. "
+        "발행일 확인만을 위해 기사 원문을 일일이 열지 마세요.\n"
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
         "다음 6개 주제 영역을 커버하도록 **최소 4회** 다양한 검색어로 검색하세요.\n"
         "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n\n"
@@ -248,8 +249,8 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "- 하나의 기사가 여러 주제에 걸칠 수 있음 — topics에 복수 태깅 가능\n"
         "- 요약(summary)은 **반드시 한국어**로 작성 (원문 언어와 무관)\n"
         "- 제목(title)은 **한국어로 번역**하세요. 원문 언어와 무관하게 반드시 한국어 제목으로.\n"
-        "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age나 본문 날짜로 확인된 것만 적으세요. "
-        "추정하지 말고, 확인 불가하면 null (해당 기사는 자동 제외됩니다).\n\n"
+        "- published_date는 기사 발행일(YYYY-MM-DD). 검색 결과의 page_age 등으로 확인된 날짜만 적고, "
+        "추정하지 마세요. 확인 불가하면 null.\n\n"
         "## 선별 기준 (각 0~2점)\n"
         "1. **소재적합**(newsletter_fit): 뉴스레터 칼럼 소재로서 해석 가능한 구체적 사례·데이터가 있는가\n"
         "   (0=일반 뉴스, 1=관점 가능, 2=풍부한 사례+데이터)\n"
@@ -277,7 +278,8 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "  }\n"
         "]\n"
         "```\n\n"
-        "기준을 충족하는 후보가 하나도 없으면 빈 배열 `[]`을 출력하세요. 억지로 1개를 만들지 마세요."
+        "기준을 충족하는 후보가 하나도 없으면 빈 배열 `[]`만 출력하세요. 억지로 1개를 만들지 마세요.\n"
+        "배열 앞뒤에 보고·해설·마크다운 텍스트를 덧붙이지 마세요."
     )
 
 
@@ -341,13 +343,28 @@ def search_and_analyze(
     client: Anthropic, region: dict, today: datetime.date, cutoff: datetime.date
 ) -> list[dict]:
     prompt = build_search_prompt(region, today, cutoff)
+    messages: list[dict] = [{"role": "user", "content": prompt}]
+    tools = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 6}]
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 8}],
-        messages=[{"role": "user", "content": prompt}],
-    )
+    # 스트리밍 필수: 서버사이드 검색 루프가 길어지면 비스트리밍은 10분
+    # HTTP 타임아웃 → SDK 재시도로 검색 비용만 중복 과금된다 (2026-06-10 실측).
+    response = None
+    for _ in range(3):  # pause_turn(서버 루프 한도) 연속 재개 최대 2회
+        with client.messages.stream(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            tools=tools,
+            messages=messages,
+        ) as stream:
+            response = stream.get_final_message()
+
+        log.info("stop_reason=%s", response.stop_reason)
+        if response.stop_reason != "pause_turn":
+            break
+        messages = [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": response.content},
+        ]
 
     if response.stop_reason == "max_tokens":
         log.warning("응답이 max_tokens로 잘림 — 일부 결과만 사용")

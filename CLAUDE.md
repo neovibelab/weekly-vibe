@@ -1,415 +1,81 @@
-# 엔터문화연구소 위클리 바이브
+# weekly-vibe — 일일 수집 엔진 (vibe_search v3)
 
-> **골격·제작 절차 정본**: `.claude/skills/weekly-vibe/SKILL.md` — 2026-05-22 재구성(섹터별 Vibe 묶음 + 산업 번역). 본 문서의 "US 2 / CN 2 / JP 2" 구조는 옛 모델(~2026-05-21)이며, 제작 시 SKILL.md를 따른다. 아래 디자인 시스템·태그·금액 표기·검증 체크리스트는 여전히 유효.
+> **역할 (2026-06-09 전환)**: 엔터·문화 산업 뉴스의 **일일 자동 수집 엔진**. 매일 07:00 KST 5개 지역을 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
 >
-> **일일 수집 v3 (2026-06-08)**: `scripts/vibe_search.py`가 주제 기반(6 토픽)에서 **지역·언어 기반**(5 지역: 한국/글로벌/중국/일본/동남아)으로 재설계됨. 6개 주제는 검색 필터 겸 태깅 기준으로 전환. 워크플로: `.github/workflows/ai-news-daily.yml`. Discord 채널도 5개 지역 채널로 전환 필요.
+> **주간 브리핑(NEWSPAPER HTML) 발행은 2026-06-09 폐기.** 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존한다. `weeklybriefing.vercel.app`은 배포 중단 대상, 제작 스킬(`.claude/skills/weekly-vibe/`)은 2026-06-10 삭제. 구 제작 가이드(태그 시스템·디자인 시스템·검증 체크리스트)가 필요하면 이 파일의 git 히스토리(2026-06-10 이전) 참조.
 >
-> **Supabase 연동 (2026-06-09)**: 수집 결과가 Discord + Supabase `radar_items` 테이블에 동시 적재됨. `scripts/supabase_writer.py`가 REST API로 upsert. nvl-vibe-radar 대시보드에서 collector/region 필터로 큐레이션 가능. radar 자체 수집기는 폐기 — vibe_search가 유일한 수집 엔진. 환경변수: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets).
->
-> **품질 게이트 (2026-06-10)**: Anthropic web_search 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제. ① 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구 ② `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정) ③ 점수순 정렬 후 URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) ④ 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출. 발행일 불명 기사는 제외됨. 단위 테스트: `scripts/test_quality_gate.py`.
-
-## 프로젝트 개요
-
-엔터테인먼트 비즈니스 주간 Vibe 큐레이션.
-매주 금요일 저녁 8시 작성, 토요일 날짜로 발행(토요일 오전 단톡방 공유). HTML 단일 파일로 제작하여 Vercel(GitHub Pages)에 배포.
-
-- **매체명**: 엔터문화연구소
-- **리포트명**: 글로벌 주간 브리핑
-- **아카이브**: https://weeklybriefing.vercel.app/
-- **언어**: 한국어 (영문 고유명사는 원문 유지)
+> **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md`](../ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5.
 
 ---
 
-## 파일 구조
+## 1. 수집 파이프라인
 
 ```
-/
-├── CLAUDE.md                          # 이 파일 (클로드 코드 지침)
-├── README.md
-├── index.html                         # 아카이브 목록 페이지
-├── NEWSPAPER_MMDD.html                # 정규호 (금요일 저녁 8시 작성, 토요일 날짜로 발행)
-└── SPECIAL_MMDD.html                  # 스페셜 에디션 (비정기)
+매일 07:00 KST (GitHub Actions ai-news-daily.yml)
+    → scripts/vibe_search.py (Claude Sonnet web_search, 5지역 순차)
+    → 품질 게이트 (validate_candidates → URL 생존 확인)
+    → Discord 5개 지역 채널 알림 + Supabase radar_items upsert
+    → 대시보드 큐레이션: https://nvl-vibe-radar.vercel.app/
 ```
 
-### 파일명 규칙
-- 정규호: `NEWSPAPER_MMDD.html` (예: `NEWSPAPER_0321.html`)
-- 스페셜: `SPECIAL_MMDD.html` (예: `SPECIAL_0316.html`)
-- MMDD는 발행일 기준
+| 지역 | 언어 | Discord 채널 | Secret |
+|------|------|-------------|--------|
+| 한국 | 한국어 | `#korea_vibe` | `DISCORD_KOREA_WEBHOOK` |
+| 글로벌 | 영어 | `#global_vibe` | `DISCORD_GLOBAL_EN_WEBHOOK` |
+| 중국 | 중국어 | `#vibe-china` | `DISCORD_CHINA_WEBHOOK` |
+| 일본 | 일본어 | `#vibe-japan` | `DISCORD_JAPAN_WEBHOOK` |
+| 동남아 | 영어+현지 | `#asia_vibe` | `DISCORD_SOUTHEAST_ASIA_WEBHOOK` |
 
-### 제목 표기 규칙 (index.html issue-title 및 기타 헤드라인)
-- **`Vol. NN` 대신 `YYYY.MM.DD` 날짜 prefix 사용** (예: `2026.04.25 — 애크먼, UMG에 94.9조 인수 제안`)
-- nav-top `nav-vol` 영역의 `Vol. NN` 표기는 아카이브 네비게이션 용도로 **유지**
-- 전체 호에 소급 적용(Vol.01~06 포함). 이후 주간 자동화는 본 규칙으로 생성
+- **엔진**: `scripts/vibe_search.py` — Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 최소 1~최대 5건, 기준 충족 후보 없으면 그날은 생략.
+- **적재**: `scripts/supabase_writer.py` — REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 — vibe_search가 유일한 수집 엔진이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
+- **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
+- **태깅**: 6렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues`, `topics` 배열) + 비엔터 교차 소재는 `cross-industry` 병기.
+- **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
+- **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
 
-#### issue-title 본문 규칙 (단일 핵심 주제)
-- **단일 핵심 주제 1개**로 압축한다. 쉼표로 여러 이슈를 이어 붙이지 않는다.
-- **날짜 제외 제목부 길이: 15~25자** (공백·구두점 포함). 시각 리듬 통일.
-- **선정 기준 (우선순위 순)**:
-  1. 그 주 Hero/메인으로 배치한 이슈 (정규호 기준 첫 번째 hero-main)
-  2. 주간을 관통하는 신호 — 여러 기사가 공명하는 거시 흐름
-  3. 애매하면 편집자(에이전트) 저널리즘 판단으로 선정
-- **스타일**: 기업명·인물명·핵심 숫자 중심. 수식어 최소화. 서술어 없이 명사구로 마무리 권장.
-  - 좋음: `Netflix, 애플렉 AI 스타트업 9,060억 인수` / `OpenAI, Sora 6개월 만에 셧다운`
-  - 피함: `OpenAI Sora 셧다운, Paramount-WBD 표결, AI 숏드라마 혁명` (3주제 병렬)
-- **Special 에디션**: 단일 이벤트를 더욱 짧게 (10~15자 권장). 예: `BTS 광화문 콘서트 D-5`
-- **`<title>` 태그 (각 호 HTML)**: 호별 핵심 주제는 넣지 않고 `엔터문화연구소 — 글로벌 주간 브리핑 YYYY.MM.DD` 형식으로 통일 유지 (SNS/검색 공유 일관성).
+## 2. 품질 게이트 (2026-06-10)
 
----
+Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제한다.
 
-## ⚠️ 절대 금지 (위반 시 작업 중단)
+1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
+2. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). 발행일 불명 기사는 제외
+3. 점수순 정렬 후 URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단)
+4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
-- **기억·지식 기반으로 뉴스를 만들어내지 않는다.** 훈련 데이터에서 알고 있는 사실, 그럴 듯한 추정, AI가 생성한 가짜 URL — 일체 금지.
-- 모든 기사는 **이번 작업 세션 내 WebSearch 또는 WebFetch로 직접 확인한 것**만 사용한다.
-- URL이 실제로 열리지 않거나 검증 불가능하면 해당 기사를 제외한다. 기사 수가 부족해도 채우지 않는다.
+단위 테스트: `scripts/test_quality_gate.py`.
+
+## 3. 절대 금지 (위반 시 작업 중단)
+
+- **기억·지식 기반으로 뉴스를 만들어내지 않는다.** 훈련 데이터의 사실, 그럴듯한 추정, 생성된 가짜 URL 일체 금지.
+- 모든 기사는 **세션 내 검색·fetch로 직접 확인한 것**만. URL 검증 불가능하면 제외하고, 건수가 부족해도 채우지 않는다.
 - "지식 기반 소스 활용", "URL 검증 생략" 같은 판단을 스스로 내리지 않는다.
 
----
+## 4. 주간 리포트 드롭 (별개 흐름, 존속)
 
-## 주간 제작 워크플로우
+뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
-사용자가 `이번 주 매거진 만들어줘` 또는 유사한 요청을 하면 아래 순서를 따른다.
+- 생성: `/report-scan` 스킬(미네바) → `drops/YY.MM.DD-주간리포트드롭.md`
+- 포스팅: `.github/workflows/discord-report-drop.yml` — 매주 월요일 10:00 KST Discord 드롭
 
-### STEP 1: 환율 조회
-- USD/KRW 환율 조회 → 정수 반올림 (예: $1 = ₩1,425)
-- 이 환율을 모든 금액 변환에 일관 적용
-
-### STEP 2: 기존 발행 확인 (중복 방지)
-- `https://weeklybriefing.vercel.app/` fetch → 기존 호 목록 확인
-- 필요시 개별 호 fetch → 이미 다룬 주제 파악
-- 동일 소재 제외 (단, 의미 있는 후속 전개는 "후속 보도"로 가능)
-
-### STEP 3: 기사 검색 (최근 5일)
-- 검색 범위: 미국·중국·일본 엔터테인먼트 비즈니스
-- 분야: M&A, 테크/AI, 투자, IP 전략, 콘텐츠 비즈니스, 시장 데이터
-- 영어·중국어·일본어 소스 우선. **한국 언론 기사 제외**
-- 최소 8~12회 웹 검색 수행
-- **현지어 검색 필수**: 영어 검색 외에, 중국어(中文)·일본어(日本語) 키워드로 각 2회 이상 현지 매체 검색
-
-### STEP 3-1: 한국 매체 사각지대 필터
-기사 후보를 확보한 후, 아래 기준으로 **한국 매체가 이미 다룬 뉴스를 걸러낸다**:
-- 한국 주요 매체(한경, 매경, 조선일보 등)에서 동일 소재를 이미 보도했는지 간략 확인
-- 이미 한국어로 보도된 뉴스는 **우선순위를 낮추고**, 아래에 해당하는 기사를 우선 선별:
-  - 중국어·일본어 1차 소스에만 존재하는 뉴스 (번역되지 않은 것)
-  - 업계 전문지·규제 원문·공시에서만 확인 가능한 디테일 (딜 구조, 시장 규모, 정책 원문)
-  - 한국 매체가 현상은 보도했지만 **수치·맥락·구조**를 빠뜨린 뉴스
-- 단, 뉴스 가치가 압도적으로 큰 경우(메가딜, 산업 전환점)는 한국 보도 여부와 무관하게 포함
-
-### STEP 4: 기사 선별
-- **총 6건: US 2 / CN 2 / JP 2** (Global 섹션 없음)
-- 동일 소재 중복 금지, 동일 기업 2건 이상 금지
-- **큰 흐름 + 작은 흐름 혼합 필수**: 각 지역에서 1건은 구조적 큰 흐름(M&A·딜·시장 데이터·정책), 1건은 작은 흐름(씬·인물·현상·서브컬처 신호)으로 구성
-- 각 기사에 **표준 태그** 1~2개를 부여 (아래 태그 시스템 참조)
-
-### STEP 5: HTML 제작
-- 최신 정규호 HTML을 템플릿으로 참조
-- 디자인 시스템은 기존 호와 일관성 유지 (다크 테마, 라임 액센트)
-- **섹션 순서는 고정**: NAV-TOP → MASTHEAD → TL;DR("이번 주 이슈 요약") → 인사이트(insights) → US → China → Japan → NAV-BOTTOM → FOOTER
-- **차주 딥다이브 후보는 발행 HTML에 포함하지 않는다**. 별도 내부 마크다운 파일로 산출한다. 상세는 STEP 5-1 참조.
-- TL;DR 상단 라벨은 **"이번 주 이슈 요약"** 고정. "TL;DR" 영문 표기 금지.
-- 인사이트 섹션은 **기사 본문보다 앞에 배치** (독자가 전략부터 읽을 수 있도록)
-- 지역 섹션 순서: **US → China → Japan** (3개 고정. Global 섹션 없음)
-
-### STEP 5-1: 차주 딥다이브 후보 — 내부용 별도 산출물
-
-차주 딥다이브 후보는 **대표 내부 열람용**이다. 발행 HTML(`NEWSPAPER_MMDD.html`)에 절대 포함하지 않는다. 매 호 작성 시 아래 규칙으로 별도 마크다운 파일을 산출한다.
-
-- **산출 위치**: `ntcc-weekly-briefing/internal/`
-- **파일명 규칙**: `YY.MM.DD-deepdive-candidates.md` (발행일 기준, 예: `26.04.25-deepdive-candidates.md`)
-- **.gitignore 관리 원칙**: 본 레포는 **공개 GitHub 레포**(neovibelab/weeklybriefing)다. `internal/` 경로 전체를 `.gitignore`에 등록해 외부 커밋을 차단한다. 신설·변경 금지(이미 등록돼 있음).
-- **발행 HTML 포함 금지**: TOC 앵커(`#next-deepdive`), 섹션 마크업(`<section class="next-dive">`), 관련 CSS(`.next-dive*`) 모두 HTML에 들어가지 않는다.
-- **후보 개수**: 3~5개 (기본 5개 권장, 신호 약한 주는 3개까지 축소 허용)
-- **각 후보 구성**:
-  1. 제목 (1줄, 대시 `—`로 부제 연결 권장)
-  2. 왜 딥다이브 감인지 1~2문장: **신호·타이밍·데이터 공백** 중 무엇에 해당하는지 명시
-  3. 포맷 힌트: 아래 6개 뉴스레터 포맷 중 1~2개 제안
-- **파일 상단 메타**: 생성일, 커버리지 주간, "발행 HTML 비포함" 명시
-- **뉴스레터 포맷 매핑 (힌트 규칙)**:
-  | 소재 성격 | 추천 포맷 |
-  |---|---|
-  | 특정 곡·앨범·사운드트랙 중심 | **OST 칼럼** |
-  | 산업·문화 구조에 대한 에세이·관점 | **우진 칼럼** |
-  | 새로운 직군·인물·현상 프로파일 | **뉴노멀 피플** |
-  | 팬덤·AI·기술 교차 '이상 징후' 현상 | **위어드 진단서** |
-  | 수치·시계열·다층 리서치가 필요한 주제 | **딥 리서치** |
-  | 정부·기관·업계 리포트 해체 | **리포트 분석** |
-- **후보 선정 기준**: (a) 이번 주 기사 중 후속 추적 가치 있는 것, (b) 이번 주 리서치 보류(검증 부족·분량 과다로 본 호 미수록) 소재, (c) 구조적 신호는 잡혔으나 한 호 분량이 필요한 주제
-
-### STEP 6: 미리보기 이미지 생성
-매 호 발행 시 SNS 공유용 미리보기 이미지를 생성한다.
-
-- **파일명**: `preview/PREVIEW_MMDD.png` (발행일 기준)
-- **크기**: 1200×630px (OG 이미지 표준)
-- **내용 구성**:
-  - 배경: `#0a0a0a` (다크)
-  - 상단: `엔터문화연구소 글로벌 주간 브리핑` (라임 `#C8FF00`, 소형)
-  - 중앙: 이번 호 issue-title (흰색, 대형)
-  - 하단: 발행일 (`YYYY.MM.DD`) + `US · China · Japan` (회색, 소형)
-  - 우하단: 라임 액센트 바 또는 로고 마크
-- **생성 방법**: Python + Pillow 사용. 폰트는 시스템 기본 또는 Noto Sans 사용.
-
-```python
-# preview/generate_preview.py 실행
-# 인수: 날짜(MMDD), 제목 텍스트
-python preview/generate_preview.py MMDD "issue-title 텍스트"
-```
-
-`preview/generate_preview.py`가 없으면 먼저 생성한다 (아래 스펙대로).
-
-### STEP 7: 파일 저장 & 내비게이션 업데이트
-매주 4개 파일을 커밋:
-1. **새 호** (`NEWSPAPER_MMDD.html`)
-2. **미리보기 이미지** (`preview/PREVIEW_MMDD.png`)
-3. **직전 호 수정** (하단 nav "다음 호 →"를 새 호로 링크)
-4. **index.html** (새 호 추가)
-
-### STEP 8: 검증 체크리스트
-- [ ] 모든 URL이 실제 존재하는 기사인가?
-- [ ] 날짜가 최근 5일 이내인가?
-- [ ] 한국 언론 소스 미포함?
-- [ ] 동일 주제 중복 없음?
-- [ ] 달러 금액에 한화 병기 완료?
-- [ ] 환율이 푸터에 표기?
-- [ ] **지역별 기사 2건씩 (US 2 / CN 2 / JP 2) 충족?**
-- [ ] **각 지역 큰 흐름 1건 + 작은 흐름 1건 혼합 확인?**
-- [ ] 마스트헤드 날짜 형식: `2026년 M월 D일 토요일 (M.D–D)` (작성은 금요일 밤이지만 발행일은 토요일 기준)
-- [ ] 칼럼 헤더 영문만 (US / China / Japan)
-- [ ] TL;DR 라벨 = "이번 주 이슈 요약" (영문 "TL;DR" 아님)
-- [ ] 인사이트 **2개**, 신호+맥락 2단 구조, 기사 본문보다 **앞**에 배치
-- [ ] 인사이트에 한국 업계 전략·시사점 미포함
-- [ ] 지역 섹션 순서: US → China → Japan (Global 섹션 없음)
-- [ ] **미리보기 이미지 생성 완료**: `preview/PREVIEW_MMDD.png` (1200×630px)
-- [ ] **발행 HTML에 차주 딥다이브 섹션 미포함 확인** (`#next-deepdive` 앵커, `.next-dive*` CSS, 섹션 마크업 모두 부재)
-- [ ] **차주 딥다이브 후보 내부 파일 생성 완료**: `internal/YY.MM.DD-deepdive-candidates.md`, 후보 3~5개
-- [ ] 내부 파일 각 항목에 포맷 힌트(OST/우진/뉴노멀/위어드/딥 리서치/리포트 분석) 명시
-- [ ] `.gitignore`에 `internal/` 등록 유지 (공개 레포 커밋 방지)
-- [ ] index.html 최신 호 포함
-- [ ] 직전 호 nav 업데이트 완료
-
----
-
-## 태그 시스템
-
-기사 간 연속성과 월간 트렌드 추적을 위해, 각 기사에 표준 태그를 부여한다.
-
-### 표준 태그 (고정, 임의 추가 금지)
-
-| 태그 | 약어 | 의미 |
-|---|---|---|
-| M&A | `M&A` | 인수합병, 매각, 합작법인 |
-| AI | `AI` | 생성형 AI, AI 도구, AI 규제 |
-| IP | `IP` | 지식재산, 프랜차이즈, 라이선스 |
-| Investment | `INV` | 투자, 펀딩, 상장, 자금 조달 |
-| Regulation | `REG` | 정부 규제, 정책, 법안 |
-| Market Data | `DATA` | 시장 규모, 매출, 흥행, 통계 |
-| Personnel | `HR` | 인사, 조직 개편, 노동 |
-| Gen Z | `GZ` | Z세대 소비, 트렌드, 구독 행동 |
-| Outlook | `OUT` | 전망, 예측, 산업 방향 |
-
-### 태그 부여 규칙
-- 기사당 1~2개. 3개 이상 금지 (초점 흐림 방지)
-- 첫 번째 태그 = 주제(primary), 두 번째 = 맥락(secondary)
-- 예: 걸프 SWF 투자 → `M&A` · `INV` / WGA AI 조항 → `AI` · `HR`
-
-### HTML 마크업
-기존 `tag-cat` 클래스를 활용. 태그는 영문 약어로 표기:
-```html
-<span class="tag-cat">M&A · INV</span>
-```
-
-### 활용 목적
-- **독자**: 4주치를 `AI` 태그로 필터링하면, 미·중·일 AI 흐름을 한눈에 추적
-- **제작**: 주간 다양성 검증 시, 태그 분포로 편중 여부 확인
-
----
-
-## 금액 표기 규칙
-
-- 달러 금액이 나오면 반드시 한화 병기: `$681억(₩97조)`
-- 위안/엔 등도 달러→한화 순서: `57.5억 위안($8.35억/₩1.19조)`
-- HTML 태그: `<span class="amount">$1.87B(₩2.7조)</span>`
-- 모노스페이스 폰트로 시각 구분
-
----
-
-## 레이아웃 구조 (정규호)
+## 5. 파일 구조
 
 ```
-NAV-TOP: ← Archive | Vol. NN
-MASTHEAD: 날짜 · 제목 · 부제
-┌──────────────────────────────┐
-│  TL;DR ("이번 주 이슈 요약")  │
-├──────────────────────────────┤
-│       인사이트 ×2             │ ← 기사보다 앞에 배치
-├──────────────┬──────────────┤
-│   US ×2      │ (큰 흐름+작은 흐름) │
-├──────┬───────┴──────────────┤
-│China │Japan                  │
-│ ×2   │ ×2                    │
-├──────┴──────────────────────┤
-NAV-BOTTOM: ← 이전 호 | 목록 | 다음 호 →
-FOOTER: 브랜드 · 저작권 · 환율
+weekly-vibe/
+├── CLAUDE.md                    ← 이 파일
+├── scripts/
+│   ├── vibe_search.py           ← 수집 엔진 v3 (5지역)
+│   ├── supabase_writer.py       ← radar_items upsert
+│   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
+├── .github/workflows/
+│   ├── ai-news-daily.yml        ← 매일 07:00 KST 수집
+│   └── discord-report-drop.yml  ← 월요일 10:00 KST 리포트 드롭
+├── drops/                       ← 주간 리포트 드롭 마크다운
+├── seen-titles.txt              ← 중복 제거 캐시
+└── NEWSPAPER_*.html 등          ← 구 주간 브리핑 발행물 (역사 아카이브, 신규 생성 금지)
 ```
 
-> 차주 딥다이브 후보는 **발행 HTML에 포함하지 않는다.** `internal/YY.MM.DD-deepdive-candidates.md`로 별도 산출 (STEP 5-1). `internal/`은 `.gitignore`에 등록돼 공개 레포에 커밋되지 않는다.
+## 6. 변경 이력
 
-## 레이아웃 구조 (스페셜 에디션)
-
-```
-NAV-TOP: ← Archive | Special Edition
-HERO COVER: SE 배지 · 날짜 · 대형 제목 · 리드
-NUMBERS STRIP: 핵심 수치 ×4
-SECTION 1~3: 2-col (본문 + 하이라이트/Pull Quote)
-인사이트 ×3
-NAV-BOTTOM
-FOOTER
-```
-
----
-
-## 디자인 시스템
-
-현재 다크 테마 기반. 기존 호의 CSS를 참조할 것.
-
-### 핵심 변수
-- 배경: `#0a0a0a` (블랙)
-- 액센트: `#C8FF00` (라임)
-- 스페셜 세컨드: `#7B61FF` (퍼플) — 스페셜 에디션용
-- 지역 태그: US `#0055FF` / CN `#FF2D20` / JP `#7C3AED` / Global `#E67700`
-
-### 폰트 (Google Fonts CDN)
-- Display: `Instrument Serif`
-- Heading: `Syne` + `Noto Sans KR`
-- Body: `Noto Sans KR`
-- Mono: `Space Mono`
-
----
-
-## 브랜딩
-
-| 요소 | 값 |
-|---|---|
-| 매체명 | 엔터문화연구소 |
-| 리포트명 | 글로벌 주간 브리핑 |
-| 푸터 (정규호) | 엔터문화연구소 주간 브리핑 |
-| 푸터 (스페셜) | 엔터문화연구소 스페셜 에디션 |
-| 부제 | Weekly Business Briefing: US · China · Japan |
-| ~~사용 금지~~ | ~~글로벌 인사이트 리포트~~ |
-
----
-
-## 스페셜 에디션
-
-`~~에 대한 스페셜 에디션 만들어줘`로 트리거.
-
-### 정규호와 차이
-| 항목 | 정규호 | 스페셜 |
-|---|---|---|
-| 기사 수 | 8~11건 (다주제) | 1건 (단일 주제, 다각도) |
-| 지역 제한 | US/CN/JP만 | 없음 (한국 포함 가능) |
-| 소스 제한 | 한국 언론 제외 | 없음 |
-| 파일명 | `NEWSPAPER_MMDD.html` | `SPECIAL_MMDD.html` |
-| 액센트 | 라임 단독 | 라임 + 주제별 세컨드 컬러 |
-
----
-
-## 테스트 파일 규칙
-
-### 목적
-템플릿 구조·CSS·섹션 연결을 검증하기 위한 더미 파일. 실제 뉴스 콘텐츠 없이 레이아웃 전체를 점검한다.
-
-### 파일명
-`TEST_MMDD.html` (예: `TEST_0425.html`)
-
-### 작성 규칙
-- 모든 더미 텍스트는 `[TEST]` 접두사로 시작한다
-- 상단에 라임 배경 배너(`⚠️ TEST FILE — 프로덕션 미포함`)를 추가한다
-- 실제 URL 대신 `#` 또는 `https://example.com`을 사용한다
-- 금액·수치는 임의값 사용 (예: `$100M(₩145조)`)
-- index.html에 연결하지 않는다
-- git 커밋 시 별도 브랜치 또는 `test:` 접두사 커밋 메시지 사용
-
-### 검증 항목
-- [ ] NAV-TOP 렌더링
-- [ ] MASTHEAD 레이아웃 (날짜·제목·부제)
-- [ ] HERO 2컬럼 그리드 (hero-main + hero-sidebar)
-- [ ] Pull Quote 박스
-- [ ] 지역 태그 색상 (US/CN/JP/Global)
-- [ ] 카테고리 태그 (`tag-cat`) 표기
-- [ ] COL-SECTION 3컬럼 그리드 (China/Japan/Global)
-- [ ] 금액 표기 (`<span class="amount">`)
-- [ ] 인사이트 3단 구조 (신호/맥락/전략)
-- [ ] NAV-BOTTOM (이전 호·목록·다음 호)
-- [ ] FOOTER (브랜드·환율·저작권)
-- [ ] 모바일 반응형 (max-width: 900px)
-
----
-
-## Git 커밋 컨벤션
-
-```
-feat: Vol.02 — 2026.03.21 발행
-feat: Special — BTS 광화문 D-5
-fix: Vol.01 nav 업데이트 (다음 호 링크 추가)
-chore: index.html 업데이트
-```
-
----
-
-## 주의사항
-
-- 원문 직접 인용은 기사당 1회, 15단어 이내
-- Pull Quote는 Hero 기사에만 1개 허용
-- 인사이트 섹션은 아래 3단 구조를 따른다 (상세: 인사이트 섹션 가이드)
-- 검색 결과 부족 시 품질 위해 기사 수를 억지로 채우지 않는다
-- 작성은 매주 금요일 저녁 8시, 발행 날짜는 해당 주 토요일 (토요일 오전 단톡방 공유)
-
----
-
-## 인사이트 섹션 가이드
-
-인사이트는 개별 기사 요약이 아니라, **이번 주 3국 엔터 업계에서 포착된 구조적 변화를 읽어내는** 핵심 섹션이다. 한국 업계 시사점·전략 제언은 포함하지 않는다.
-
-### 2단 구조
-
-각 인사이트 항목(×2)은 반드시 아래 두 단락으로 구성한다:
-
-1. **신호** — 이번 주 기사에서 포착된 구조적 변화 신호
-   - 팩트 중심. 어떤 일이, 어디서, 어떤 규모로 벌어지고 있는가.
-2. **맥락** — 왜 지금 이 변화가 발생했는가
-   - 3국 비교, 시계열 변화, 산업 구조적 맥락 제시.
-   - 단순 해석이 아닌 반복되는 패턴이나 구조적 전환을 드러낸다.
-   - 마지막 문장: 단정·여지·의문·평서 중 내용에 맞는 톤 선택. 2개 인사이트가 동일한 어미로 끝나지 않도록.
-
-**금지**: "한국 엔터 사업자에게 의미하는 것", 독자 포지션별 전략 제언, 기회·경고·관망 프레임.
-
-### HTML 마크업
-
-```html
-<div class="analysis-item">
-  <div class="analysis-num">01</div>
-  <h3>제목</h3>
-  <div class="analysis-tier analysis-tier-signal">
-    <div class="analysis-label analysis-label-signal">신호</div>
-    <p>...</p>
-  </div>
-  <div class="analysis-tier analysis-tier-pattern">
-    <div class="analysis-label analysis-label-pattern">맥락</div>
-    <p>...</p>
-  </div>
-  <div class="analysis-tier analysis-tier-implication">
-    <div class="analysis-label analysis-label-implication">전략</div>
-    <p>...</p>
-  </div>
-</div>
-```
-
-### CSS 클래스
-- `analysis-tier-signal`: 좌측 보더 회색 — 팩트 기반 신호
-- `analysis-tier-pattern`: 좌측 보더 어두운 회색 — 구조적 맥락
-- `analysis-tier-implication`: 좌측 보더 라임 + 반투명 배경 — 한국 사업자 전략
-
-### 목표
-
-- **1회 독자**: 전략만 읽어도 "이게 나한테 왜 중요한지" 파악 가능
-- **4회(1개월) 독자**: 신호·맥락 3개 × 4주 = 12개를 모으면 지역별 트렌드 맵 완성
-- **12회(3개월) 독자**: 전략의 누적이 사업 방향 설정의 근거 자료가 됨
+- 2026-06-08: vibe_search v3 — 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
+- 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
+- 2026-06-10: 품질 게이트 추가(48시간 컷·URL 생존 확인). CLAUDE.md 재작성 — 구 주간 브리핑 제작 가이드 제거, 수집 엔진 정본으로 전환.
