@@ -27,11 +27,21 @@
 | 동남아 | 영어+현지 | `#asia_vibe` | `DISCORD_SOUTHEAST_ASIA_WEBHOOK` |
 
 - **엔진**: `scripts/vibe_search.py` — Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 최소 1~최대 5건, 기준 충족 후보 없으면 그날은 생략.
-- **적재**: `scripts/supabase_writer.py` — REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 — vibe_search가 유일한 수집 엔진이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
+- **적재**: `scripts/supabase_writer.py` — REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 — 풀을 채우는 수집기는 **vibe_search(웹)·newsletter_ingest(구독 뉴스레터, §1-1) 2개**이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
 - **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
 - **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `gen-z-lifestyle`, `topics` 배열). `gen-z-lifestyle`(Z세대)은 엔터 밖 소비 시장 체크용 — 패션·뷰티·F&B·여행·리테일 등 Z세대 문화·가치관·소비행태·라이프스타일 (2026-06-10 추가).
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
+
+## 1-1. 뉴스레터 수집기 (collector='newsletter', 2026-06-15 신설)
+
+vibe_search(웹 수집)와 **같은 풀(`radar_items`)을 공유하는 두 번째 수집기.** 대표의 뉴스레터·AI서비스 전용 계정(tmifmdj@gmail.com)으로 구독하는 정예 뉴스레터를 소스 풀에 합친다.
+
+- **엔진**: `scripts/newsletter_ingest.py` — Gmail **IMAP 앱비밀번호**(stdlib `imaplib`, OAuth·검증 불필요) → allowlist 발신자의 최근 메일 → 본문 추출·추적URL 복원(base64 경로 디코드) → Claude haiku 분류(7렌즈 topics + 한국어 요약) → upsert. 지역은 발신자별 고정 힌트(본문 분류 비의존 — 매체별 지역이 고정).
+- **allowlist**: `sources_newsletters.json` — 발신자 12곳(Music Ally·Billboard·Naavik·Marion Ranchet·Aftermath·Jing Daily·Nanjing Marketing·SCMP·TokyoScope·Longblack·폴인레터·IPDaily). vibe_search의 도메인 화이트리스트 철학과 동일 — **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
+- **스케줄**: `.github/workflows/newsletter-ingest.yml` 매일 07:30 KST(vibe_search 07:00 직후) + `workflow_dispatch`(lookback_days). **Discord 미포스팅 — 대시보드 전용.** `total_score=0`(사전 큐레이션 소스라 점수 비중 낮음), 대시보드에 `📬` 출처 배지.
+- **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호) 신규. ANTHROPIC은 `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용.
+- **중복 제거**: 최근 14일 newsletter URL 집합(Supabase 조회) + URL upsert(merge-duplicates).
 
 ## 2. 품질 게이트 (2026-06-10)
 
