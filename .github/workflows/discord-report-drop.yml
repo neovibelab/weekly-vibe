@@ -30,26 +30,25 @@ jobs:
 
       - name: Read and clean drop content
         id: content
+        env:
+          DROP_FILE: ${{ steps.find.outputs.file }}
         run: |
-          FILE="${{ steps.find.outputs.file }}"
-
-          # HTML 주석(<!-- ... -->) 제거 후 앞뒤 공백 트림
           CLEANED=$(python3 - <<'PYEOF'
-import re, sys
+          import os, re
 
-with open("$FILE", "r", encoding="utf-8") as f:
-    text = f.read()
+          with open(os.environ["DROP_FILE"], "r", encoding="utf-8") as f:
+              text = f.read()
 
-# HTML 주석 제거
-text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
-text = text.strip()
+          # HTML 주석 제거
+          text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+          text = text.strip()
 
-# Discord 2000자 제한 — 안전 마진 10자 여유
-if len(text) > 1990:
-    text = text[:1990] + "\n…(이하 생략)"
+          # Discord 2000자 제한 — 안전 마진 10자 여유
+          if len(text) > 1990:
+              text = text[:1990] + "\n…(이하 생략)"
 
-print(text)
-PYEOF
+          print(text)
+          PYEOF
           )
 
           if [ -z "$CLEANED" ]; then
