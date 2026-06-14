@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
-"""뉴스레터 수집기 — allowlist 발신자의 새 뉴스레터를 Gmail API(OAuth)로 가져와
+"""뉴스레터 수집기 — allowlist 발신자의 새 뉴스레터를 Gmail(IMAP 앱비밀번호)로 가져와
 분류 후 Supabase radar_items(collector='newsletter')에 적재. GitHub Actions 일일 cron.
 
-런타임 의존: requests, anthropic (google 라이브러리 불필요 — OAuth 토큰 갱신·Gmail REST 직접 호출).
+런타임 의존: requests, anthropic (Gmail은 stdlib imaplib — OAuth/검증 불필요).
 환경변수:
-  GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET / GMAIL_REFRESH_TOKEN   (gmail.readonly OAuth)
+  GMAIL_USER / GMAIL_APP_PASS   Gmail 주소 + 앱비밀번호(IMAP)
   SUPABASE_URL / SUPABASE_KEY
-  ANTHROPIC_API_KEY            (분류용; 없으면 토픽·요약 없이 적재)
-  NL_LOOKBACK_DAYS             (기본 2 — 매일 실행 + URL upsert 중복제거라 겹쳐도 안전)
+  ANTHROPIC_API_KEY             분류용(없으면 토픽·요약 없이 적재)
+  NL_LOOKBACK_DAYS              기본 2 (매일 실행 + URL upsert 중복제거라 겹쳐도 안전)
 사용: python scripts/newsletter_ingest.py [--dry-run]
 """
 from __future__ import annotations
 
 import base64
 import datetime
+import email
 import html
+import imaplib
 import json
 import logging
 import os
 import re
 import sys
 import uuid
+from email.header import decode_header
 from email.utils import parsedate_to_datetime
+from urllib.parse import quote
 
 import requests
 
@@ -36,6 +40,7 @@ TOPIC_KEYS = [
 ]
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))
+FETCH_CAP = 6  # 발신자당 최대 처리 건수
 SKIP_LINK = ("unsubscribe", "stop-email", "mailto:", "/profile", "preferences",
              "list-manage.com/unsubscribe", "/cs", "수신거부")
 ASSET_HOST = ("googleapis.com", "gstatic.com", "w3.org", "schema.org", "googletagmanager",
@@ -43,71 +48,58 @@ ASSET_HOST = ("googleapis.com", "gstatic.com", "w3.org", "schema.org", "googleta
 ASSET_EXT = (".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ico")
 
 
-# ── Gmail (OAuth refresh token → REST) ────────────────────────────────────────
+# ── Gmail (IMAP 앱비밀번호) ────────────────────────────────────────────────────
 
-def gmail_token() -> str:
-    r = requests.post("https://oauth2.googleapis.com/token", data={
-        "client_id": os.environ["GMAIL_CLIENT_ID"],
-        "client_secret": os.environ["GMAIL_CLIENT_SECRET"],
-        "refresh_token": os.environ["GMAIL_REFRESH_TOKEN"],
-        "grant_type": "refresh_token",
-    }, timeout=20)
-    r.raise_for_status()
-    return r.json()["access_token"]
+def imap_connect() -> imaplib.IMAP4_SSL:
+    M = imaplib.IMAP4_SSL("imap.gmail.com")
+    M.login(os.environ["GMAIL_USER"], os.environ["GMAIL_APP_PASS"].replace(" ", ""))
+    M.select("INBOX")
+    return M
 
 
-def gmail_list(token: str, query: str, limit: int = 8) -> list[str]:
-    r = requests.get(
-        "https://gmail.googleapis.com/gmail/v1/users/me/messages",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"q": query, "maxResults": limit}, timeout=20,
-    )
-    r.raise_for_status()
-    return [m["id"] for m in r.json().get("messages", [])]
+def imap_search(M, sender: str, since: datetime.date) -> list[bytes]:
+    crit = f'(FROM "{sender}" SINCE "{since.strftime("%d-%b-%Y")}")'
+    typ, data = M.search(None, crit)
+    return data[0].split() if typ == "OK" and data and data[0] else []
 
 
-def gmail_get(token: str, mid: str) -> dict:
-    r = requests.get(
-        f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{mid}",
-        headers={"Authorization": f"Bearer {token}"},
-        params={"format": "full"}, timeout=20,
-    )
-    r.raise_for_status()
-    return r.json()
+def imap_message(M, num: bytes):
+    typ, data = M.fetch(num, "(RFC822)")
+    if typ != "OK" or not data or not isinstance(data[0], tuple):
+        return None
+    return email.message_from_bytes(data[0][1])
 
 
-def _header(msg: dict, name: str) -> str:
-    for h in msg.get("payload", {}).get("headers", []):
-        if h.get("name", "").lower() == name.lower():
-            return h.get("value", "")
-    return ""
+def decode_hdr(s: str) -> str:
+    if not s:
+        return ""
+    out = []
+    for txt, enc in decode_header(s):
+        out.append(txt.decode(enc or "utf-8", "replace") if isinstance(txt, bytes) else txt)
+    return "".join(out)
 
+
+def extract_bodies(msg) -> tuple[str, str]:
+    """이메일 MIME에서 (html, plaintext) 결합 반환."""
+    htmls, texts = [], []
+    for part in (msg.walk() if msg.is_multipart() else [msg]):
+        ct = part.get_content_type()
+        if ct not in ("text/html", "text/plain"):
+            continue
+        if "attachment" in str(part.get("Content-Disposition", "")).lower():
+            continue
+        payload = part.get_payload(decode=True)
+        if not payload:
+            continue
+        dec = payload.decode(part.get_content_charset() or "utf-8", "replace")
+        (htmls if ct == "text/html" else texts).append(dec)
+    return "\n".join(htmls), "\n".join(texts)
+
+
+# ── 텍스트 / URL ──────────────────────────────────────────────────────────────
 
 def _b64(data: str) -> str:
     return base64.urlsafe_b64decode(data + "=" * ((4 - len(data) % 4) % 4)).decode("utf-8", "replace")
-
-
-def extract_bodies(payload: dict) -> tuple[str, str]:
-    """MIME 트리를 순회해 (html, plaintext) 결합 반환."""
-    htmls, texts = [], []
-
-    def walk(p):
-        mt = p.get("mimeType", "")
-        data = (p.get("body") or {}).get("data")
-        if data:
-            try:
-                dec = _b64(data)
-                if mt == "text/html":
-                    htmls.append(dec)
-                elif mt == "text/plain":
-                    texts.append(dec)
-            except Exception:
-                pass
-        for sub in (p.get("parts") or []):
-            walk(sub)
-
-    walk(payload)
-    return "\n".join(htmls), "\n".join(texts)
 
 
 def html_to_text(h: str) -> str:
@@ -120,7 +112,7 @@ def _final_url(u: str) -> str:
     """추적 리다이렉트면 경로 세그먼트(뒤→앞)의 base64에서 원본 URL을 디코드해 복원."""
     base = u.split("?")[0]
     for seg in reversed(base.rstrip("/").split("/")):
-        for cand in (seg, seg[1:] if len(seg) > 1 else ""):  # 일부 추적은 1바이트 프리픽스
+        for cand in (seg, seg[1:] if len(seg) > 1 else ""):
             if len(cand) >= 24 and re.fullmatch(r"[A-Za-z0-9_\-]+=*", cand):
                 try:
                     dec = _b64(cand)
@@ -131,9 +123,8 @@ def _final_url(u: str) -> str:
     return u  # 디코드 실패(추적 URL) → 쿼리 보존(리다이렉트에 필요)
 
 
-def canonical_url(html_body: str, prefer_domain: str = "") -> str:
-    """콘텐츠 링크 중 대표 URL. 자산(폰트·css·이미지)·추적·수신거부 제외, 발신 도메인 우선."""
-    cands = []
+def canonical_url(html_body: str) -> str:
+    """콘텐츠 링크 중 대표 URL. 자산(폰트·css·이미지)·추적·수신거부 제외."""
     for m in re.finditer(r'href="(https?://[^"]+)"', html_body):
         u = m.group(1)
         lo = u.lower()
@@ -141,21 +132,15 @@ def canonical_url(html_body: str, prefer_domain: str = "") -> str:
             continue
         if any(lo.split("?")[0].endswith(e) for e in ASSET_EXT):
             continue
-        cands.append(_final_url(u))
-    if not cands:
-        return ""
-    if prefer_domain:
-        for c in cands:
-            if prefer_domain in c:
-                return c
-    return cands[0]
+        return _final_url(u)
+    return ""
 
 
 # ── 분류 (Claude haiku) ───────────────────────────────────────────────────────
 
 def classify(subject: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "region": region_hint, "summary_ko": ""}
+    fallback = {"topics": [], "summary_ko": ""}
     if not key:
         return fallback
     try:
@@ -165,10 +150,8 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
             "엔터·문화·소비 산업 뉴스레터 항목을 분류해 JSON으로만 응답.\n\n"
             f"제목: {subject}\n본문 발췌: {text[:1500]}\n\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
-            "region: 하나 — korea, global-en, china, japan, southeast-asia. "
-            f"이 뉴스레터의 기본 시장은 '{region_hint}'. 본문이 명백히 다른 단일 지역만 다룰 때만 바꾸고, 아니면 {region_hint} 유지.\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"topics": [...], "region": "...", "summary_ko": "..."}'
+            '{"topics": [...], "summary_ko": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -181,8 +164,7 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
                 raw = raw[4:]
         data = json.loads(raw)
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
-        region = data.get("region") if data.get("region") in REGIONS else region_hint
-        return {"topics": topics, "region": region, "summary_ko": (data.get("summary_ko") or "").strip()}
+        return {"topics": topics, "summary_ko": (data.get("summary_ko") or "").strip()}
     except Exception as e:
         log.warning("분류 실패: %s", e)
         return fallback
@@ -203,7 +185,6 @@ def supa_upsert(row: dict) -> int:
 
 
 def recent_urls(days: int = 14) -> set[str]:
-    """최근 적재된 newsletter URL (배치 내 중복 회피용; URL unique라 upsert도 방어)."""
     try:
         url = os.environ["SUPABASE_URL"].rstrip("/") + "/rest/v1/radar_items"
         key = os.environ["SUPABASE_KEY"]
@@ -224,43 +205,48 @@ def main() -> int:
     with open(ALLOWLIST_PATH, encoding="utf-8") as f:
         sources = json.load(f)["sources"]
 
-    if not os.environ.get("GMAIL_REFRESH_TOKEN"):
-        log.error("GMAIL_REFRESH_TOKEN 미설정 — OAuth 셋업 필요 (gmail_oauth_setup.py)")
+    if not os.environ.get("GMAIL_APP_PASS") or not os.environ.get("GMAIL_USER"):
+        log.error("GMAIL_USER/GMAIL_APP_PASS 미설정 — IMAP 앱비밀번호 시크릿 필요")
         return 1
 
-    token = gmail_token()
+    M = imap_connect()
+    since = datetime.date.today() - datetime.timedelta(days=LOOKBACK_DAYS)
     seen = recent_urls()
-    saved = 0
     rows = []
 
     for src in sources:
         if src.get("from", "").startswith("_"):
             continue
         try:
-            ids = gmail_list(token, f'from:({src["from"]}) newer_than:{LOOKBACK_DAYS}d category:{{primary promotions social updates}}')
+            nums = imap_search(M, src["from"], since)
         except Exception as e:
-            log.warning("[%s] 조회 실패: %s", src["name"], e)
+            log.warning("[%s] 검색 실패: %s", src["name"], e)
             continue
-        for mid in ids:
+        for num in nums[-FETCH_CAP:]:
             try:
-                msg = gmail_get(token, mid)
+                msg = imap_message(M, num)
             except Exception as e:
-                log.warning("[%s] %s 본문 실패: %s", src["name"], mid, e)
+                log.warning("[%s] fetch 실패: %s", src["name"], e)
                 continue
-            subject = _header(msg, "Subject").strip()
-            html_b, text_b = extract_bodies(msg["payload"])
+            if not msg:
+                continue
+            subject = decode_hdr(msg.get("Subject", "")).strip()
+            html_b, text_b = extract_bodies(msg)
             body_text = (text_b.strip() or html_to_text(html_b))[:2000]
-            url = canonical_url(html_b) or f"https://mail.google.com/mail/u/0/#all/{mid}"
+            msgid = (msg.get("Message-ID") or "").strip().strip("<>")
+            url = canonical_url(html_b) or (
+                f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{quote(msgid)}"
+                if msgid else f"newsletter:{src['name']}:{num.decode()}")
             if url in seen:
                 continue
             try:
-                pub = parsedate_to_datetime(_header(msg, "Date")).astimezone(datetime.timezone.utc).isoformat()
+                pub = parsedate_to_datetime(msg.get("Date")).astimezone(datetime.timezone.utc).isoformat()
             except Exception:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
             cls = classify(subject, body_text, src.get("region", "global-en"))
-            row = {
+            rows.append({
                 "id": str(uuid.uuid4()),
-                "title": subject[:500],
+                "title": subject[:500] or "(제목 없음)",
                 "url": url,
                 "source": src["name"],
                 "category": "newsletter",
@@ -273,16 +259,20 @@ def main() -> int:
                 "status": "pending",
                 "filter_verdict": "pass",
                 "total_score": 0,
-            }
-            rows.append(row)
+            })
             seen.add(url)
-            log.info("[%s] %s | %s | %s", src["name"], cls["region"],
-                     "·".join(cls["topics"]) or "-", subject[:50])
+            log.info("[%s] %s | %s", src["name"], "·".join(cls["topics"]) or "-", subject[:55])
+
+    try:
+        M.logout()
+    except Exception:
+        pass
 
     log.info("수집 %d건 (allowlist %d발신자, 최근 %d일)", len(rows), len(sources), LOOKBACK_DAYS)
     if dry:
         print(json.dumps(rows, ensure_ascii=False, indent=2))
         return 0
+    saved = 0
     for row in rows:
         code = supa_upsert(row)
         if code in (200, 201, 204):
