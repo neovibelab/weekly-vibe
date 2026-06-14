@@ -4,7 +4,8 @@ name: 뉴스레터 수집 (매일)
 
 on:
   schedule:
-    - cron: '30 0 * * *'    # 매일 09:30 KST (00:30 UTC) — 아침 도착 클러스터(빌보드 06시·롱블랙 ~09시·국내 일간 IPDaily/폴인레터 08시) 직후. Actions 지연이 있어도 08시 국내 일간을 같은 날 포착
+    - cron: '30 0 * * *'    # 09:30 KST (00:30 UTC) — 아침 클러스터(빌보드 06시·롱블랙 ~09시·국내 일간 IPDaily/폴인레터 08시) 직후
+    - cron: '0 14 * * *'     # 23:00 KST (14:00 UTC) — 저녁 클러스터(SCMP 다회·Jing 2판 ~22:25·Nanjing·Marion 저녁) 직후
   workflow_dispatch:
     inputs:
       lookback_days:
