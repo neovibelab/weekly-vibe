@@ -255,6 +255,7 @@ MAX_CANDIDATES = 5
 DUPLICATE_THRESHOLD = 0.75
 MIN_TOTAL_SCORE = 3
 MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
+MAX_TOKENS = int(os.environ.get("VS_MAX_TOKENS", "4096"))  # 백필 등 후보 많을 때 상향
 URL_CHECK_TIMEOUT = 8
 SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability")
 HANGUL_RE = re.compile(r"[가-힣]")
@@ -441,7 +442,7 @@ def search_and_analyze(
     for _ in range(3):  # pause_turn(서버 루프 한도) 연속 재개 최대 2회
         with client.messages.stream(
             model="claude-sonnet-4-6",
-            max_tokens=4096,
+            max_tokens=MAX_TOKENS,
             tools=tools,
             messages=messages,
             **extra,
@@ -485,7 +486,7 @@ def search_and_analyze(
     text = ""
     for block in response.content:
         if hasattr(block, "text"):
-            text += block.text
+            text += block.text or ""
 
     if not text.strip():
         log.warning("텍스트 응답 없음")
