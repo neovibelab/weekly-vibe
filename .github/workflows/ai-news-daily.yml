@@ -68,6 +68,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
+          MAX_AGE_HOURS: '168'   # 중국만 7일 컷 (48h에서 4일 연속 0건, 2026-06-14)
+          ALLOW_UNDATED: '1'     # 발행일 미상 게재 허용 (중국어 매체 page_age 누락 빈번)
         run: python scripts/vibe_search.py china || echo "[warn] china 실패"
 
       - name: 일본
