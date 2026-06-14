@@ -163,6 +163,8 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
             if raw.startswith("json"):
                 raw = raw[4:]
         data = json.loads(raw)
+        if isinstance(data, list):  # 모델이 배열로 응답하는 엣지
+            data = next((x for x in data if isinstance(x, dict)), {})
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
         return {"topics": topics, "summary_ko": (data.get("summary_ko") or "").strip()}
     except Exception as e:
