@@ -11,83 +11,14 @@ env:
 jobs:
   drop:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find latest drop file
-        id: find
-        run: |
-          # drops/ 폴더에서 YY.MM.DD-주간리포트드롭.md 패턴 파일 중 파일명 기준 최신 1개
-          LATEST=$(ls drops/*-주간리포트드롭.md 2>/dev/null | sort | tail -1)
-          if [ -z "$LATEST" ]; then
-            echo "::error::drops/ 폴더에 드롭 파일이 없습니다"
-            exit 1
-          fi
-          echo "file=$LATEST" >> "$GITHUB_OUTPUT"
-          echo "[info] 드롭 파일: $LATEST"
-
-      - name: Read and clean drop content
-        id: content
-        env:
-          DROP_FILE: ${{ steps.find.outputs.file }}
-        run: |
-          CLEANED=$(python3 - <<'PYEOF'
-          import os, re
-
-          with open(os.environ["DROP_FILE"], "r", encoding="utf-8") as f:
-              text = f.read()
-
-          # HTML 주석 제거
-          text = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
-          text = text.strip()
-
-          # Discord 2000자 제한 — 안전 마진 10자 여유
-          if len(text) > 1990:
-              text = text[:1990] + "\n…(이하 생략)"
-
-          print(text)
-          PYEOF
-          )
-
-          if [ -z "$CLEANED" ]; then
-            echo "::error::드롭 파일 내용이 비어 있습니다"
-            exit 1
-          fi
-
-          # 멀티라인 GITHUB_OUTPUT delimiter 방식
-          {
-            echo "text<<EOF_DROP"
-            echo "$CLEANED"
-            echo "EOF_DROP"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "[info] 전송 내용 길이: ${#CLEANED}자"
-
-      - name: Send Discord webhook
+      # 발송 로직은 scripts/send_report_drop.py 공용 모듈 (백업 감시 워크플로와 공유).
+      # 과거 YAML 인라인 heredoc 들여쓰기로 파일이 깨져 startup_failure가 났던 이력 →
+      # 로직을 스크립트로 분리해 구조적으로 재발 차단 (2026-06-15).
+      - name: Send latest drop to Discord
         env:
           DISCORD_REPORT_WEBHOOK_URL: ${{ secrets.DISCORD_REPORT_WEBHOOK_URL }}
-          DROP_TEXT: ${{ steps.content.outputs.text }}
-        run: |
-          PAYLOAD=$(jq -n --arg content "$DROP_TEXT" '{"content": $content}')
-
-          echo "[debug] payload 앞 200자: $(echo "$PAYLOAD" | head -c 200)"
-
-          RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "$DISCORD_REPORT_WEBHOOK_URL")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-
-          echo "Discord webhook HTTP: $HTTP_CODE"
-          echo "Discord response: $BODY"
-
-          # Discord는 성공 시 204 No Content 반환
-          if [ "$HTTP_CODE" -ne 204 ]; then
-            echo "::error::Discord webhook 실패 (HTTP $HTTP_CODE)"
-            exit 1
-          fi
-
-          echo "[info] Discord 전송 완료"
+        run: python3 scripts/send_report_drop.py
