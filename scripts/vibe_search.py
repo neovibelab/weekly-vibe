@@ -134,6 +134,9 @@ REGIONS: dict[str, dict] = {
             "nme.com", "musically.com", "digitalmusicnews.com",
             "completemusicupdate.com", "ifpi.org", "midiaresearch.com",
             "luminatedata.com",
+            # 기업 뉴스룸 IP홀더 — RSS 피드 없어 newsroom 수집기 대신 검색으로 흡수 (2026-06-16)
+            "sony.com", "wbd.com", "nbcuniversal.com", "nintendo.com",
+            "bandainamcoent.com", "crunchyroll.com", "pokemon.com", "paramount.com",
         ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom economy", "concert touring revenue 2026", "fan platform engagement"],

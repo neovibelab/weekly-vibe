@@ -1,0 +1,14 @@
+{
+  "_comment": "Vibe Radar 뉴스룸/블로그 RSS·Atom 수집 소스. feed=검증된 피드 URL(2026-06-16 직접 fetch 확인). region=고정 지역힌트. collector='newsroom'. 피드 없는 IP홀더(Sony·WBD·NBCU·Nintendo·Bandai·Crunchyroll·Pokémon)는 스크래핑 대신 vibe_search allowed_domains(global-en)로 흡수. feed가 '_'로 시작하면 비활성.",
+  "sources": [
+    {"feed": "https://thewaltdisneycompany.com/feed/",                       "name": "Disney",          "region": "global-en"},
+    {"feed": "https://about.netflix.com/en/feed.xml",                        "name": "Netflix",         "region": "global-en"},
+    {"feed": "https://www.apple.com/newsroom/rss-feed.rss",                  "name": "Apple Newsroom",  "region": "global-en"},
+    {"feed": "https://newsroom.spotify.com/feed/",                           "name": "Spotify",         "region": "global-en"},
+    {"feed": "https://blog.youtube/rss/",                                    "name": "YouTube Blog",    "region": "global-en"},
+    {"feed": "https://www.universalmusic.com/feed/",                         "name": "Universal Music", "region": "global-en"},
+    {"feed": "https://www.wmg.com/feed/",                                    "name": "Warner Music",    "region": "global-en"},
+    {"feed": "https://www.sonymusic.com/feed/",                              "name": "Sony Music",      "region": "global-en"},
+    {"feed": "https://corp.toei-anim.co.jp/contentFeeds/content/multi3/en/press", "name": "Toei Animation", "region": "japan"}
+  ]
+}

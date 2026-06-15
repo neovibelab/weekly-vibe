@@ -1,0 +1,31 @@
+name: 뉴스룸 수집 (매일)
+# allowlist 기업 뉴스룸/블로그(sources_newsrooms.json)의 RSS·Atom에서 최신 글을 가져와
+# 분류 후 Supabase radar_items(collector='newsroom')에 적재. vibe_search·newsletter와 같은 풀.
+
+on:
+  schedule:
+    - cron: '0 1 * * *'    # 매일 10:00 KST (01:00 UTC) — 미국 뉴스룸 전일분(美 업무시간=韓 야간) 흡수
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: '며칠 이내 글 수집 (기본 7)'
+        required: false
+        default: '7'
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic requests
+      - name: 뉴스룸 수집
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          NEWSROOM_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '7' }}
+        run: python scripts/newsroom_ingest.py
