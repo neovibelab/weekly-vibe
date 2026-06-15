@@ -65,8 +65,10 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 
 뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
-- 생성: `/report-scan` 스킬(미네바) → `drops/YY.MM.DD-주간리포트드롭.md`
-- 포스팅: `.github/workflows/discord-report-drop.yml` — 매주 월요일 10:00 KST Discord 드롭
+- 생성: `/report-scan` 스킬(미네바) → `drops/YY.MM.DD-주간리포트드롭.md` (weekly-vibe/drops/ + ecri-ceo-staff/operations/ 2곳 저장)
+- 발송 로직: `scripts/send_report_drop.py` — 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. 정시·백업 공용 모듈(stdlib). 과거 YAML 인라인 heredoc 들여쓰기로 startup_failure 났던 이력 → 스크립트 분리로 재발 차단(2026-06-15).
+- 포스팅(정시): `.github/workflows/discord-report-drop.yml` — 매주 월요일 **10:17 KST**(정시 :00 = GitHub 고부하 슬롯 회피).
+- 백업 감시: `.github/workflows/report-drop-watchdog.yml` — 월 **10:40 KST** 점검 → 정시 누락 시 직접 재발송 + woojin@ 메일 알림(`check_drop_posted.py` 발송판정·`send_drop_alert.py` 메일). GitHub cron best-effort 누락 대비. 중복 발송·지연 레이스 가드 포함.
 
 ## 5. 파일 구조
 
@@ -76,10 +78,14 @@ weekly-vibe/
 ├── scripts/
 │   ├── vibe_search.py           ← 수집 엔진 v3 (5지역)
 │   ├── supabase_writer.py       ← radar_items upsert
+│   ├── send_report_drop.py      ← 리포트 드롭 발송 공용 모듈 (정시+백업)
+│   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)
+│   ├── send_drop_alert.py       ← 백업: 누락 시 woojin@ 메일 알림
 │   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
 ├── .github/workflows/
 │   ├── ai-news-daily.yml        ← 매일 07:00 KST 수집
-│   └── discord-report-drop.yml  ← 월요일 10:00 KST 리포트 드롭
+│   ├── discord-report-drop.yml  ← 월 10:17 KST 정시 리포트 드롭
+│   └── report-drop-watchdog.yml ← 월 10:40 KST 백업(누락 시 재발송+메일)
 ├── drops/                       ← 주간 리포트 드롭 마크다운
 ├── seen-titles.txt              ← 중복 제거 캐시
 └── NEWSPAPER_*.html 등          ← 구 주간 브리핑 발행물 (역사 아카이브, 신규 생성 금지)
@@ -90,3 +96,4 @@ weekly-vibe/
 - 2026-06-08: vibe_search v3 — 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
 - 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
 - 2026-06-10: 품질 게이트 추가(48시간 컷·URL 생존 확인). CLAUDE.md 재작성 — 구 주간 브리핑 제작 가이드 제거, 수집 엔진 정본으로 전환.
+- 2026-06-15: 리포트 드롭 워크플로 YAML 깨짐(인라인 heredoc) 수정 — 6/4부터 startup_failure로 미발송이던 것 복구. 발송 로직을 `scripts/send_report_drop.py`로 분리, cron 10:00→10:17(정시 고부하 회피), 백업 감시 워크플로(`report-drop-watchdog.yml`, 월 10:40) 신설 — 정시 누락 시 자동 재발송 + 메일 알림.
