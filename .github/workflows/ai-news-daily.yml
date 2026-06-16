@@ -34,7 +34,14 @@ jobs:
           python-version: '3.12'
       - run: pip install anthropic requests
 
+      # 각 지역 스텝은 continue-on-error: true — 한 지역이 죽어도 다음 지역은 계속.
+      # 실패는 잡을 죽이는 대신 step.outcome=failure 로 남고, 마지막 경보 스텝이
+      # 모아서 woojin@ 에 메일을 보낸다. vibe_search 는 검색 실패만 exit 1, 정상
+      # 0건은 exit 0 이라 0건엔 경보가 안 간다. (구 `|| echo` 는 항상 exit 0 을
+      # 만들어 침묵 실패를 가렸으므로 제거 — 2026-06-17)
+
       - name: 한국
+        id: korea
         if: ${{ github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'korea' }}
         timeout-minutes: 10
         continue-on-error: true
@@ -44,9 +51,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py korea || echo "[warn] korea 실패"
+        run: python scripts/vibe_search.py korea
 
       - name: 글로벌(영어)
+        id: global_en
         if: ${{ github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'global-en' }}
         timeout-minutes: 10
         continue-on-error: true
@@ -56,9 +64,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py global-en || echo "[warn] global-en 실패"
+        run: python scripts/vibe_search.py global-en
 
       - name: 중국
+        id: china
         if: ${{ github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'china' }}
         timeout-minutes: 10
         continue-on-error: true
@@ -70,9 +79,10 @@ jobs:
           SEEN_FILE: ${{ env.SEEN_FILE }}
           MAX_AGE_HOURS: '168'   # 중국만 7일 컷 (48h에서 4일 연속 0건, 2026-06-14)
           ALLOW_UNDATED: '1'     # 발행일 미상 게재 허용 (중국어 매체 page_age 누락 빈번)
-        run: python scripts/vibe_search.py china || echo "[warn] china 실패"
+        run: python scripts/vibe_search.py china
 
       - name: 일본
+        id: japan
         if: ${{ github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'japan' }}
         timeout-minutes: 10
         continue-on-error: true
@@ -82,9 +92,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py japan || echo "[warn] japan 실패"
+        run: python scripts/vibe_search.py japan
 
       - name: 동남아
+        id: sea
         if: ${{ github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'southeast-asia' }}
         timeout-minutes: 10
         continue-on-error: true
@@ -94,4 +105,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py southeast-asia || echo "[warn] southeast-asia 실패"
+        run: python scripts/vibe_search.py southeast-asia
+
+      # 침묵 실패 경보: 위 지역 중 검색 실패(outcome=failure)가 있으면 woojin@ 메일.
+      # always() — 앞 스텝 결과와 무관하게 항상 평가. 실패 지역이 없으면 메일 생략.
+      - name: 실패 지역 메일 경보
+        if: always()
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          OUTCOME_KOREA: ${{ steps.korea.outcome }}
+          OUTCOME_GLOBAL: ${{ steps.global_en.outcome }}
+          OUTCOME_CHINA: ${{ steps.china.outcome }}
+          OUTCOME_JAPAN: ${{ steps.japan.outcome }}
+          OUTCOME_SEA: ${{ steps.sea.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python scripts/notify_region_failure.py

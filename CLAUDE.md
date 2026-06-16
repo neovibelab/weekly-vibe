@@ -32,6 +32,7 @@
 - **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `gen-z-lifestyle`, `topics` 배열). `gen-z-lifestyle`(Z세대)은 엔터 밖 소비 시장 체크용 — 패션·뷰티·F&B·여행·리테일 등 Z세대 문화·가치관·소비행태·라이프스타일 (2026-06-10 추가).
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
+- **실패 경보 (2026-06-17 신설)**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 woojin@에 메일. **0건(정상)과 실패를 종료코드로 구분** — vibe_search가 검색 실패만 `exit 1`, 워크플로가 각 지역 `outcome`을 모아 `failure`만 통지(정상 0건엔 메일 안 감). 지역 스텝이 `continue-on-error`라 잡 전체는 success로 떠서 `gh run`·디스코드에 침묵 실패가 안 보이던 문제(06-15~16 글로벌 이틀 공백)의 능동 경보 장치. 구 `|| echo`(항상 exit 0으로 실패를 가리던 것)는 제거.
 
 ## 1-1. 뉴스레터 수집기 (collector='newsletter', 2026-06-15 신설)
 
@@ -91,7 +92,8 @@ weekly-vibe/
 │   ├── supabase_writer.py       ← radar_items upsert
 │   ├── send_report_drop.py      ← 리포트 드롭 발송 공용 모듈 (정시+백업)
 │   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)
-│   ├── send_drop_alert.py       ← 백업: 누락 시 woojin@ 메일 알림
+│   ├── send_drop_alert.py       ← 백업: 리포트 드롭 누락 시 woojin@ 메일 알림
+│   ├── notify_region_failure.py ← 일일 수집: 지역 검색 실패 시 woojin@ 메일 경보
 │   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
 ├── .github/workflows/
 │   ├── ai-news-daily.yml        ← 매일 07:00 KST 수집

@@ -821,7 +821,9 @@ def main() -> int:
     except Exception as exc:
         log.error("[%s] 검색 실패: %s", region_name, exc)
         write_step_summary(region_name, f"⚠️ 검색 실패: {exc}")
-        return 0
+        # exit 1 → 워크플로 outcome=failure → notify_region_failure.py 메일 경보.
+        # 후보 0건(정상)은 아래에서 return 0 — 실패와 0건을 종료코드로 구분한다.
+        return 1
 
     collected = len(candidates)
     if not candidates:
