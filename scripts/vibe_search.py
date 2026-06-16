@@ -134,9 +134,10 @@ REGIONS: dict[str, dict] = {
             "nme.com", "musically.com", "digitalmusicnews.com",
             "completemusicupdate.com", "ifpi.org", "midiaresearch.com",
             "luminatedata.com",
-            # 기업 뉴스룸 IP홀더 — RSS 피드 없어 newsroom 수집기 대신 검색으로 흡수 (2026-06-16)
-            "sony.com", "wbd.com", "nbcuniversal.com", "nintendo.com",
-            "bandainamcoent.com", "crunchyroll.com", "pokemon.com", "paramount.com",
+            # 주의: IP홀더 뉴스룸 도메인(sony.com 등)은 여기 넣지 말 것 — Anthropic
+            # 크롤러 차단 도메인이 allowed_domains에 하나만 끼어도 web_search가
+            # 요청 전체를 400 거부해 글로벌 수집이 통째로 죽는다 (2026-06-16~17 사고).
+            # 추가하려면 반드시 probe_domains.py로 사전 검증, 통과분만.
         ],
         "search_terms": {
             "fan-behavior": ["K-pop fandom economy", "concert touring revenue 2026", "fan platform engagement"],
