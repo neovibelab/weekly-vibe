@@ -1,13 +1,22 @@
-name: Vibe 풀 유지보수 (집계)
-# radar_items 풀 현황 집계 — status×collector×나이 분포 출력(DB 변경 없음).
-# 정리 임계 결정의 근거. scripts/pool_maintenance.py --stats 실행.
-# 정리(--apply) 로직·주간 cron은 임계 합의 후 추가 예정.
+name: Vibe 풀 유지보수 (집계·정리)
+# radar_items 풀 집계(status×collector×나이) + 오래된 pending → archived 전환.
+# scripts/pool_maintenance.py. picked·manual은 영구 보존, 대시보드는 archived 숨김.
+#
+# - 주간 schedule: 자동 정리(--apply)
+# - 수동 dispatch: apply 체크 시 정리, 아니면 대상 미리보기(DB 변경 0)
 
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제 archived 전환 (체크 안 하면 대상 미리보기)'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 16 * * 6'   # 매주 일요일 01:00 KST (토 16:00 UTC) — 주간 정리
 
 jobs:
-  stats:
+  maintain:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -16,8 +25,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install requests
-      - name: 풀 집계
+      - name: 풀 집계·정리
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: python scripts/pool_maintenance.py --stats
+        run: python scripts/pool_maintenance.py --stats ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
