@@ -1,0 +1,33 @@
+name: Netflix promo 일회성 정리
+# 과거 적재된 Netflix(newsroom) pending 중 홍보(promo)를 status=filtered_out로 정리.
+# scripts/cleanup_netflix_promo.py 실행. 기본 dry-run, apply 체크 시 실제 갱신.
+# 일회성 — 정리 완료 후 이 워크플로는 삭제해도 무방.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제 적용 (체크 안 하면 dry-run)'
+        type: boolean
+        default: false
+      all:
+        description: 'promo 판별 없이 Netflix pending 전부 정리'
+        type: boolean
+        default: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests anthropic
+      - name: Netflix promo 정리
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+        run: python scripts/cleanup_netflix_promo.py ${{ inputs.apply && '--apply' || '' }} ${{ inputs.all && '--all' || '' }}
