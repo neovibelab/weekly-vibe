@@ -1,0 +1,23 @@
+name: Vibe 풀 유지보수 (집계)
+# radar_items 풀 현황 집계 — status×collector×나이 분포 출력(DB 변경 없음).
+# 정리 임계 결정의 근거. scripts/pool_maintenance.py --stats 실행.
+# 정리(--apply) 로직·주간 cron은 임계 합의 후 추가 예정.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: 풀 집계
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/pool_maintenance.py --stats
