@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ALLOWLIST_PATH = os.path.join(os.path.dirname(HERE), "sources_newsletters.json")
 TOPIC_KEYS = [
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
-    "artist-ownership", "tech-issues", "gen-z-lifestyle",
+    "artist-ownership", "tech-issues", "taste-values",  # 구 gen-z-lifestyle (2026-06-17 재정의)
 ]
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))

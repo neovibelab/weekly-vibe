@@ -30,7 +30,7 @@
 - **엔진**: `scripts/vibe_search.py` — Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 최소 1~최대 5건, 기준 충족 후보 없으면 그날은 생략.
 - **적재**: `scripts/supabase_writer.py` — REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 — 풀을 채우는 수집기는 **vibe_search(웹)·newsletter_ingest(구독 뉴스레터, §1-1)·newsroom_ingest(기업 뉴스룸 RSS, §1-2) 3개**이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
 - **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
-- **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `gen-z-lifestyle`, `topics` 배열). `gen-z-lifestyle`(Z세대)은 엔터 밖 소비 시장 체크용 — 패션·뷰티·F&B·여행·리테일 등 Z세대 문화·가치관·소비행태·라이프스타일 (2026-06-10 추가).
+- **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). `taste-values`(취향·가치)는 **세대를 가로지르는** 취향/가치 신호 — 지속가능·로컬·디깅 문화·시티팝/Y2K 리바이벌·앰비언트·취향 공동체 등(엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)을 2026-06-17 재정의(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영). **키 동기화 필수** — 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar` 대시보드(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 변경. 대시보드는 과거 누적 `gen-z-lifestyle` 항목을 alias로 호환(마이그레이션 무용).
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
 - **실패 경보 (2026-06-17 신설)**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 woojin@에 메일. **0건(정상)과 실패를 종료코드로 구분** — vibe_search가 검색 실패만 `exit 1`, 워크플로가 각 지역 `outcome`을 모아 `failure`만 통지(정상 0건엔 메일 안 감). 지역 스텝이 `continue-on-error`라 잡 전체는 success로 떠서 `gh run`·디스코드에 침묵 실패가 안 보이던 문제(06-15~16 글로벌 이틀 공백)의 능동 경보 장치. 구 `|| echo`(항상 exit 0으로 실패를 가리던 것)는 제거.
@@ -62,7 +62,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
 2. **출처 화이트리스트** — 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외 (AI타임스·에너지신문류 보도자료 재가공 매체 차단, 2026-06-10 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
-3. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). **발행일 미상은 제외**(신뢰성 — 2026-06-10 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재)
+3. `validate_candidates()` — 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·**교차정체성**(각 0~2, 만점 8, 2026-06-17 추가). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 가능 — 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성 — 2026-06-10 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재)
 4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스 — 한 매체 독식 방지·동남아 방콕포스트 편중 대응, 2026-06-17. 미달 시 2차 패스에서 상한 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
 4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
@@ -113,3 +113,4 @@ weekly-vibe/
 - 2026-06-15: 리포트 드롭 워크플로 YAML 깨짐(인라인 heredoc) 수정 — 6/4부터 startup_failure로 미발송이던 것 복구. 발송 로직을 `scripts/send_report_drop.py`로 분리, cron 10:00→10:17(정시 고부하 회피), 백업 감시 워크플로(`report-drop-watchdog.yml`, 월 10:40) 신설 — 정시 누락 시 자동 재발송 + 메일 알림.
 - 2026-06-17: 수집 시간대 분산 — `ai-news-daily.yml` 단일 cron(07:00 일괄)에서 cron 3개로(07:00 한·일 / 14:00 중·동남아 / 21:00 글로벌). 지역별 현지 발행 리듬에 맞춰 신선도↑. 단일 워크플로 유지(각 step `if`가 `github.event.schedule`·수동 region input 분기), skip 지역은 outcome=skipped라 실패 경보 무영향.
 - 2026-06-17: 도메인 다양성 — `select_candidates`에 도메인당 2건 상한(`MAX_PER_DOMAIN`) 추가. 한 매체(동남아 방콕포스트)가 점수순 5건을 독식하던 구조 차단. 2-패스(1차 상한 적용 → 미달 시 2차 상한 해제)로 도메인 얕은 지역 건수 보존. `test_quality_gate.py` 케이스 추가.
+- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/26.06.17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 — SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 🟢 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).

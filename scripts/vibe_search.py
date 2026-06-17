@@ -3,8 +3,9 @@
 Vibe Signal Collector v3 — 지역·언어 기반 통합 수집기
 --------------------------------------------------------------
 5개 지역(한국·글로벌·중국·일본·동남아)을 각 지역의 네이티브 언어로 검색.
-7개 주제(팬행동·소비행동·딜·IP·오너십·테크·Z세대)는 검색 필터 겸 태깅 기준.
-Z세대 주제는 엔터 밖 소비 시장 전반(패션·뷰티·F&B·여행·리테일) 체크용.
+7개 주제(팬행동·소비행동·딜·IP·오너십·테크·취향·가치)는 검색 필터 겸 태깅 기준.
+취향·가치 주제는 세대를 가로지르는 취향/가치 신호(지속가능·로컬·디깅·리바이벌 등)
+체크용 — 엔터 밖 소비 시장 전반(패션·뷰티·F&B·여행·리테일) 포함.
 Anthropic web_search 서버 사이드 도구로 검색+분석+요약을 단일 API 호출로 처리.
 
 사용법:
@@ -57,9 +58,12 @@ TOPIC_LABELS: dict[str, str] = {
     "ip-business": "IP",
     "artist-ownership": "오너십",
     "tech-issues": "테크",
-    # 엔터 밖 소비 시장 체크용 — Z세대 문화·가치관·소비행태·라이프스타일
-    # (패션·뷰티·F&B·여행·리테일 등, 2026-06-10 대표 지시)
-    "gen-z-lifestyle": "Z세대",
+    # 세대를 가로지르는 취향·가치 신호 (2026-06-17 재정의 — 메타 마케팅 서밋
+    # "세대 말고 취향·가치관" 명제 반영). 인구통계(Z세대) 라벨을 버리고
+    # 지속가능·로컬·디깅 문화·시티팝/Y2K 리바이벌·앰비언트·취향 공동체 등
+    # 세대를 횡단하는 취향/가치 신호로 전환. 엔터 밖 소비 시장 전반 포함
+    # (패션·뷰티·F&B·여행·리테일). 구 키 gen-z-lifestyle.
+    "taste-values": "취향·가치",
 }
 
 TOPIC_KEYS = list(TOPIC_LABELS.keys())
@@ -101,7 +105,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP 사업 확장", "캐릭터 라이선싱", "웹툰 영상화"],
             "artist-ownership": ["아티스트 독립 레이블", "음악 저작권 분쟁", "자체 기획사"],
             "tech-issues": ["AI 음악 생성 저작권", "스트리밍 정산", "음악 플랫폼 정책"],
-            "gen-z-lifestyle": ["Z세대 소비 트렌드 조사", "Z세대 가치관 라이프스타일", "잘파세대 소비 행태"],
+            "taste-values": ["취향 공동체 소비", "로컬 지속가능 라이프스타일", "시티팝 Y2K 리바이벌 디깅"],
         },
     },
     "global-en": {
@@ -146,7 +150,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["music IP licensing deal", "entertainment franchise expansion", "cross-media IP", "Nintendo Pokemon IP licensing 2026", "Sony Bandai Crunchyroll anime IP business"],
             "artist-ownership": ["artist-owned label", "master recording ownership", "creator economy music"],
             "tech-issues": ["AI music copyright", "streaming platform policy change", "music tech startup funding"],
-            "gen-z-lifestyle": ["Gen Z consumer trends report", "Gen Z values lifestyle survey", "Gen Z spending habits 2026"],
+            "taste-values": ["taste community subculture", "sustainability local lifestyle values", "Y2K vinyl revival ambient music digging"],
         },
     },
     "china": {
@@ -179,7 +183,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP授权 衍生品", "动漫 游戏 联动", "文娱IP 商业化"],
             "artist-ownership": ["艺人 独立 厂牌", "音乐人 版权 归属", "艺人 工作室"],
             "tech-issues": ["AI音乐 版权", "流媒体 平台 竞争", "音乐科技 创业"],
-            "gen-z-lifestyle": ["Z世代 消费 趋势 报告", "00后 价值观 生活方式", "年轻人 消费 行为 变化"],
+            "taste-values": ["趣味 圈层 消费", "可持续 在地 生活方式", "City Pop Y2K 复古 黑胶 挖掘"],
         },
     },
     "japan": {
@@ -213,7 +217,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["IP ライセンス ビジネス", "アニメ ゲーム 連動", "キャラクター 商品化", "任天堂 ポケモン IP 戦略", "ソニー バンダイナムコ アニメ IP 事業"],
             "artist-ownership": ["アーティスト 独立 レーベル", "音楽 著作権 問題", "クリエイター エコノミー"],
             "tech-issues": ["AI 音楽 著作権", "サブスク ストリーミング", "音楽テック スタートアップ"],
-            "gen-z-lifestyle": ["Z世代 消費 トレンド 調査", "Z世代 価値観 ライフスタイル", "若者 消費行動 変化"],
+            "taste-values": ["趣味 コミュニティ 消費", "サステナブル ローカル 価値観", "シティポップ Y2K レコード 復活 ディグ"],
         },
     },
     "southeast-asia": {
@@ -250,7 +254,7 @@ REGIONS: dict[str, dict] = {
             "ip-business": ["anime manga licensing Southeast Asia", "entertainment IP ASEAN", "webtoon adaptation Asia"],
             "artist-ownership": ["independent artist Southeast Asia", "P-pop industry Philippines", "local music industry ASEAN"],
             "tech-issues": ["music streaming Southeast Asia", "TikTok music ASEAN", "digital entertainment platform Asia"],
-            "gen-z-lifestyle": ["Gen Z consumer trends Southeast Asia", "Gen Z lifestyle values ASEAN", "youth spending behavior Southeast Asia"],
+            "taste-values": ["taste community Southeast Asia", "sustainability local lifestyle ASEAN", "vinyl revival indie scene digging Asia"],
         },
     },
 }
@@ -260,11 +264,16 @@ MAX_CANDIDATES = 5
 # 동남아 방콕포스트 편중 대응. 미달분은 2차 패스에서 상한 풀어 건수 보존.
 MAX_PER_DOMAIN = int(os.environ.get("MAX_PER_DOMAIN", "2"))
 DUPLICATE_THRESHOLD = 0.75
-MIN_TOTAL_SCORE = 3
+# 4지표(각 0~2) 만점 8 — 2026-06-17 교차정체성 지표 추가로 6→8. 임계도 3→4로
+# 비례 상향(50% 유지). 4번째 지표는 기존 점수에 더하기만 하므로 임계를 3에 두면
+# 게이트가 느슨해진다(기존 통과분 전원 유지 + 경계 기사 신규 통과). 4로 올리면
+# 교차정체성 0인 순수 산업 딜은 탈락, ≥1이면 생존 → "취향·가치 횡단 신호 우선"
+# 의도를 통과 조건에 반영. 0건 반복 시 MIN_TOTAL_SCORE=3으로 임시 완화 가능.
+MIN_TOTAL_SCORE = int(os.environ.get("MIN_TOTAL_SCORE", "4"))
 MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
 MAX_TOKENS = int(os.environ.get("VS_MAX_TOKENS", "4096"))  # 백필 등 후보 많을 때 상향
 URL_CHECK_TIMEOUT = 8
-SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability")
+SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability", "cross_identity")
 HANGUL_RE = re.compile(r"[가-힣]")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
@@ -290,7 +299,8 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
     valid_keys = ", ".join(TOPIC_KEYS)
 
     return (
-        "당신은 엔터테인먼트·음악 산업과 Z세대 소비 시장의 Vibe 신호 수집기입니다.\n\n"
+        "당신은 엔터테인먼트·음악 산업과 세대를 가로지르는 취향·가치 신호의 "
+        "Vibe 신호 수집기입니다.\n\n"
         f"## 수집 지역: {region['name']} ({region['language']})\n\n"
         f"## 검색 지시\n\n"
         f"{region['search_instruction']}\n"
@@ -308,9 +318,12 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "뉴스레터와 캐러셀 소재로 활용할 수 있는 사례를 선별합니다.\n\n"
         "다음 7개 주제 영역을 커버하도록 **최소 5회** 다양한 검색어로 검색하세요.\n"
         "한 번의 검색으로 모든 주제를 다루려 하지 말고, 주제별로 나눠서 검색하세요.\n"
-        "**Z세대(gen-z-lifestyle) 주제는 별도로 최소 1회 검색**하세요 — 이 주제는 "
-        "엔터테인먼트에 국한하지 않습니다. 패션·뷰티·F&B·여행·리테일·테크 소비 등 "
-        "소비 시장 전반에서 Z세대의 문화·가치관·소비행태·라이프스타일 신호를 수집합니다.\n\n"
+        "**취향·가치(taste-values) 주제는 별도로 최소 1회 검색**하세요 — 이 주제는 "
+        "특정 세대(Z세대 등)로 타깃을 나누지 않습니다. **세대를 가로지르는** 취향·가치 "
+        "신호를 잡는 것이 핵심입니다(지속가능·로컬·디깅 문화·시티팝/Y2K 등 리바이벌·"
+        "앰비언트·바이닐·취향 공동체 등). 엔터테인먼트에 국한하지 말고 패션·뷰티·F&B·"
+        "여행·리테일·테크 소비 등 소비 시장 전반에서 수집하되, '20대가~' '잘파세대가~' "
+        "식의 연령 프레임 기사보다 **연령대를 넘나드는 취향·가치 흐름**을 우선하세요.\n\n"
         f"{topics_block}\n\n"
         "## 검색 대상 매체 (화이트리스트)\n"
         "검색은 다음 매체로 제한됩니다 — 주요 일간지·주간지·매거진·전문지 위주:\n"
@@ -333,9 +346,13 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "2. **캐러셀적합**(carousel_fit): 태도→증거→함의→질문 서사 아크를 만들 수 있는가\n"
         "   (0=아크 불가, 1=단일 포인트, 2=완전한 아크 가능)\n"
         "3. **출처신뢰**(reliability): 출처가 확인 가능하고 1차 자료에 근거하는가\n"
-        "   (0=출처 불분명, 1=2차 보도, 2=1차 자료/공식 발표)\n\n"
+        "   (0=출처 불분명, 1=2차 보도, 2=1차 자료/공식 발표)\n"
+        "4. **교차정체성**(cross_identity): 팬덤·세대·서브컬처·라이프스타일·가치관 등 "
+        "정체성 레이어가 몇 개 겹치는가. 한 신호가 여러 정체성 층을 가로지를수록 "
+        "세대·지역을 넘나드는 신호다 (0=정체성 레이어 없음/단일 사건, "
+        "1=하나의 정체성 레이어, 2=둘 이상 교차)\n\n"
         "## 출력\n\n"
-        f"total_score(3개 합산) {MIN_TOTAL_SCORE}점 이상인 후보를 최소 1개, 최대 {MAX_CANDIDATES}개 선택하세요.\n"
+        f"total_score(4개 합산) {MIN_TOTAL_SCORE}점 이상인 후보를 최소 1개, 최대 {MAX_CANDIDATES}개 선택하세요.\n"
         "좋은 후보가 1~2개뿐이면 그만큼만 출력하세요. 개수를 채우려고 기준 미달 기사를 포함하지 마세요.\n"
         "JSON 배열만 출력하고 다른 텍스트는 추가하지 마세요.\n\n"
         "```json\n"
@@ -350,6 +367,7 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         '    "newsletter_fit": 0,\n'
         '    "carousel_fit": 0,\n'
         '    "reliability": 0,\n'
+        '    "cross_identity": 0,\n'
         '    "total_score": 0\n'
         "  }\n"
         "]\n"
@@ -797,12 +815,15 @@ def _score_indicators(c: dict) -> list[str]:
         indicators.append("캐러셀적합")
     if c.get("reliability", 0) > 0:
         indicators.append("출처신뢰")
+    if c.get("cross_identity", 0) > 0:
+        indicators.append("교차정체성")
     return indicators
 
 
 def build_discord_message(c: dict) -> str:
     score = c.get("total_score", 0)
-    badge = "🟢" if score >= 5 else "🟡"
+    # 만점 8(4지표) 기준 — 🟢 고신호 임계 6(75%). 구 만점 6 시절 5에서 상향.
+    badge = "🟢" if score >= 6 else "🟡"
     tags = _topic_tags(c)
 
     title = c["title"][:100]

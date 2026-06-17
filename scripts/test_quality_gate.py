@@ -20,6 +20,7 @@ def test_parse_date():
 
 
 def _cand(**over):
+    # 4지표(각 0~2) 만점 8 — 2026-06-17 cross_identity 추가. 기본 합 4 = 임계(4) 통과.
     base = {
         "title": "테스트 기사 제목",
         "url": "https://example.com/a",
@@ -29,7 +30,8 @@ def _cand(**over):
         "published_date": "2026-06-09",
         "newsletter_fit": 1,
         "carousel_fit": 1,
-        "reliability": 2,
+        "reliability": 1,
+        "cross_identity": 1,
         "total_score": 4,
     }
     base.update(over)
@@ -70,9 +72,34 @@ def test_validate():
     )
     assert len(valid) == 0 and drops["score"] == 1
 
-    # 점수 합산 오류 → 재계산 후 통과 (1+1+2=4인데 total_score=6으로 옴)
+    # 점수 합산 오류 → 4지표 재계산 후 통과 (1+1+1+1=4인데 total_score=6으로 옴)
     valid, drops = vs.validate_candidates([_cand(total_score=6)], cutoff, today)
     assert len(valid) == 1 and valid[0]["total_score"] == 4
+
+    # 4지표 합산: cross_identity 포함 4개 키를 모두 더한다 (2026-06-17)
+    valid, drops = vs.validate_candidates(
+        [_cand(newsletter_fit=2, carousel_fit=2, reliability=2, cross_identity=2, total_score=0)],
+        cutoff, today,
+    )
+    assert len(valid) == 1 and valid[0]["total_score"] == 8
+
+    # 임계 경계: 새 MIN_TOTAL_SCORE=4 기준 — 합 3은 제외, 4는 통과
+    valid, drops = vs.validate_candidates(
+        [_cand(newsletter_fit=1, carousel_fit=1, reliability=1, cross_identity=0, total_score=3)],
+        cutoff, today,
+    )
+    assert len(valid) == 0 and drops["score"] == 1
+    valid, drops = vs.validate_candidates(
+        [_cand(newsletter_fit=1, carousel_fit=1, reliability=1, cross_identity=1, total_score=4)],
+        cutoff, today,
+    )
+    assert len(valid) == 1
+
+    # cross_identity 누락(구 3지표 응답 호환) → 0으로 계산, 합 3은 제외
+    legacy = _cand(newsletter_fit=1, carousel_fit=1, reliability=1, total_score=3)
+    del legacy["cross_identity"]
+    valid, drops = vs.validate_candidates([legacy], cutoff, today)
+    assert len(valid) == 0 and drops["score"] == 1
 
     # 영어 요약 → 제외
     valid, drops = vs.validate_candidates(
@@ -143,6 +170,20 @@ def test_url_alive():
     print("  check_url_alive OK")
 
 
+def test_score_indicators():
+    # 4지표 — 교차정체성 인디케이터가 Discord 출력에 반영되는지 (2026-06-17)
+    full = vs._score_indicators(
+        _cand(newsletter_fit=1, carousel_fit=1, reliability=1, cross_identity=1)
+    )
+    assert full == ["소재적합", "캐러셀적합", "출처신뢰", "교차정체성"]
+    # cross_identity=0이면 교차정체성 미표시
+    partial = vs._score_indicators(
+        _cand(newsletter_fit=1, carousel_fit=0, reliability=0, cross_identity=0)
+    )
+    assert partial == ["소재적합"]
+    print("  _score_indicators OK")
+
+
 def test_select_batch_dedup():
     # 네트워크 차단: URL 생존 확인을 항상 통과로 모킹
     original = vs.check_url_alive
@@ -201,6 +242,7 @@ if __name__ == "__main__":
     test_validate()
     test_validate_url_date_fallback()
     test_url_alive()
+    test_score_indicators()
     test_select_batch_dedup()
     test_select_domain_cap()
     print("ALL TESTS PASSED")

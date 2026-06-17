@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ALLOWLIST_PATH = os.path.join(os.path.dirname(HERE), "sources_newsrooms.json")
 TOPIC_KEYS = [
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
-    "artist-ownership", "tech-issues", "gen-z-lifestyle",
+    "artist-ownership", "tech-issues", "taste-values",  # 구 gen-z-lifestyle (2026-06-17 재정의)
 ]
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
@@ -114,7 +114,7 @@ def html_to_text(h: str) -> str:
 
 def classify(title: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "summary_ko": ""}
+    fallback = {"topics": [], "summary_ko": "", "is_promo": False}
     if not key:
         return fallback
     try:
@@ -124,8 +124,12 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "엔터·문화·소비 산업 기업 뉴스룸/블로그 글을 분류해 JSON으로만 응답.\n\n"
             f"제목: {title}\n본문 발췌: {text[:1500]}\n\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
+            "is_promo: 단순 홍보면 true, 산업 신호면 false. "
+            "true=신작·시즌 공개, 예고편·트레일러, 출시일/공개일 안내, 자사 콘텐츠·작품 마케팅, 수상 자축 등 보도자료성 홍보. "
+            "false=사업 전략·투자·M&A·실적·구독자/이용 데이터·기술·정책·인사·파트너십 등 산업 신호. "
+            "애매하면 false(보존 우선).\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"topics": [...], "summary_ko": "..."}'
+            '{"topics": [...], "is_promo": false, "summary_ko": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -140,7 +144,11 @@ def classify(title: str, text: str, region_hint: str) -> dict:
         if isinstance(data, list):  # 모델이 배열로 응답하는 엣지
             data = next((x for x in data if isinstance(x, dict)), {})
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
-        return {"topics": topics, "summary_ko": (data.get("summary_ko") or "").strip()}
+        return {
+            "topics": topics,
+            "summary_ko": (data.get("summary_ko") or "").strip(),
+            "is_promo": bool(data.get("is_promo", False)),
+        }
     except Exception as e:
         log.warning("분류 실패: %s", e)
         return fallback
@@ -222,13 +230,16 @@ def main() -> int:
                 "tags": cls["topics"],
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
-                "status": "pending",
-                "filter_verdict": "pass",
+                # promo는 status=filtered_out → 대시보드 기본 뷰에서 숨김(app.py neq.filtered_out
+                # · dashboard.html inPool). filter_verdict=promo로 사유 기록, ?status=filtered_out로 토글.
+                "status": "filtered_out" if cls.get("is_promo") else "pending",
+                "filter_verdict": "promo" if cls.get("is_promo") else "pass",
                 "total_score": 0,
             })
             seen.add(url)
             kept += 1
-            log.info("[%s] %s | %s", src["name"], "·".join(cls["topics"]) or "-", title[:55])
+            log.info("[%s] %s%s | %s", src["name"], "·".join(cls["topics"]) or "-",
+                     " [PROMO]" if cls.get("is_promo") else "", title[:55])
 
     log.info("수집 %d건 (소스 %d개, 최근 %d일)", len(rows), len(sources), LOOKBACK_DAYS)
     if dry:
