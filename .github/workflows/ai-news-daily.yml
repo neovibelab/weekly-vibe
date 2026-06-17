@@ -24,6 +24,10 @@ on:
           - china
           - japan
           - southeast-asia
+      dry_run:
+        description: 'dry-run (검색·검증만 — 디스코드·Supabase 미반영, 기준 테스트용)'
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -57,7 +61,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py korea
+        run: python scripts/vibe_search.py korea ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 글로벌(영어)
         id: global_en
@@ -70,7 +74,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py global-en
+        run: python scripts/vibe_search.py global-en ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 중국
         id: china
@@ -85,7 +89,7 @@ jobs:
           SEEN_FILE: ${{ env.SEEN_FILE }}
           MAX_AGE_HOURS: '168'   # 중국만 7일 컷 (48h에서 4일 연속 0건, 2026-06-14)
           ALLOW_UNDATED: '1'     # 발행일 미상 게재 허용 (중국어 매체 page_age 누락 빈번)
-        run: python scripts/vibe_search.py china
+        run: python scripts/vibe_search.py china ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 일본
         id: japan
@@ -98,7 +102,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py japan
+        run: python scripts/vibe_search.py japan ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 동남아
         id: sea
@@ -111,7 +115,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
-        run: python scripts/vibe_search.py southeast-asia
+        run: python scripts/vibe_search.py southeast-asia ${{ inputs.dry_run && '--dry-run' || '' }}
 
       # 침묵 실패 경보: 위 지역 중 검색 실패(outcome=failure)가 있으면 woojin@ 메일.
       # always() — 앞 스텝 결과와 무관하게 항상 평가. skip(skipped)·정상(success)은
