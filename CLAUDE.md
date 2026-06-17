@@ -1,6 +1,6 @@
 # weekly-vibe — 일일 수집 엔진 (vibe_search v3)
 
-> **역할 (2026-06-09 전환)**: 엔터·문화 산업 뉴스의 **일일 자동 수집 엔진**. 매일 07:00 KST 5개 지역을 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
+> **역할 (2026-06-09 전환)**: 엔터·문화 산업 뉴스의 **일일 자동 수집 엔진**. 매일 5개 지역을 현지 발행 리듬에 맞춰 3개 시간대로 나눠(오전 한국·일본 / 오후 중국·동남아 / 저녁 글로벌, 2026-06-17) 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
 >
 > **주간 브리핑(NEWSPAPER HTML) 발행은 2026-06-09 폐기.** 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존한다. `weeklybriefing.vercel.app`은 배포 중단 대상, 제작 스킬(`.claude/skills/weekly-vibe/`)은 2026-06-10 삭제. 구 제작 가이드(태그 시스템·디자인 시스템·검증 체크리스트)가 필요하면 이 파일의 git 히스토리(2026-06-10 이전) 참조.
 >
@@ -11,8 +11,9 @@
 ## 1. 수집 파이프라인
 
 ```
-매일 07:00 KST (GitHub Actions ai-news-daily.yml)
-    → scripts/vibe_search.py (Claude Sonnet web_search, 5지역 순차)
+매일 3개 시간대 KST (GitHub Actions ai-news-daily.yml — cron 3개로 분산)
+  오전 07시 한국·일본 / 오후 14시 중국·동남아 / 저녁 21시 글로벌(영어)
+    → scripts/vibe_search.py (Claude Sonnet web_search, 해당 시간대 지역 순차)
     → 품질 게이트 (validate_candidates → URL 생존 확인)
     → Discord 5개 지역 채널 알림 + Supabase radar_items upsert
     → 대시보드 큐레이션: https://nvl-vibe-radar.vercel.app/
@@ -62,7 +63,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
 2. **출처 화이트리스트** — 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외 (AI타임스·에너지신문류 보도자료 재가공 매체 차단, 2026-06-10 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
 3. `validate_candidates()` — 필수 필드·한국어 요약·점수 재계산(≥3)·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). **발행일 미상은 제외**(신뢰성 — 2026-06-10 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재)
-4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
+4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스 — 한 매체 독식 방지·동남아 방콕포스트 편중 대응, 2026-06-17. 미달 시 2차 패스에서 상한 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
 4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
 단위 테스트: `scripts/test_quality_gate.py`.
@@ -96,7 +97,7 @@ weekly-vibe/
 │   ├── notify_region_failure.py ← 일일 수집: 지역 검색 실패 시 woojin@ 메일 경보
 │   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
 ├── .github/workflows/
-│   ├── ai-news-daily.yml        ← 매일 07:00 KST 수집
+│   ├── ai-news-daily.yml        ← 매일 3시간대 수집(오전 한·일/오후 중·동남아/저녁 글로벌)
 │   ├── discord-report-drop.yml  ← 월 10:17 KST 정시 리포트 드롭
 │   └── report-drop-watchdog.yml ← 월 10:40 KST 백업(누락 시 재발송+메일)
 ├── drops/                       ← 주간 리포트 드롭 마크다운
@@ -110,3 +111,5 @@ weekly-vibe/
 - 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
 - 2026-06-10: 품질 게이트 추가(48시간 컷·URL 생존 확인). CLAUDE.md 재작성 — 구 주간 브리핑 제작 가이드 제거, 수집 엔진 정본으로 전환.
 - 2026-06-15: 리포트 드롭 워크플로 YAML 깨짐(인라인 heredoc) 수정 — 6/4부터 startup_failure로 미발송이던 것 복구. 발송 로직을 `scripts/send_report_drop.py`로 분리, cron 10:00→10:17(정시 고부하 회피), 백업 감시 워크플로(`report-drop-watchdog.yml`, 월 10:40) 신설 — 정시 누락 시 자동 재발송 + 메일 알림.
+- 2026-06-17: 수집 시간대 분산 — `ai-news-daily.yml` 단일 cron(07:00 일괄)에서 cron 3개로(07:00 한·일 / 14:00 중·동남아 / 21:00 글로벌). 지역별 현지 발행 리듬에 맞춰 신선도↑. 단일 워크플로 유지(각 step `if`가 `github.event.schedule`·수동 region input 분기), skip 지역은 outcome=skipped라 실패 경보 무영향.
+- 2026-06-17: 도메인 다양성 — `select_candidates`에 도메인당 2건 상한(`MAX_PER_DOMAIN`) 추가. 한 매체(동남아 방콕포스트)가 점수순 5건을 독식하던 구조 차단. 2-패스(1차 상한 적용 → 미달 시 2차 상한 해제)로 도메인 얕은 지역 건수 보존. `test_quality_gate.py` 케이스 추가.

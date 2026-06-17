@@ -167,6 +167,34 @@ def test_select_batch_dedup():
     print("  select_candidates 배치 중복 제거 OK")
 
 
+def test_select_domain_cap():
+    # 도메인 편중 방지: 한 매체가 상위 점수를 독식해도 1차에서 도메인당 cap까지만.
+    # 미달분은 2차 패스로 채워 건수(MAX_CANDIDATES)는 보존.
+    original = vs.check_url_alive
+    vs.check_url_alive = lambda url: True
+    try:
+        allowed = ["bangkokpost.com", "rappler.com", "kompas.com"]
+        # 방콕포스트 4건(상위 점수) + 라플러 1 + 콤파스 1. www. 서브도메인 변형 포함.
+        # 제목은 서로 충분히 달라 cross_dup에 안 걸림 — 도메인 cap만 격리 검증.
+        batch = [
+            _cand(title="태국 콘서트 시장 30% 성장 전망", url="https://www.bangkokpost.com/a1", total_score=6),
+            _cand(title="방탄소년단 방콕 공연 전석 매진", url="https://www.bangkokpost.com/a2", total_score=5),
+            _cand(title="현지 인디 레이블 해외 진출 본격화", url="https://bangkokpost.com/a3", total_score=5),
+            _cand(title="스트리밍 플랫폼 동남아 점유율 재편", url="https://www.bangkokpost.com/a4", total_score=4),
+            _cand(title="라플러 단독: P-pop 산업 구조 분석", url="https://www.rappler.com/b1", total_score=3),
+            _cand(title="인도네시아 음악 페스티벌 관객 신기록", url="https://www.kompas.com/c1", total_score=3),
+        ]
+        selected, dead, dups = vs.select_candidates(batch, allowed, max_per_domain=2)
+        hosts = [vs._domain_key(c["url"], allowed) for c in selected]
+        # 1차: 방콕 2 + 라플러 1 + 콤파스 1 = 4건. 2차: 방콕 1 보존 → 총 5건·방콕 3.
+        assert len(selected) == 5, f"5건 선정이어야: {len(selected)} ({hosts})"
+        assert "rappler.com" in hosts and "kompas.com" in hosts, f"다양성 확보 실패: {hosts}"
+        assert hosts.count("bangkokpost.com") == 3, f"방콕 1차2+2차1=3이어야: {hosts}"
+    finally:
+        vs.check_url_alive = original
+    print("  select_candidates 도메인 cap OK")
+
+
 if __name__ == "__main__":
     test_parse_date()
     test_date_from_url()
@@ -174,5 +202,6 @@ if __name__ == "__main__":
     test_validate_url_date_fallback()
     test_url_alive()
     test_select_batch_dedup()
+    test_select_domain_cap()
     print("ALL TESTS PASSED")
     sys.exit(0)

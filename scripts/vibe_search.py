@@ -256,6 +256,9 @@ REGIONS: dict[str, dict] = {
 }
 
 MAX_CANDIDATES = 5
+# 한 매체가 상위 점수를 독식하지 않도록 1차 선정에서 도메인당 상한 (2026-06-17).
+# 동남아 방콕포스트 편중 대응. 미달분은 2차 패스에서 상한 풀어 건수 보존.
+MAX_PER_DOMAIN = int(os.environ.get("MAX_PER_DOMAIN", "2"))
 DUPLICATE_THRESHOLD = 0.75
 MIN_TOTAL_SCORE = 3
 MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
@@ -524,9 +527,24 @@ def search_and_analyze(
 # ── 품질 게이트 ───────────────────────────────────────────
 
 
+def _host(url: str) -> str:
+    return (urlparse(url).netloc or "").split(":")[0].lower()
+
+
 def _host_matches(url: str, domains) -> bool:
-    host = (urlparse(url).netloc or "").split(":")[0].lower()
+    host = _host(url)
     return any(host == d or host.endswith("." + d) for d in domains)
+
+
+def _domain_key(url: str, allowed_domains) -> str:
+    """도메인 다양성 카운트용 정규화 키. url 호스트가 속하는 allowed_domain을
+    반환해 www.·m.·amp. 등 서브도메인 변형을 한 매체로 묶는다. allowed_domains
+    밖이면(드묾 — validate에서 걸러짐) 호스트 그대로."""
+    host = _host(url)
+    for d in allowed_domains:
+        if host == d or host.endswith("." + d):
+            return d
+    return host
 
 
 def _parse_date(value) -> datetime.date | None:
@@ -663,12 +681,21 @@ def check_url_alive(url: str) -> bool:
         return False
 
 
-def select_candidates(candidates: list[dict]) -> tuple[list[dict], int, int]:
+def select_candidates(
+    candidates: list[dict],
+    allowed_domains=(),
+    max_per_domain: int = MAX_PER_DOMAIN,
+) -> tuple[list[dict], int, int]:
     """점수순 정렬(동점이면 발행일 확인분 우선) 후 배치 내 중복과
     죽은 링크를 걸러 상위 MAX_CANDIDATES개 선별.
 
     배치 내 중복: 모델 JSON이 깨져 개별 객체 폴백이 돌면 같은 기사가
-    2벌씩 추출될 수 있다 (2026-06-10 실측) — URL·제목 유사도로 차단."""
+    2벌씩 추출될 수 있다 (2026-06-10 실측) — URL·제목 유사도로 차단.
+
+    도메인 다양성(2026-06-17): 1차 패스에서 도메인당 max_per_domain건까지만
+    채워 한 매체 독식을 막는다(동남아 방콕포스트 편중 대응). 그래도
+    MAX_CANDIDATES 미달이면 2차 패스에서 상한을 풀어 건수를 보존한다 —
+    도메인 풀이 얕은 지역(중국 등)에서 건수가 줄지 않도록."""
     candidates.sort(
         key=lambda c: (
             c.get("total_score", 0),
@@ -680,8 +707,16 @@ def select_candidates(candidates: list[dict]) -> tuple[list[dict], int, int]:
     selected: list[dict] = []
     sel_urls: set[str] = set()
     sel_titles: list[str] = []
+    domain_count: dict[str, int] = {}
+    deferred: list[tuple[dict, str]] = []  # 중복·생존 통과했으나 도메인 상한에 걸린 후보
     dead_links = 0
     batch_dups = 0
+
+    def _accept(cand: dict, key: str) -> None:
+        selected.append(cand)
+        sel_urls.add(key)
+        sel_titles.append(cand["title"])
+
     for c in candidates:
         if len(selected) >= MAX_CANDIDATES:
             break
@@ -694,9 +729,23 @@ def select_candidates(candidates: list[dict]) -> tuple[list[dict], int, int]:
             dead_links += 1
             log.info("제외(링크 불량): %s | %s", c["title"][:60], c["url"])
             continue
-        selected.append(c)
-        sel_urls.add(url_key)
-        sel_titles.append(c["title"])
+        host = _domain_key(c["url"], allowed_domains)
+        if domain_count.get(host, 0) >= max_per_domain:
+            deferred.append((c, url_key))
+            log.info("보류(도메인 상한 %d, %s): %s", max_per_domain, host, c["title"][:50])
+            continue
+        _accept(c, url_key)
+        domain_count[host] = domain_count.get(host, 0) + 1
+
+    # 2차 패스: 도메인 상한으로 미뤄둔 후보로 MAX_CANDIDATES 채우기 (다양성 < 건수).
+    # 생존 확인은 1차에서 이미 통과 — 재호출 없음. 그새 늘어난 selected와의 중복만 재확인.
+    for c, url_key in deferred:
+        if len(selected) >= MAX_CANDIDATES:
+            break
+        if url_key in sel_urls or is_cross_dup(c["title"], sel_titles):
+            continue
+        _accept(c, url_key)
+
     return selected, dead_links, batch_dups
 
 
@@ -850,7 +899,7 @@ def main() -> int:
     dup_cnt = before_dup - len(candidates)
 
     # 4. 점수순 정렬 → 배치 내 중복·죽은 링크 걸러 상위 N개 선별
-    selected, dead_links, batch_dups = select_candidates(candidates)
+    selected, dead_links, batch_dups = select_candidates(candidates, region["allowed_domains"])
 
     date_unknown = sum(1 for c in selected if not c.get("published_date"))
     stats = (
