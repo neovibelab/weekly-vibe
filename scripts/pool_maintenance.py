@@ -116,7 +116,7 @@ def main() -> int:
     now = datetime.datetime.now(datetime.timezone.utc)
 
     if "--stats" in sys.argv:
-        print_stats(rows)
+        print_stats(rows, now)
 
     targets = archive_targets(rows, now)
     ret_desc = ", ".join(f"{k} {v}일" for k, v in RETENTION.items())
