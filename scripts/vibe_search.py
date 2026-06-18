@@ -246,9 +246,14 @@ REGIONS: dict[str, dict] = {
             "The Jakarta Post"
         ),
         "allowed_domains": [
-            "rappler.com", "bangkokpost.com", "kompas.com",
-            "nikkei.com", "scmp.com", "inquirer.net",
-            "vnexpress.net", "thejakartapost.com",
+            # 필리핀·범아시아 (보조 — 동남아 보도)
+            "rappler.com", "inquirer.net", "nikkei.com", "scmp.com",
+            # 인도네시아
+            "thejakartapost.com", "kompas.com", "idntimes.com", "whiteboardjournal.com", "pophariini.com",
+            # 태국 (web_search가 bangkokpost 편중 — 도메인 cap·검색어로 대응)
+            "bangkokpost.com", "thestandard.co", "bkmagazine.com", "fungjai.com", "thematter.co",
+            # 베트남 (영문판 e.vnexpress.net·news.tuoitre.vn는 서브도메인 자동 흡수)
+            "vnexpress.net", "vietcetera.com", "kenh14.vn", "tuoitre.vn", "thanhnien.vn", "znews.vn",
         ],
         "search_terms": {
             "fan-behavior": ["Indonesia music concert fandom", "Thailand T-pop fan culture", "Vietnam V-pop concert market"],
