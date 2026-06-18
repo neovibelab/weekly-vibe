@@ -36,6 +36,9 @@ TOPIC_KEYS = [
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
 DISCORD_CAP = 8  # discord 전송 webhook당 최대 (도배 방지)
+# discord 전송 토픽 필터 — 엔터·문화·소비 핵심만 전송(순수 tech-issues·ent-deals 거시는 컷).
+# 36氪 happy_life(생활소비) 성격 근사 — 신약·항공·로봇 등 엔터·소비와 먼 글 차단.
+DISCORD_TOPICS = {"fan-behavior", "consumer-behavior", "taste-values", "ip-business", "artist-ownership"}
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
@@ -251,7 +254,8 @@ def main() -> int:
             kept += 1
             log.info("[%s] %s%s | %s", src["name"], "·".join(cls["topics"]) or "-",
                      " [PROMO]" if cls.get("is_promo") else "", title[:55])
-            if src.get("discord") and not cls.get("is_promo"):
+            if (src.get("discord") and not cls.get("is_promo")
+                    and set(cls.get("topics", [])) & DISCORD_TOPICS):
                 discord_queue.append((src["discord"], src["name"], title, url, pub))
 
     log.info("수집 %d건 (소스 %d개, 최근 %d일)", len(rows), len(sources), LOOKBACK_DAYS)
