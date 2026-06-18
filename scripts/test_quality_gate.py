@@ -210,8 +210,10 @@ def test_select_batch_dedup():
 
 def test_select_domain_cap():
     # 도메인 편중 방지: 한 매체가 상위 점수를 독식해도 1차에서 도메인당 cap까지만.
-    # 미달분은 2차 패스로 채워 건수(MAX_CANDIDATES)는 보존.
+    # 미달분은 2차 패스로 채워 건수는 보존. (이 테스트는 MAX_CANDIDATES=5 기준)
     original = vs.check_url_alive
+    original_cap = vs.MAX_CANDIDATES
+    vs.MAX_CANDIDATES = 5
     vs.check_url_alive = lambda url: True
     try:
         allowed = ["bangkokpost.com", "rappler.com", "kompas.com"]
@@ -233,6 +235,7 @@ def test_select_domain_cap():
         assert hosts.count("bangkokpost.com") == 3, f"방콕 1차2+2차1=3이어야: {hosts}"
     finally:
         vs.check_url_alive = original
+        vs.MAX_CANDIDATES = original_cap
     print("  select_candidates 도메인 cap OK")
 
 

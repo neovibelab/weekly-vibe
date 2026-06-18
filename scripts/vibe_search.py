@@ -195,9 +195,11 @@ REGIONS: dict[str, dict] = {
             "**必ず日本語で検索してください。** 英語で検索しないでください。"
         ),
         "edge_note": (
-            "일본 음악 시장의 독특한 구조(피지컬 강세, 팬클럽 모델, IP 다각화)에 주목하세요. "
-            "영어권에서 잘 보도되지 않는 일본 시장 내부 동향이 핵심 가치입니다. "
-            "K-pop의 일본 시장 전략, J-pop·보카로이드·VTuber 동향도 포함합니다."
+            "**엔터테인먼트·미디어·IP 비즈니스·라이프스타일 영역에 집중하세요.** "
+            "특히 애니·만화·게임·캐릭터 IP의 미디어믹스·라이선싱·해외 전개, 음악(피지컬·팬클럽), "
+            "방송·OTT·출판 미디어, 팬덤·취향 라이프스타일이 핵심입니다. "
+            "정치·일반 경제·일반 테크 산업 뉴스는 제외합니다. "
+            "영어권 미보도 일본 시장 내부 동향, K-pop의 일본 전략, J-pop·보카로이드·VTuber도 포함합니다."
         ),
         # 朝日·毎日는 Anthropic 크롤러 차단 — 2026-06-10 프로브 실측.
         "trusted_sources": (
@@ -213,10 +215,10 @@ REGIONS: dict[str, dict] = {
         "search_terms": {
             "fan-behavior": ["推し活 消費 トレンド", "コンサート ライブ 市場", "ファンクラブ 会員数"],
             "consumer-behavior": ["エンタメ ブランド コラボ", "Z世代 文化消費", "グッズ市場 規模"],
-            "ent-deals": ["音楽 レーベル 買収", "エンタメ 投資", "芸能事務所 資本"],
-            "ip-business": ["IP ライセンス ビジネス", "アニメ ゲーム 連動", "キャラクター 商品化", "任天堂 ポケモン IP 戦略", "ソニー バンダイナムコ アニメ IP 事業"],
+            "ent-deals": ["音楽 レーベル 買収", "エンタメ 投資 M&A", "芸能事務所 資本", "メディア OTT 配信 提携"],
+            "ip-business": ["アニメ 製作委員会 メディアミックス", "IP ライセンス 海外展開", "キャラクター 商品化 コラボ", "任天堂 ポケモン IP 戦略", "ソニー バンダイナムコ アニメ IP 事業", "出版 漫画 アニメ化 実写化"],
             "artist-ownership": ["アーティスト 独立 レーベル", "音楽 著作権 問題", "クリエイター エコノミー"],
-            "tech-issues": ["AI 音楽 著作権", "サブスク ストリーミング", "音楽テック スタートアップ"],
+            "tech-issues": ["AI 音楽 著作権", "サブスク ストリーミング 競争", "音楽 配信 プラットフォーム"],
             "taste-values": ["趣味 コミュニティ 消費", "サステナブル ローカル 価値観", "シティポップ Y2K レコード 復活 ディグ"],
         },
     },
@@ -226,14 +228,15 @@ REGIONS: dict[str, dict] = {
         "webhook_env": "DISCORD_SOUTHEAST_ASIA_WEBHOOK",
         "language": "English (+ local)",
         "search_instruction": (
-            "**Search in English**, targeting Southeast Asian markets: "
-            "Philippines, Indonesia, Thailand, Vietnam, Malaysia, Singapore."
+            "**Search in English.** Focus on **Indonesia, Thailand, Vietnam** "
+            "(Philippines secondary) — media, entertainment, lifestyle. "
+            "Spread across countries; do NOT let Thailand (Bangkok Post) dominate."
         ),
         "edge_note": (
-            "동남아는 K-pop·한류의 핵심 성장 시장입니다. "
-            "개별 국가 뉴스보다 ASEAN 단위 트렌드, "
-            "현지 아티스트(SB19, BINI, 4th Impact 등)의 부상, "
-            "한류와 현지 문화의 접점 사례를 우선합니다."
+            "**인도네시아·태국·베트남의 현지 미디어·엔터테인먼트·라이프스타일을 우선합니다.** "
+            "K-pop·한류뿐 아니라 현지 음악·OTT·콘텐츠 산업, 현지 아티스트(SB19·BINI 등 P-pop, "
+            "인니·태국·베트남 신예), 취향·소비 라이프스타일을 폭넓게 다룹니다. "
+            "**방콕포스트(태국)에 편중되지 않게 Kompas·Jakarta Post(인니)·VnExpress(베트남)에서도 고르게** 찾으세요."
         ),
         # Straits Times·CNA는 Anthropic 크롤러 차단 — 2026-06-10 프로브 실측.
         "trusted_sources": (
@@ -248,18 +251,18 @@ REGIONS: dict[str, dict] = {
             "vnexpress.net", "thejakartapost.com",
         ],
         "search_terms": {
-            "fan-behavior": ["K-pop fandom Southeast Asia", "SB19 BINI fan community", "concert market ASEAN"],
-            "consumer-behavior": ["entertainment consumption Southeast Asia", "Gen Z cultural trends ASEAN", "Hallyu brand impact"],
-            "ent-deals": ["entertainment investment Southeast Asia", "music label ASEAN expansion", "K-pop agency partnership Asia"],
-            "ip-business": ["anime manga licensing Southeast Asia", "entertainment IP ASEAN", "webtoon adaptation Asia"],
-            "artist-ownership": ["independent artist Southeast Asia", "P-pop industry Philippines", "local music industry ASEAN"],
-            "tech-issues": ["music streaming Southeast Asia", "TikTok music ASEAN", "digital entertainment platform Asia"],
-            "taste-values": ["taste community Southeast Asia", "sustainability local lifestyle ASEAN", "vinyl revival indie scene digging Asia"],
+            "fan-behavior": ["Indonesia music concert fandom", "Thailand T-pop fan culture", "Vietnam V-pop concert market"],
+            "consumer-behavior": ["Indonesia Gen Z entertainment consumption", "Thailand lifestyle media trends", "Vietnam youth cultural consumption"],
+            "ent-deals": ["Indonesia entertainment media investment", "Thailand streaming OTT deal", "Vietnam music label entertainment"],
+            "ip-business": ["Indonesia webtoon film adaptation", "Thailand BL series IP licensing", "Vietnam content IP entertainment"],
+            "artist-ownership": ["Indonesia independent musician label", "Thailand T-pop artist", "Vietnam indie music scene"],
+            "tech-issues": ["Indonesia music streaming platform", "Thailand digital entertainment app", "Vietnam TikTok creator economy"],
+            "taste-values": ["Indonesia local lifestyle youth trend", "Thailand cafe culture vinyl revival", "Vietnam taste community subculture"],
         },
     },
 }
 
-MAX_CANDIDATES = 5
+MAX_CANDIDATES = 7
 # 한 매체가 상위 점수를 독식하지 않도록 1차 선정에서 도메인당 상한 (2026-06-17).
 # 동남아 방콕포스트 편중 대응. 미달분은 2차 패스에서 상한 풀어 건수 보존.
 MAX_PER_DOMAIN = int(os.environ.get("MAX_PER_DOMAIN", "2"))
@@ -270,7 +273,7 @@ DUPLICATE_THRESHOLD = 0.75
 # 교차정체성 0인 순수 산업 딜은 탈락, ≥1이면 생존 → "취향·가치 횡단 신호 우선"
 # 의도를 통과 조건에 반영. 0건 반복 시 MIN_TOTAL_SCORE=3으로 임시 완화 가능.
 MIN_TOTAL_SCORE = int(os.environ.get("MIN_TOTAL_SCORE", "4"))
-MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "48"))
+MAX_AGE_HOURS = int(os.environ.get("MAX_AGE_HOURS", "72"))
 MAX_TOKENS = int(os.environ.get("VS_MAX_TOKENS", "4096"))  # 백필 등 후보 많을 때 상향
 URL_CHECK_TIMEOUT = 8
 SCORE_KEYS = ("newsletter_fit", "carousel_fit", "reliability", "cross_identity")
