@@ -115,6 +115,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
+          MAX_AGE_HOURS: '168'   # 동남아도 web_search 최신성 약함 — 7일 컷 (2026-06-19, 중국 선례)
         run: python scripts/vibe_search.py southeast-asia ${{ inputs.dry_run && '--dry-run' || '' }}
 
       # 침묵 실패 경보: 위 지역 중 검색 실패(outcome=failure)가 있으면 woojin@ 메일.
