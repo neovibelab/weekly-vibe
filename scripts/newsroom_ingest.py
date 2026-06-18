@@ -35,6 +35,7 @@ TOPIC_KEYS = [
 ]
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
+DISCORD_CAP = 8  # discord 전송 webhook당 최대 (도배 방지)
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
@@ -182,6 +183,15 @@ def recent_urls(days: int = 30) -> set[str]:
         return set()
 
 
+def send_to_discord(webhook_url: str, content: str) -> int:
+    try:
+        r = requests.post(webhook_url, json={"content": content[:1900]}, timeout=10)
+        return r.status_code
+    except Exception as e:
+        log.warning("디스코드 전송 실패: %s", e)
+        return 0
+
+
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -192,6 +202,7 @@ def main() -> int:
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=LOOKBACK_DAYS)
     seen = recent_urls() if not dry else set()
     rows = []
+    discord_queue = []  # (webhook_env, name, title, url, pub) — discord 지정 소스의 signal만
 
     for src in sources:
         if src.get("feed", "").startswith("_"):
@@ -240,10 +251,15 @@ def main() -> int:
             kept += 1
             log.info("[%s] %s%s | %s", src["name"], "·".join(cls["topics"]) or "-",
                      " [PROMO]" if cls.get("is_promo") else "", title[:55])
+            if src.get("discord") and not cls.get("is_promo"):
+                discord_queue.append((src["discord"], src["name"], title, url, pub))
 
     log.info("수집 %d건 (소스 %d개, 최근 %d일)", len(rows), len(sources), LOOKBACK_DAYS)
     if dry:
         print(json.dumps(rows, ensure_ascii=False, indent=2))
+        print(f"\n[디스코드 전송 후보(signal)] {len(discord_queue)}건:")
+        for env, name, title, url, pub in discord_queue[:12]:
+            print(f"  -> {env} | [{name}] {title[:42]}")
         return 0
     saved = 0
     for row in rows:
@@ -253,6 +269,25 @@ def main() -> int:
         else:
             log.warning("Supabase 적재 실패 HTTP %d: %s", code, row["title"][:40])
     log.info("Supabase 적재 완료: %d/%d", saved, len(rows))
+
+    # discord 전송 — discord 지정 소스의 signal만, webhook당 최신 DISCORD_CAP건(도배 방지).
+    # promo·기존 적재분(seen)은 자연 제외. #vibe-china 등 지역 채널 최신성 보강.
+    if discord_queue:
+        from collections import defaultdict
+        by_hook = defaultdict(list)
+        for env, name, title, url, pub in discord_queue:
+            by_hook[env].append((name, title, url, pub))
+        for env, posts in by_hook.items():
+            webhook = os.environ.get(env)
+            if not webhook:
+                log.warning("%s 미설정 — discord 전송 생략", env)
+                continue
+            posts.sort(key=lambda x: x[3], reverse=True)  # 최신순
+            sent = 0
+            for name, title, url, _ in posts[:DISCORD_CAP]:
+                if send_to_discord(webhook, f"📰 **[{name}]** {title}\n{url}") in (200, 204):
+                    sent += 1
+            log.info("discord 전송: %s %d/%d건", env, sent, min(len(posts), DISCORD_CAP))
     return 0
 
 

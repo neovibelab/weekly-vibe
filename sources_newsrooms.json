@@ -9,6 +9,9 @@
     {"feed": "https://www.universalmusic.com/feed/",                         "name": "Universal Music", "region": "global-en"},
     {"feed": "https://www.wmg.com/feed/",                                    "name": "Warner Music",    "region": "global-en"},
     {"feed": "https://www.sonymusic.com/feed/",                              "name": "Sony Music",      "region": "global-en"},
-    {"feed": "https://corp.toei-anim.co.jp/contentFeeds/content/multi3/en/press", "name": "Toei Animation", "region": "japan"}
+    {"feed": "https://corp.toei-anim.co.jp/contentFeeds/content/multi3/en/press", "name": "Toei Animation", "region": "japan"},
+    {"feed": "https://36kr.com/feed", "name": "36氪", "region": "china", "discord": "DISCORD_CHINA_WEBHOOK"},
+    {"feed": "https://www.tmtpost.com/feed", "name": "钛媒体", "region": "china", "discord": "DISCORD_CHINA_WEBHOOK"},
+    {"feed": "https://infoseekchina.blogspot.com/feeds/posts/default", "name": "InfoSeek China", "region": "china", "discord": "DISCORD_CHINA_WEBHOOK"}
   ]
 }
