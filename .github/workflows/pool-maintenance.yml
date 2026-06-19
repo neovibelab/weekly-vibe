@@ -1,8 +1,8 @@
 name: Vibe 풀 유지보수 (집계·정리)
-# radar_items 풀 집계(status×collector×나이) + 오래된 pending → archived 전환.
+# radar_items 풀 집계 + 자동수집 pending 최신 50개 초과분 → archived 전환.
 # scripts/pool_maintenance.py. picked·manual은 영구 보존, 대시보드는 archived 숨김.
 #
-# - 주간 schedule: 자동 정리(--apply)
+# - 매일 schedule(01:00 KST): 자동 정리(--apply)로 풀 ~50개 유지
 # - 수동 dispatch: apply 체크 시 정리, 아니면 대상 미리보기(DB 변경 0)
 
 on:
@@ -13,7 +13,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 16 * * 6'   # 매주 일요일 01:00 KST (토 16:00 UTC) — 주간 정리
+    - cron: '0 16 * * *'   # 매일 01:00 KST (16:00 UTC) — 풀 ~50개 유지
 
 jobs:
   maintain:

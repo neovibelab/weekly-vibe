@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""radar_items 풀 유지보수 — 현황 집계(--stats) + 오래된 pending archived 전환(--apply).
+"""radar_items 풀 유지보수 — 현황 집계(--stats) + 풀 개수 상한 초과 pending archived 전환(--apply).
 
 집계: status × collector × 나이 분포.
-정리: collector별 보존일(RETENTION) 초과 pending → status=archived. picked·manual 등
-  RETENTION에 없는 collector·status는 영구 보존(여기선 pending만 다룬다).
-  --apply 없으면 대상 미리보기만(DB 변경 0).
+정리: 자동수집(newsletter·newsroom·vibe_search) pending을 created_at 최신순 POOL_KEEP개만
+  남기고 초과분(오래된 것) → status=archived. picked·manual 등은 영구 보존(여기선 pending만 다룬다).
+  매일 자동 실행으로 풀을 ~POOL_KEEP개 선에서 유지. --apply 없으면 대상 미리보기만(DB 변경 0).
 
 대시보드는 archived를 기본 뷰에서 숨긴다(app.py status!=archived·dashboard inPool).
 ?status=archived로 조회·복구 가능(status를 pending으로 되돌리면 부활).
@@ -21,9 +21,10 @@ from collections import Counter
 
 import requests
 
-# collector별 보존일 — 이 일수를 넘긴 pending을 archived로 전환.
-# 키에 없는 collector(picked 자산·manual 등)는 정리 대상 아님(영구 보존).
-RETENTION = {"newsletter": 10, "newsroom": 10, "vibe_search": 21}
+# 자동수집 pending 풀에서 created_at 최신순 POOL_KEEP개만 유지, 초과분(오래된 것) → archived.
+# MANAGED_COLLECTORS 밖(manual)·picked 등은 정리 대상 아님(영구 보존).
+POOL_KEEP = 50
+MANAGED_COLLECTORS = {"newsletter", "newsroom", "vibe_search"}
 
 
 def _base() -> str:
@@ -87,18 +88,13 @@ def print_stats(rows, now):
 
 
 def archive_targets(rows, now):
-    out = []
-    for r in rows:
-        if r.get("status") != "pending":
-            continue
-        ret = RETENTION.get(r.get("collector"))
-        if ret is None:
-            continue
-        age = _age_days(r, now)
-        if age is not None and age >= ret:
-            out.append((r, age))
-    out.sort(key=lambda x: -x[1])
-    return out
+    # 자동수집 collector의 pending을 created_at 최신순 POOL_KEEP개만 남기고
+    # 초과분(오래된 것)을 archived 대상으로. picked·manual·기타 status는 영구 보존.
+    pend = [r for r in rows
+            if r.get("status") == "pending" and r.get("collector") in MANAGED_COLLECTORS]
+    pend.sort(key=lambda r: r.get("created_at") or "", reverse=True)  # 최신 먼저
+    over = pend[POOL_KEEP:]  # POOL_KEEP 초과분 = 오래된 것
+    return [(r, _age_days(r, now)) for r in over]
 
 
 def _archive(item_id) -> int:
@@ -119,8 +115,8 @@ def main() -> int:
         print_stats(rows, now)
 
     targets = archive_targets(rows, now)
-    ret_desc = ", ".join(f"{k} {v}일" for k, v in RETENTION.items())
-    print(f"\n[archive 대상] {len(targets)}건 (임계: {ret_desc} · picked·manual 영구)")
+    mc = "·".join(sorted(MANAGED_COLLECTORS))
+    print(f"\n[archive 대상] {len(targets)}건 (최신 {POOL_KEEP}개 유지 · {mc} pending 대상 · picked·manual 영구)")
     for r, age in targets[:30]:
         print(f"  [{r.get('collector')}] {age}일 | {(r.get('title') or '')[:50]}")
     if len(targets) > 30:
