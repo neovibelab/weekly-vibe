@@ -151,13 +151,16 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
             f"제목: {subject}\n본문 발췌: {text[:1500]}\n\n"
             "is_entertainment: 엔터테인먼트·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
             "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결되는가. "
-            "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI·핀테크·정치는 false. "
+            "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI·핀테크·정치·군사·우주·항공은 false. "
             "패션·뷰티·F&B·여행·리테일 같은 소비 라이프스타일은 true.\n"
+            "is_gossip: 연예인 사생활·열애/결혼/이혼·스캔들·루머·신변잡기 등 산업 신호가 아닌 단순 가십이면 true. "
+            "작품·산업·비즈니스·정책·데이터는 false. 애매하면 false(보존 우선).\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "순수 SaaS·B2B 협업툴·반도체·엔터프라이즈 AI는 tech-issues 아님.\n"
+            "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"is_entertainment": true, "topics": [...], "summary_ko": "..."}'
+            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "title_ko": "...", "summary_ko": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -178,6 +181,8 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
         return {
             "topics": topics,
             "summary_ko": (data.get("summary_ko") or "").strip(),
+            "title_ko": (data.get("title_ko") or "").strip(),
+            "is_gossip": bool(data.get("is_gossip", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
         }
     except Exception as e:
@@ -259,9 +264,11 @@ def main() -> int:
             except Exception:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
             cls = classify(subject, body_text, src.get("region", "global-en"))
+            is_ent = cls.get("is_entertainment", True)
+            is_gos = cls.get("is_gossip", False)
             rows.append({
                 "id": str(uuid.uuid4()),
-                "title": subject[:500] or "(제목 없음)",
+                "title": (cls.get("title_ko") or subject)[:500] or "(제목 없음)",
                 "url": url,
                 "source": src["name"],
                 "category": "newsletter",
@@ -269,11 +276,12 @@ def main() -> int:
                 "summary": (cls["summary_ko"] or body_text[:200]),
                 "topics": cls["topics"],
                 "tags": cls["topics"],
-                "is_entertainment": cls.get("is_entertainment", True),
+                "is_entertainment": is_ent,
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
-                "status": "pending",
-                "filter_verdict": "pass",
+                # 비엔터·가십은 filtered_out → 대시보드 기본 뷰·풀에서 제외(?status=filtered_out로 토글).
+                "status": "filtered_out" if (not is_ent or is_gos) else "pending",
+                "filter_verdict": ("non_ent" if not is_ent else "gossip" if is_gos else "pass"),
                 "total_score": 0,
             })
             seen.add(url)
