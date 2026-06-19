@@ -309,6 +309,18 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
     return (
         "당신은 엔터테인먼트·음악 산업과 세대를 가로지르는 취향·가치 신호의 "
         "Vibe 신호 수집기입니다.\n\n"
+        "## 1차 게이트 — 엔터·미디어·콘텐츠·팝 산업\n\n"
+        "모든 후보는 **엔터테인먼트·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
+        "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결**되어야 합니다.\n"
+        "다음은 후보가 아닙니다 (is_entertainment=false로 출력 자체 금지):\n"
+        "- 순수 B2B SaaS·엔터프라이즈 IT·반도체·클라우드 인프라\n"
+        "- 일반 AI 모델·연구·정책(엔터·미디어 적용 사례 없는 것)\n"
+        "- 일반 핀테크·증권·부동산·자동차·헬스케어 산업 뉴스\n"
+        "- 정치·외교·일반 거시경제\n"
+        "**경계 기준**: 기사가 음악/영상/게임/팬덤/창작자/IP/문화소비에 적용된 "
+        "구체적 사례·영향을 다루면 엔터(true). 일반 산업 보도에 'AI'·'테크'·'플랫폼' "
+        "단어만 들어가도 엔터(true) 아님. 'taste-values' 주제는 패션·뷰티·F&B·여행·"
+        "리테일까지 포함하므로 소비 라이프스타일 영역은 엔터로 본다(true).\n\n"
         f"## 수집 지역: {region['name']} ({region['language']})\n\n"
         f"## 검색 지시\n\n"
         f"{region['search_instruction']}\n"
@@ -333,6 +345,13 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "여행·리테일·테크 소비 등 소비 시장 전반에서 수집하되, '20대가~' '잘파세대가~' "
         "식의 연령 프레임 기사보다 **연령대를 넘나드는 취향·가치 흐름**을 우선하세요.\n\n"
         f"{topics_block}\n\n"
+        "## 토픽 정의 주의 — tech-issues\n"
+        "tech-issues는 **엔터·미디어·콘텐츠 산업을 흔드는 기술 변화에만** 태깅합니다. "
+        "AI 음악·생성형 영상·스트리밍 정산·창작자 도구·팬 플랫폼·게임/메타버스 인프라처럼 "
+        "음악·영상·게임·팬덤·창작자에 직접 적용된 기술이라야 합니다. "
+        "**다음은 tech-issues 아닙니다**: 순수 SaaS·B2B 협업툴·반도체·클라우드·"
+        "엔터프라이즈 AI·일반 IT 정책. 이런 기사는 (1차 게이트에서 이미 제외되었어야 하고) "
+        "혹시 통과했어도 tech-issues로 태깅하지 마세요.\n\n"
         "## 검색 대상 매체 (화이트리스트)\n"
         "검색은 다음 매체로 제한됩니다 — 주요 일간지·주간지·매거진·전문지 위주:\n"
         f"{region['trusted_sources']}\n"
@@ -371,6 +390,7 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         '    "source": "매체명",\n'
         '    "published_date": "YYYY-MM-DD (기사 발행일, 확인 불가 시 null)",\n'
         f'    "topics": ["해당 주제 키 — 유효값: {valid_keys}"],\n'
+        '    "is_entertainment": true,\n'
         '    "summary": "200자 이내 한국어 요약. 원문 언어와 무관하게 반드시 한국어로.",\n'
         '    "newsletter_fit": 0,\n'
         '    "carousel_fit": 0,\n'
@@ -543,6 +563,14 @@ def search_and_analyze(
             if isinstance(topics, str):
                 c["topics"] = [topics]
             c["topics"] = [t for t in c.get("topics", []) if t in TOPIC_LABELS]
+            # is_entertainment 정규화 — 모델이 누락하면 보수적으로 True(NULL이 아니라
+            # True로 두는 이유: 1차 게이트 통과해 후보로 출력됐다는 사실 자체가 엔터
+            # 판정이라, 명시 누락은 "true 깜빡"으로 간주). 진짜 비엔터는 후속 단계의
+            # 일괄 재분류 스크립트로 잡는다.
+            ie = c.get("is_entertainment")
+            if isinstance(ie, str):
+                ie = ie.strip().lower() in ("true", "1", "yes", "y", "예")
+            c["is_entertainment"] = bool(ie) if ie is not None else True
 
     result = [c for c in candidates if isinstance(c, dict)]
     if not result:

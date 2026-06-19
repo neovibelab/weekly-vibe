@@ -118,7 +118,7 @@ def html_to_text(h: str) -> str:
 
 def classify(title: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "summary_ko": "", "is_promo": False}
+    fallback = {"topics": [], "summary_ko": "", "is_promo": False, "is_entertainment": True}
     if not key:
         return fallback
     try:
@@ -127,13 +127,19 @@ def classify(title: str, text: str, region_hint: str) -> dict:
         prompt = (
             "엔터·문화·소비 산업 기업 뉴스룸/블로그 글을 분류해 JSON으로만 응답.\n\n"
             f"제목: {title}\n본문 발췌: {text[:1500]}\n\n"
+            "is_entertainment: 엔터·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
+            "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결되면 true. "
+            "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI는 false. "
+            "(이 수집기는 엔터 IP홀더 뉴스룸이라 대부분 true지만, 모회사 일반 보도자료가 섞이면 false).\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
+            "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
+            "일반 IT·SaaS·반도체는 tech-issues 아님.\n"
             "is_promo: 단순 홍보면 true, 산업 신호면 false. "
             "true=신작·시즌 공개, 예고편·트레일러, 출시일/공개일 안내, 자사 콘텐츠·작품 마케팅, 수상 자축 등 보도자료성 홍보. "
             "false=사업 전략·투자·M&A·실적·구독자/이용 데이터·기술·정책·인사·파트너십 등 산업 신호. "
             "애매하면 false(보존 우선).\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"topics": [...], "is_promo": false, "summary_ko": "..."}'
+            '{"is_entertainment": true, "topics": [...], "is_promo": false, "summary_ko": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -148,10 +154,14 @@ def classify(title: str, text: str, region_hint: str) -> dict:
         if isinstance(data, list):  # 모델이 배열로 응답하는 엣지
             data = next((x for x in data if isinstance(x, dict)), {})
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
+        ie = data.get("is_entertainment")
+        if isinstance(ie, str):
+            ie = ie.strip().lower() in ("true", "1", "yes", "y", "예")
         return {
             "topics": topics,
             "summary_ko": (data.get("summary_ko") or "").strip(),
             "is_promo": bool(data.get("is_promo", False)),
+            "is_entertainment": bool(ie) if ie is not None else True,
         }
     except Exception as e:
         log.warning("분류 실패: %s", e)
@@ -242,6 +252,7 @@ def main() -> int:
                 "summary": (cls["summary_ko"] or summary_raw[:200]),
                 "topics": cls["topics"],
                 "tags": cls["topics"],
+                "is_entertainment": cls.get("is_entertainment", True),
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
                 # promo는 status=filtered_out → 대시보드 기본 뷰에서 숨김(app.py neq.filtered_out

@@ -140,7 +140,7 @@ def canonical_url(html_body: str) -> str:
 
 def classify(subject: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "summary_ko": ""}
+    fallback = {"topics": [], "summary_ko": "", "is_entertainment": True}
     if not key:
         return fallback
     try:
@@ -149,9 +149,15 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
         prompt = (
             "엔터·문화·소비 산업 뉴스레터 항목을 분류해 JSON으로만 응답.\n\n"
             f"제목: {subject}\n본문 발췌: {text[:1500]}\n\n"
+            "is_entertainment: 엔터테인먼트·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
+            "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결되는가. "
+            "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI·핀테크·정치는 false. "
+            "패션·뷰티·F&B·여행·리테일 같은 소비 라이프스타일은 true.\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
+            "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
+            "순수 SaaS·B2B 협업툴·반도체·엔터프라이즈 AI는 tech-issues 아님.\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"topics": [...], "summary_ko": "..."}'
+            '{"is_entertainment": true, "topics": [...], "summary_ko": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -166,7 +172,14 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
         if isinstance(data, list):  # 모델이 배열로 응답하는 엣지
             data = next((x for x in data if isinstance(x, dict)), {})
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
-        return {"topics": topics, "summary_ko": (data.get("summary_ko") or "").strip()}
+        ie = data.get("is_entertainment")
+        if isinstance(ie, str):
+            ie = ie.strip().lower() in ("true", "1", "yes", "y", "예")
+        return {
+            "topics": topics,
+            "summary_ko": (data.get("summary_ko") or "").strip(),
+            "is_entertainment": bool(ie) if ie is not None else True,
+        }
     except Exception as e:
         log.warning("분류 실패: %s", e)
         return fallback
@@ -256,6 +269,7 @@ def main() -> int:
                 "summary": (cls["summary_ko"] or body_text[:200]),
                 "topics": cls["topics"],
                 "tags": cls["topics"],
+                "is_entertainment": cls.get("is_entertainment", True),
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
                 "status": "pending",

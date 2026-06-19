@@ -61,6 +61,7 @@ def _to_row(item: dict, region: str) -> dict:
         "collector": "vibe_search",
         "region": region,
         "topics": item.get("topics", []),
+        "is_entertainment": item.get("is_entertainment", True),
         "newsletter_fit": item.get("newsletter_fit", 0),
         "carousel_fit": item.get("carousel_fit", 0),
         "reliability_score": item.get("reliability", 0),
