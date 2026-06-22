@@ -118,7 +118,10 @@ def html_to_text(h: str) -> str:
 
 def classify(title: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "summary_ko": "", "is_promo": False, "is_entertainment": True}
+    # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
+    # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
+    fallback = {"topics": [], "summary_ko": "", "title_ko": "", "is_gossip": False,
+                "is_promo": False, "is_entertainment": True, "_failed": True}
     if not key:
         return fallback
     try:
@@ -247,6 +250,7 @@ def main() -> int:
             title = it["title"][:500]
             summary_raw = html_to_text(it.get("summary", ""))[:2000]
             cls = classify(title, summary_raw, src.get("region", "global-en"))
+            failed = cls.get("_failed", False)
             is_ent = cls.get("is_entertainment", True)
             is_gos = cls.get("is_gossip", False)
             is_promo = cls.get("is_promo", False)
@@ -263,17 +267,18 @@ def main() -> int:
                 "is_entertainment": is_ent,
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
-                # promo·비엔터·가십은 status=filtered_out → 대시보드 기본 뷰에서 숨김(app.py neq.filtered_out
-                # · dashboard.html inPool). filter_verdict에 사유 기록, ?status=filtered_out로 토글.
-                "status": "filtered_out" if (is_promo or not is_ent or is_gos) else "pending",
-                "filter_verdict": ("promo" if is_promo else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
+                # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
+                # classify_failed 표시 → backfill_translate.py가 정확히 찾아 재번역. promo·비엔터·가십도
+                # filtered_out(대시보드 기본 뷰 숨김 — app.py neq.filtered_out · dashboard.html inPool).
+                "status": "filtered_out" if (failed or is_promo or not is_ent or is_gos) else "pending",
+                "filter_verdict": ("classify_failed" if failed else "promo" if is_promo else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
                 "total_score": 0,
             })
             seen.add(url)
             kept += 1
             log.info("[%s] %s%s | %s", src["name"], "·".join(cls["topics"]) or "-",
                      " [PROMO]" if cls.get("is_promo") else "", title[:55])
-            if (src.get("discord") and not is_promo and is_ent and not is_gos
+            if (src.get("discord") and not failed and not is_promo and is_ent and not is_gos
                     and set(cls.get("topics", [])) & DISCORD_TOPICS):
                 discord_queue.append((src["discord"], src["name"], cls.get("title_ko") or title, url, pub))
 

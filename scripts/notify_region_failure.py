@@ -50,21 +50,53 @@ def failed_regions() -> list[str]:
     return [name for env, name in REGIONS if os.environ.get(env) == "failure"]
 
 
-def build_message(failed: list[str]) -> tuple[str, str]:
+def read_failure_reasons() -> list[tuple[str, str, str]]:
+    """vibe_search가 남긴 실패 사유 마커 파일(같은 잡 내 작성) → (지역, 분류, 메시지) 목록.
+    분류 'credit'이 하나라도 있으면 메일에 크레딧 충전 안내를 명시한다."""
+    path = os.environ.get("FAILURE_REASON_FILE", "region-failures.txt")
+    out: list[tuple[str, str, str]] = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) >= 2:
+                    out.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
+    except OSError:
+        pass
+    return out
+
+
+def build_message(failed: list[str], reasons: list[tuple[str, str, str]] | None = None) -> tuple[str, str]:
     joined = ", ".join(failed)
+    reasons = reasons or []
+    is_credit = any(cat == "credit" for _, cat, _ in reasons)
     subject = f"[NVL] ⚠️ Vibe 수집 실패 — {joined}"
+    if is_credit:
+        subject += " (크레딧 잔액 부족)"
     lines = [
         "오늘 Vibe 후보 수집에서 다음 지역이 검색 실패(API/코드 에러)로 끝났습니다:",
         f"  → {joined}",
         "",
         "이는 '후보 0건'(정상)이 아니라 web_search API 호출 자체가 실패한 경우입니다.",
         "해당 지역 Discord 채널은 오늘 비어 있습니다.",
-        "",
-        "점검:",
-        "  - allowed_domains에 Anthropic 크롤러 차단 도메인이 끼었는지 (400 거부)",
-        "  - ANTHROPIC_API_KEY 유효성·사용 한도",
-        "  - GitHub Actions 로그의 '[지역] 검색 실패:' 라인",
     ]
+    if is_credit:
+        lines += [
+            "",
+            "■ 확인된 원인: Anthropic API 크레딧 잔액 부족 (400 invalid_request_error)",
+            "  → https://console.anthropic.com 의 Plans & Billing에서 크레딧을 충전하세요.",
+            "  충전하면 다음 예약 수집부터 자동 정상화됩니다.",
+            "  ※ 뉴스룸·뉴스레터 기사 미번역도 같은 원인 — 충전 후",
+            "    scripts/backfill_translate.py 로 누적분 일괄 재번역.",
+        ]
+    else:
+        lines += [
+            "",
+            "점검:",
+            "  - allowed_domains에 Anthropic 크롤러 차단 도메인이 끼었는지 (400 거부)",
+            "  - ANTHROPIC_API_KEY 유효성·사용 한도·크레딧 잔액",
+            "  - GitHub Actions 로그의 '[지역] 검색 실패:' 라인",
+        ]
     run_url = os.environ.get("RUN_URL", "").strip()
     if run_url:
         lines += ["", f"실행 로그: {run_url}"]
@@ -77,7 +109,7 @@ def main() -> int:
         print("[info] 실패 지역 없음 — 알림 생략")
         return 0
 
-    subject, body = build_message(failed)
+    subject, body = build_message(failed, read_failure_reasons())
     user = os.environ.get("GMAIL_USER")
     pw = os.environ.get("GMAIL_APP_PASS")
 

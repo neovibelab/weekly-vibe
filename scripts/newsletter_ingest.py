@@ -140,7 +140,10 @@ def canonical_url(html_body: str) -> str:
 
 def classify(subject: str, text: str, region_hint: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
-    fallback = {"topics": [], "summary_ko": "", "is_entertainment": True}
+    # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
+    # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
+    fallback = {"topics": [], "summary_ko": "", "title_ko": "", "is_gossip": False,
+                "is_entertainment": True, "_failed": True}
     if not key:
         return fallback
     try:
@@ -264,6 +267,7 @@ def main() -> int:
             except Exception:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
             cls = classify(subject, body_text, src.get("region", "global-en"))
+            failed = cls.get("_failed", False)
             is_ent = cls.get("is_entertainment", True)
             is_gos = cls.get("is_gossip", False)
             rows.append({
@@ -279,9 +283,10 @@ def main() -> int:
                 "is_entertainment": is_ent,
                 "region": src.get("region", "global-en"),
                 "published_date": pub,
-                # 비엔터·가십은 filtered_out → 대시보드 기본 뷰·풀에서 제외(?status=filtered_out로 토글).
-                "status": "filtered_out" if (not is_ent or is_gos) else "pending",
-                "filter_verdict": ("non_ent" if not is_ent else "gossip" if is_gos else "pass"),
+                # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
+                # classify_failed 표시 → backfill_translate.py가 재번역. 비엔터·가십도 filtered_out.
+                "status": "filtered_out" if (failed or not is_ent or is_gos) else "pending",
+                "filter_verdict": ("classify_failed" if failed else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
                 "total_score": 0,
             })
             seen.add(url)

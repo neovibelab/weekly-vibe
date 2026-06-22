@@ -815,6 +815,24 @@ def write_step_summary(region_name: str, stats: str) -> None:
         pass
 
 
+def _record_failure_reason(region_name: str, exc: Exception) -> None:
+    """검색 실패 사유를 마커 파일에 기록 → 같은 잡의 notify_region_failure.py가 읽어
+    메일 본문에 원인(특히 '크레딧 잔액 부족')을 콕 집어 안내한다. 일반 체크리스트만
+    나가던 경보를 구체화(2026-06-22 — 크레딧 소진으로 중·동남아 침묵 실패 계기)."""
+    msg = str(exc)
+    low = msg.lower()
+    category = "credit" if (
+        "credit balance" in low or "too low" in low or "plans & billing" in low
+        or "billing" in low or "insufficient" in low
+    ) else "other"
+    path = os.environ.get("FAILURE_REASON_FILE", "region-failures.txt")
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"{region_name}\t{category}\t{msg[:300]}\n")
+    except OSError:
+        pass
+
+
 # ── 중복 제거 ─────────────────────────────────────────────
 
 
@@ -927,6 +945,7 @@ def main() -> int:
     except Exception as exc:
         log.error("[%s] 검색 실패: %s", region_name, exc)
         write_step_summary(region_name, f"⚠️ 검색 실패: {exc}")
+        _record_failure_reason(region_name, exc)
         # exit 1 → 워크플로 outcome=failure → notify_region_failure.py 메일 경보.
         # 후보 0건(정상)은 아래에서 return 0 — 실패와 0건을 종료코드로 구분한다.
         return 1
