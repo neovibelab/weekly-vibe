@@ -929,7 +929,10 @@ def main() -> int:
         log.warning("%s 환경변수 미설정 — 전송 생략", region["webhook_env"])
         return 0
 
-    client = Anthropic(api_key=api_key)
+    # max_retries 5(SDK 기본 2): 앤트로픽 일시 500/429/529를 더 오래 버텨(지수 백오프 ~30초 창)
+    # 순간 서버 장애로 인한 빈 채널·헛경보 감소 (2026-06-23 글로벌 api_error 500 사고).
+    # 검색 실행 전 500은 재시도해도 web_search 비용 0.
+    client = Anthropic(api_key=api_key, max_retries=5)
     now_kst = datetime.datetime.now(KST)
     today_date = now_kst.date()
     cutoff_date = (now_kst - datetime.timedelta(hours=MAX_AGE_HOURS)).date()
