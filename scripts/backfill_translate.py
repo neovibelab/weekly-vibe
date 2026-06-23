@@ -149,7 +149,8 @@ def main() -> int:
         log.error("ANTHROPIC_API_KEY 미설정 — 재번역 불가")
         return 1
 
-    updated = failed = 0
+    updated = patch_fail = skipped = 0
+    consec_fail = 0
     for i, it in enumerate(targets, 1):
         collector = it.get("collector")
         title0 = it.get("title") or ""
@@ -157,9 +158,18 @@ def main() -> int:
         classify = classify_newsroom if collector == "newsroom" else classify_newsletter
         cls = classify(title0, summary0, it.get("region") or "global-en")
         if cls.get("_failed"):
-            log.error("분류 실패(크레딧 미충전으로 보임) — 중단. 처리 %d/%d, 갱신 %d건",
-                      i - 1, len(targets), updated)
-            return 2
+            # 분류 호출 실패. 크레딧 소진·키 누락이면 전 항목이 연속 실패하므로 3회 연속 시에만 중단,
+            # JSON 파싱 깨짐 같은 단발 오류면 그 항목만 건너뛰고 계속 — 한 건 때문에 전체가 멈추고
+            # "크레딧 미충전"으로 오인되던 문제 수정(2026-06-23, 66/67 중단 사고).
+            consec_fail += 1
+            skipped += 1
+            log.warning("분류 실패 건너뜀 (%d/%d · 연속 %d): %s", i, len(targets), consec_fail, title0[:48])
+            if consec_fail >= 3:
+                log.error("연속 %d회 분류 실패 — 크레딧 소진/키 문제로 보고 중단. 갱신 %d · 건너뜀 %d",
+                          consec_fail, updated, skipped)
+                return 2
+            continue
+        consec_fail = 0
         new_status, verdict = recompute(collector, cls, it.get("status") or "pending")
         fields = {
             "title": (cls.get("title_ko") or title0)[:500],
@@ -180,10 +190,11 @@ def main() -> int:
             updated += 1
             log.info("갱신 %d/%d [%s·%s] %s", i, len(targets), verdict, new_status, fields["title"][:48])
         else:
-            failed += 1
+            patch_fail += 1
             log.warning("갱신 실패 HTTP %d: %s", code, title0[:48])
 
-    log.info("백필 완료 — 갱신 %d건, 실패 %d건%s", updated, failed, " (dry-run)" if args.dry_run else "")
+    log.info("백필 완료 — 갱신 %d · 분류건너뜀 %d · 적재실패 %d%s",
+             updated, skipped, patch_fail, " (dry-run)" if args.dry_run else "")
     return 0
 
 
