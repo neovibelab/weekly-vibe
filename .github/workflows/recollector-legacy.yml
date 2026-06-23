@@ -1,0 +1,27 @@
+name: 레거시 뉴스룸 소스 재분류 (수동·일회성)
+# 뉴스룸에서 뺀 미디어 소스(야후 엔타메·36氪·钛媒体)의 기존 적재분 collector를 'feed'로 변경.
+# 풀·status 유지, '뉴스룸' 분류에서만 제외. scripts/recollector_legacy_newsroom.py.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (변경 없이 대상 건수만)'
+        type: boolean
+        default: false
+
+jobs:
+  recollector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: 재분류 실행
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/recollector_legacy_newsroom.py ${{ inputs.dry_run && '--dry-run' || '' }}
