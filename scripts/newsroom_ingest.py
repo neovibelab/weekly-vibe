@@ -33,6 +33,7 @@ TOPIC_KEYS = [
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
     "artist-ownership", "tech-issues", "taste-values",  # 구 gen-z-lifestyle (2026-06-17 재정의)
 ]
+VALID_REGIONS = {"korea", "global-en", "china", "japan", "southeast-asia"}
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
 DISCORD_CAP = 8  # discord 전송 webhook당 최대 (도배 방지)
@@ -144,8 +145,11 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "false=사업 전략·투자·M&A·실적·구독자/이용 데이터·기술·정책·인사·파트너십 등 산업 신호. "
             "애매하면 false(보존 우선).\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
-            "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "is_promo": false, "title_ko": "...", "summary_ko": "..."}'
+            "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
+            "region: 이 기사가 주로 다루는 시장·지역을 내용 기준으로 하나만 — "
+            "korea/china/japan/southeast-asia/global-en. 기업 본사 국적이 아니라 기사 내용 기준 "
+            "(예: 디즈니의 일본 전개 기사는 japan, 글로벌 발표는 global-en).\n\n"
+            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "is_promo": false, "title_ko": "...", "summary_ko": "...", "region": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -163,6 +167,7 @@ def classify(title: str, text: str, region_hint: str) -> dict:
         ie = data.get("is_entertainment")
         if isinstance(ie, str):
             ie = ie.strip().lower() in ("true", "1", "yes", "y", "예")
+        reg = (data.get("region") or "").strip()
         return {
             "topics": topics,
             "summary_ko": (data.get("summary_ko") or "").strip(),
@@ -170,6 +175,7 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "is_gossip": bool(data.get("is_gossip", False)),
             "is_promo": bool(data.get("is_promo", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
+            "region": reg if reg in VALID_REGIONS else None,
         }
     except Exception as e:
         log.warning("분류 실패: %s", e)
@@ -265,7 +271,8 @@ def main() -> int:
                 "topics": cls["topics"],
                 "tags": cls["topics"],
                 "is_entertainment": is_ent,
-                "region": src.get("region", "global-en"),
+                # region: classify 내용 기준 값 우선, 없으면 소스 고정 힌트 폴백 (2026-06-23)
+                "region": cls.get("region") or src.get("region", "global-en"),
                 "published_date": pub,
                 # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
                 # classify_failed 표시 → backfill_translate.py가 정확히 찾아 재번역. promo·비엔터·가십도

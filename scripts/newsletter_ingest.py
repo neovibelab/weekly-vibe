@@ -162,8 +162,11 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "순수 SaaS·B2B 협업툴·반도체·엔터프라이즈 AI는 tech-issues 아님.\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
-            "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n\n"
-            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "title_ko": "...", "summary_ko": "..."}'
+            "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
+            "region: 이 기사가 주로 다루는 시장·지역을 내용 기준으로 하나만 — "
+            "korea/china/japan/southeast-asia/global-en. 발신 매체의 국적이 아니라 기사 내용 기준 "
+            "(예: 한국 뉴스레터의 일본 기업 기사는 japan, 글로벌 브랜드 기사는 global-en, 특정 아시아국 아니면 global-en).\n\n"
+            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "title_ko": "...", "summary_ko": "...", "region": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -181,12 +184,14 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
         ie = data.get("is_entertainment")
         if isinstance(ie, str):
             ie = ie.strip().lower() in ("true", "1", "yes", "y", "예")
+        reg = (data.get("region") or "").strip()
         return {
             "topics": topics,
             "summary_ko": (data.get("summary_ko") or "").strip(),
             "title_ko": (data.get("title_ko") or "").strip(),
             "is_gossip": bool(data.get("is_gossip", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
+            "region": reg if reg in set(REGIONS) else None,
         }
     except Exception as e:
         log.warning("분류 실패: %s", e)
@@ -281,7 +286,9 @@ def main() -> int:
                 "topics": cls["topics"],
                 "tags": cls["topics"],
                 "is_entertainment": is_ent,
-                "region": src.get("region", "global-en"),
+                # region: classify가 내용 기준으로 판정한 값 우선, 없으면 발신자 고정 힌트로 폴백
+                # (발신 매체 국적 ≠ 기사 내용 지역 문제 해결 — 예: Longblack의 글로벌 기사, 2026-06-23)
+                "region": cls.get("region") or src.get("region", "global-en"),
                 "published_date": pub,
                 # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
                 # classify_failed 표시 → backfill_translate.py가 재번역. 비엔터·가십도 filtered_out.

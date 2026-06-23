@@ -1,0 +1,32 @@
+name: 백필 — region 내용 기준 재분류 (수동)
+# 소스 힌트로 region이 매겨진 기존 항목(newsletter·newsroom·feed)을 기사 내용 기준으로 재분류.
+# scripts/backfill_region.py. vibe_search는 이미 내용 기준이라 제외. 일회성 workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (재분류만 — Supabase 쓰기 없음)'
+        type: boolean
+        default: false
+      limit:
+        description: '처리 상한 (0=무제한)'
+        required: false
+        default: '0'
+
+jobs:
+  backfill-region:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic requests
+      - name: region 재분류 실행
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scripts/backfill_region.py ${{ inputs.dry_run && '--dry-run' || '' }} --limit ${{ inputs.limit }}
