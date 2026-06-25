@@ -12,6 +12,10 @@ on:
         description: '며칠 이내 메일 수집 (기본 2)'
         required: false
         default: '2'
+      fetch_cap:
+        description: '발신자당 최대 처리 건수 (기본 6 · 과거 백필 시 상향)'
+        required: false
+        default: '6'
       dry_run:
         description: 'dry-run (수집·분류만 — Supabase 미반영)'
         type: boolean
@@ -35,4 +39,5 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
           NL_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '2' }}
+          NL_FETCH_CAP: ${{ github.event.inputs.fetch_cap || '6' }}
         run: python scripts/newsletter_ingest.py ${{ inputs.dry_run && '--dry-run' || '' }}

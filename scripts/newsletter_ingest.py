@@ -40,7 +40,7 @@ TOPIC_KEYS = [
 ]
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))
-FETCH_CAP = 6  # 발신자당 최대 처리 건수
+FETCH_CAP = int(os.environ.get("NL_FETCH_CAP", "6"))  # 발신자당 최대 처리 건수(env로 일시 상향 가능)
 SKIP_LINK = ("unsubscribe", "stop-email", "mailto:", "/profile", "preferences",
              "list-manage.com/unsubscribe", "/cs", "수신거부")
 ASSET_HOST = ("googleapis.com", "gstatic.com", "w3.org", "schema.org", "googletagmanager",
