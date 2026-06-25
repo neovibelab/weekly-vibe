@@ -25,7 +25,7 @@ import sys
 import uuid
 from email.header import decode_header
 from email.utils import parsedate_to_datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, urlunparse
 
 import requests
 
@@ -46,6 +46,32 @@ SKIP_LINK = ("unsubscribe", "stop-email", "mailto:", "/profile", "preferences",
 ASSET_HOST = ("googleapis.com", "gstatic.com", "w3.org", "schema.org", "googletagmanager",
               "doubleclick", "google-analytics", "/wp-content/", "cdn-cgi", "stibee.com/v2/open")
 ASSET_EXT = (".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".woff", ".woff2", ".ico")
+# 광고 링크(빌보드 e.mail/click → adbutler/noclick류). 따라가도 콘텐츠 아님.
+AD_HOST = ("servedbyadbutler", "adbutler", "doubleclick", "googleads", "adservice",
+           "/noclick", "pubads", "adsystem", "adnxs")
+# 리다이렉트 추적 후에도 이 패턴이 남으면 = 해결 실패(콘텐츠 미도달)로 간주.
+TRACKER_LEFTOVER = ("list-manage.com/track", "/track/click", "/click?", "e.mail.")
+# 이메일 "브라우저에서 보기" 웹버전 — 뉴스레터 원문 전체가 렌더되는 가장 안전한 단일 링크.
+WEB_VIEW_HOST = ("campaign-archive.com", "mailchi.mp/", "stib.ee/",
+                 "stibee.com/api/v1.0/emails/share", "createsend.com")
+WEB_VIEW_TEXT = ("view this email", "view in browser", "view on", "view online",
+                 "read online", "read in browser", "웹에서 보기", "브라우저에서 보기",
+                 "온라인으로 보기", "웹브라우저", "이메일 보기")
+# utm·메일 추적 쿼리 파라미터 — 최종 URL에서 제거(리다이렉트 완료 후라 불필요).
+TRACK_PARAMS = ("utm_", "mc_cid", "mc_eid", "ref=", "_hsenc", "_hsmi", "fbclid", "gclid")
+RESOLVE_CAP = 8  # 이메일당 최대 리다이렉트 추적 시도 수
+_SESS = None
+
+
+def _session():
+    global _SESS
+    if _SESS is None:
+        _SESS = requests.Session()
+    return _SESS
+
+
+_UA = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")}
 
 
 # ── Gmail (IMAP 앱비밀번호) ────────────────────────────────────────────────────
@@ -123,16 +149,100 @@ def _final_url(u: str) -> str:
     return u  # 디코드 실패(추적 URL) → 쿼리 보존(리다이렉트에 필요)
 
 
-def canonical_url(html_body: str) -> str:
-    """콘텐츠 링크 중 대표 URL. 자산(폰트·css·이미지)·추적·수신거부 제외."""
-    for m in re.finditer(r'href="(https?://[^"]+)"', html_body):
-        u = m.group(1)
-        lo = u.lower()
-        if any(s in lo for s in SKIP_LINK) or any(a in lo for a in ASSET_HOST):
+def _resolve(u: str, sess) -> str:
+    """추적·단축 링크를 따라가 최종 URL 반환. 실패 시 입력 그대로."""
+    if not u.startswith("http"):
+        return u
+    for method in ("head", "get"):
+        try:
+            r = getattr(sess, method)(u, headers=_UA, timeout=8, allow_redirects=True,
+                                      stream=(method == "get"))
+            final = r.url
+            code = r.status_code
+            if method == "get":
+                r.close()
+            if final and code < 400:
+                return final
+        except Exception:
             continue
-        if any(lo.split("?")[0].endswith(e) for e in ASSET_EXT):
+    return u
+
+
+def _is_homepage(u: str) -> bool:
+    """경로 없는 루트 도메인 = 마스트헤드(로고) 링크."""
+    p = urlparse(u)
+    return bool(p.netloc) and p.path.strip("/") == ""
+
+
+def _is_bad_final(u: str) -> bool:
+    """기사가 아닌 최종 URL — 광고·홈페이지·해결 실패 추적링크."""
+    lo = u.lower()
+    if not u.startswith("http"):
+        return True
+    if any(a in lo for a in AD_HOST):
+        return True
+    if any(t in lo for t in TRACKER_LEFTOVER):  # 추적 후에도 남음 = 콘텐츠 미도달
+        return True
+    return _is_homepage(u)
+
+
+def _strip_tracking(u: str) -> str:
+    """최종 URL에서 utm·메일 추적 파라미터 제거(리다이렉트 완료 후라 불필요)."""
+    p = urlparse(u)
+    if not p.query:
+        return u
+    keep = [kv for kv in p.query.split("&")
+            if kv and not any(kv.lower().startswith(t) for t in TRACK_PARAMS)]
+    return urlunparse(p._replace(query="&".join(keep)))
+
+
+_ANCHOR_RE = re.compile(r'(?is)<a\b[^>]*?href="(https?://[^"]+)"[^>]*>(.*?)</a>')
+
+
+def _anchor_list(html_body: str) -> list[tuple[str, str]]:
+    """(href, 앵커텍스트) 목록 — 본문 등장 순서."""
+    out = [(m.group(1), html_to_text(m.group(2))[:80]) for m in _ANCHOR_RE.finditer(html_body)]
+    if not out:  # 앵커 파싱 실패 시 href만으로 폴백
+        out = [(m.group(1), "") for m in re.finditer(r'href="(https?://[^"]+)"', html_body)]
+    return out
+
+
+def _is_skip_link(u: str) -> bool:
+    lo = u.lower()
+    return (any(s in lo for s in SKIP_LINK) or any(a in lo for a in ASSET_HOST)
+            or any(a in lo for a in AD_HOST)
+            or any(lo.split("?")[0].endswith(e) for e in ASSET_EXT))
+
+
+def canonical_url(html_body: str, sess=None) -> str:
+    """뉴스레터 1건의 대표 URL. 마스트헤드(홈페이지)·광고·추적 링크를 피해
+    ① 이메일 웹버전 ② 첫 실제 기사(리다이렉트 추적) 순으로 고른다.
+    못 찾으면 ""(호출부가 Gmail 원본 메일 링크로 폴백)."""
+    sess = sess or _session()
+    anchors = _anchor_list(html_body)
+
+    # 1) "브라우저에서 보기" 웹버전 — 뉴스레터 원문 전체가 렌더되는 가장 안전한 링크
+    for href, text in anchors:
+        if _is_skip_link(href):
             continue
-        return _final_url(u)
+        if any(k in text.lower() for k in WEB_VIEW_TEXT) or any(h in href.lower() for h in WEB_VIEW_HOST):
+            f = _resolve(_final_url(href), sess)
+            if f.startswith("http") and not _is_bad_final(f):
+                return _strip_tracking(f)
+
+    # 2) 첫 실제 기사 — 추적·단축 링크를 따라가 홈페이지·광고는 건너뜀
+    tries = 0
+    for href, _text in anchors:
+        if _is_skip_link(href):
+            continue
+        tries += 1
+        if tries > RESOLVE_CAP:
+            break
+        f = _resolve(_final_url(href), sess)
+        if f.startswith("http") and not _is_bad_final(f):
+            return _strip_tracking(f)
+
+    # 3) 못 찾음 → "" → 호출부가 Gmail 원본 메일 링크로 폴백
     return ""
 
 
@@ -262,7 +372,12 @@ def main() -> int:
             html_b, text_b = extract_bodies(msg)
             body_text = (text_b.strip() or html_to_text(html_b))[:2000]
             msgid = (msg.get("Message-ID") or "").strip().strip("<>")
-            url = canonical_url(html_b) or (
+            try:
+                resolved = canonical_url(html_b)
+            except Exception as e:
+                log.warning("[%s] URL 추출 실패: %s", src["name"], e)
+                resolved = ""
+            url = resolved or (
                 f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{quote(msgid)}"
                 if msgid else f"newsletter:{src['name']}:{num.decode()}")
             if url in seen:
