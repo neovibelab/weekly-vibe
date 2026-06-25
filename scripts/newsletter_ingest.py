@@ -61,6 +61,7 @@ WEB_VIEW_TEXT = ("view this email", "view in browser", "view on", "view online",
 NON_ARTICLE = ("/subscription", "/subscribe", "/membership", "/pricing", "/plans/",
                "/account", "/login", "/signin", "/sign-in", "/register",
                "/mynews", "follow_config", "/about-us", "/about/", "/aboutus",
+               "/authors/", "/author/", "/tag/", "/tags/", "/category/", "/categories/",
                "%ed%9a%8c%ec%82%ac%ec%86%8c%ea%b0%9c")  # 회사소개(IPDaily)
 # utm·메일 추적 쿼리 파라미터 — 최종 URL에서 제거(리다이렉트 완료 후라 불필요).
 TRACK_PARAMS = ("utm_", "mc_cid", "mc_eid", "ref=", "_hsenc", "_hsmi", "fbclid", "gclid",
