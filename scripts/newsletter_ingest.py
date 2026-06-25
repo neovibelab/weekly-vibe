@@ -57,8 +57,15 @@ WEB_VIEW_HOST = ("campaign-archive.com", "mailchi.mp/", "stib.ee/",
 WEB_VIEW_TEXT = ("view this email", "view in browser", "view on", "view online",
                  "read online", "read in browser", "웹에서 보기", "브라우저에서 보기",
                  "온라인으로 보기", "웹브라우저", "이메일 보기")
+# 기사가 아닌 도착지(리다이렉트 후 판정) — 구독·소개·로그인·팔로우·계정 페이지.
+NON_ARTICLE = ("/subscription", "/subscribe", "/membership", "/pricing", "/plans/",
+               "/account", "/login", "/signin", "/sign-in", "/register",
+               "/mynews", "follow_config", "/about-us", "/about/", "/aboutus",
+               "%ed%9a%8c%ec%82%ac%ec%86%8c%ea%b0%9c")  # 회사소개(IPDaily)
 # utm·메일 추적 쿼리 파라미터 — 최종 URL에서 제거(리다이렉트 완료 후라 불필요).
-TRACK_PARAMS = ("utm_", "mc_cid", "mc_eid", "ref=", "_hsenc", "_hsmi", "fbclid", "gclid")
+TRACK_PARAMS = ("utm_", "mc_cid", "mc_eid", "ref=", "_hsenc", "_hsmi", "fbclid", "gclid",
+                "tpcc", "uuid", "cmcampaignid", "next_article_id", "article_id_list",
+                "tc=", "cmid", "cmpid")
 RESOLVE_CAP = 8  # 이메일당 최대 리다이렉트 추적 시도 수
 _SESS = None
 
@@ -182,6 +189,8 @@ def _is_bad_final(u: str) -> bool:
     if any(a in lo for a in AD_HOST):
         return True
     if any(t in lo for t in TRACKER_LEFTOVER):  # 추적 후에도 남음 = 콘텐츠 미도달
+        return True
+    if any(n in lo for n in NON_ARTICLE):  # 구독·소개·로그인 등 비기사 페이지
         return True
     return _is_homepage(u)
 
