@@ -258,7 +258,7 @@ def canonical_url(html_body: str, sess=None) -> str:
 
 # ── 분류 (Claude haiku) ───────────────────────────────────────────────────────
 
-def classify(subject: str, text: str, region_hint: str) -> dict:
+def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
     # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
     # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
@@ -269,13 +269,28 @@ def classify(subject: str, text: str, region_hint: str) -> dict:
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
+        # broad=True 소스(일반·테크·비즈 종합 매체)는 is_entertainment 게이트를 넓혀
+        # 다른 영역의 *교차 신호*를 발굴한다 — 음악·엔터에 국한하지 않음 (2026-06-29 대표 지시).
+        if broad:
+            ie_rule = (
+                "is_entertainment: 이 발신자는 일반·테크·비즈 종합 매체다. 목적은 엔터·문화·미디어·"
+                "소비와 *다른 영역의 교차 신호*를 발굴하는 것 — 음악·엔터에 국한하지 않는다. "
+                "엔터·미디어·콘텐츠·소비·취향·라이프스타일·플랫폼·테크의 문화적 함의, 또는 무관해 보이는 "
+                "영역(노동·경제·도시·과학·정책 등)이라도 문화·소비·창작·팬덤·세대 인사이트로 이어질 "
+                "교차성이 조금이라도 있으면 true. 순수 하드뉴스(정파 정치·전쟁/안보·거시 금융지표·"
+                "기업 실적 단신·스포츠 경기결과·재난·일반 사건사고)만 false.\n"
+            )
+        else:
+            ie_rule = (
+                "is_entertainment: 엔터테인먼트·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
+                "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결되는가. "
+                "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI·핀테크·정치·군사·우주·항공은 false. "
+                "패션·뷰티·F&B·여행·리테일 같은 소비 라이프스타일은 true.\n"
+            )
         prompt = (
             "엔터·문화·소비 산업 뉴스레터 항목을 분류해 JSON으로만 응답.\n\n"
             f"제목: {subject}\n본문 발췌: {text[:1500]}\n\n"
-            "is_entertainment: 엔터테인먼트·미디어·콘텐츠·팝 산업(음악·영상·게임·웹툰·"
-            "공연·아티스트·IP·팬덤·소비 라이프스타일)과 직접 연결되는가. "
-            "순수 SaaS·B2B·반도체·엔터프라이즈 IT·일반 AI·핀테크·정치·군사·우주·항공은 false. "
-            "패션·뷰티·F&B·여행·리테일 같은 소비 라이프스타일은 true.\n"
+            + ie_rule +
             "is_gossip: 연예인 사생활·열애/결혼/이혼·스캔들·루머·신변잡기 등 산업 신호가 아닌 단순 가십이면 true. "
             "작품·산업·비즈니스·정책·데이터는 false. 애매하면 false(보존 우선).\n"
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
@@ -396,7 +411,7 @@ def main() -> int:
                 pub = parsedate_to_datetime(msg.get("Date")).astimezone(datetime.timezone.utc).isoformat()
             except Exception:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            cls = classify(subject, body_text, src.get("region", "global-en"))
+            cls = classify(subject, body_text, src.get("region", "global-en"), broad=src.get("broad", False))
             failed = cls.get("_failed", False)
             is_ent = cls.get("is_entertainment", True)
             is_gos = cls.get("is_gossip", False)

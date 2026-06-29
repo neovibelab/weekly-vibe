@@ -40,7 +40,7 @@
 vibe_search(웹 수집)와 **같은 풀(`radar_items`)을 공유하는 두 번째 수집기.** 대표의 뉴스레터·AI서비스 전용 계정(tmifmdj@gmail.com)으로 구독하는 정예 뉴스레터를 소스 풀에 합친다.
 
 - **엔진**: `scripts/newsletter_ingest.py` — Gmail **IMAP 앱비밀번호**(stdlib `imaplib`, OAuth·검증 불필요) → allowlist 발신자의 최근 메일 → 본문 추출·추적URL 복원(base64 경로 디코드) → Claude haiku 분류(7렌즈 topics + 한국어 요약) → upsert. 지역은 발신자별 고정 힌트(본문 분류 비의존 — 매체별 지역이 고정).
-- **allowlist**: `sources_newsletters.json` — 발신자 20곳(Music Ally·Billboard·Naavik·Marion Ranchet·Aftermath·Jing Daily·Nanjing Marketing·SCMP·TokyoScope·Longblack·폴인레터·IPDaily + 2026-06-29 Gmail 전수 스윕 보강 8: Music Business Worldwide·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). vibe_search의 도메인 화이트리스트 철학과 동일 — **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
+- **allowlist**: `sources_newsletters.json` — 발신자 27곳 = 엔터 직결 20(기존 12 + 2026-06-29 스윕 보강 8: Music Business Worldwide·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿) + **`broad` 7**(Bloomberg·The Information·WIRED·New Yorker·Vox·NPR·Stratechery — 일반·테크·비즈 종합 매체). **`broad:true`** 소스는 `classify`가 is_entertainment 게이트를 넓혀 *다른 영역의 교차 신호*까지 채택(순수 하드뉴스만 제외) — "음악·엔터 밖에서 교차성·인사이트 발굴" 대표 지시(2026-06-29). vibe_search의 도메인 화이트리스트 철학과 동일 — **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
 - **스케줄**: `.github/workflows/newsletter-ingest.yml` 하루 2회 — **09:30 KST**(아침 클러스터: 빌보드·롱블랙·국내 일간 08시) + **23:00 KST**(저녁 클러스터: SCMP·Jing 2판·Nanjing·Marion) + `workflow_dispatch`(lookback_days). 받은편지함 실측 도착 시각 기반(2026-06-15). lookback 2일+URL dedup이라 2회 겹쳐도 안전(각 런은 직전 런 이후 신규만 적재). **Discord 미포스팅 — 대시보드 전용.** `total_score=0`(사전 큐레이션 소스라 점수 비중 낮음), 대시보드에 `📬` 출처 배지.
 - **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호) 신규. ANTHROPIC은 `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용.
 - **중복 제거**: 최근 14일 newsletter URL 집합(Supabase 조회) + URL upsert(merge-duplicates).
@@ -108,7 +108,7 @@ weekly-vibe/
 ## 6. 변경 이력
 
 - 2026-06-29: **리포트 드롭 403 진짜 원인 = User-Agent** (≠ 죽은 웹훅). `send_report_drop.py`가 urllib 기본 UA(`Python-urllib`)로 POST → Discord Cloudflare가 `error 1010`으로 차단(06-22 이후 규칙 강화 추정). 명시 UA(`Mozilla/…`) 헤더 추가로 해결, 게시→삭제 실전송으로 end-to-end 검증. 웹훅 자체는 유효였음(대표 신규 발급분으로 `DISCORD_REPORT_WEBHOOK_URL` secret 갱신). vibe_search `send_to_discord`는 `requests`(python-requests UA)라 현재 통과 중 — 차단 강화 대비 명시 UA는 후속 권장(현재 미적용).
-- 2026-06-29: 뉴스레터 allowlist 12→20 (Gmail 전수 스윕에서 기구독·미등록 고신호 8건 발견 — MBW·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). §1-1 참조.
+- 2026-06-29: 뉴스레터 allowlist 12→27 (Gmail 전수 스윕). ① 고신호 8(MBW·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). ② **교차성 `broad` 7**(Bloomberg·The Information·WIRED·New Yorker·Vox·NPR·Stratechery) — `classify(broad=True)`로 is_entertainment 게이트 확대(엔터·소비·문화 함의 또는 교차성 있으면 채택, 순수 하드뉴스만 제외). 대표 "음악 집중 X, 무관한 영역에서 교차성·인사이트" 지시. §1-1 참조.
 - 2026-06-29: **vibe_search 격일 전환** (`ai-news-daily.yml` cron 3개 `*/2` + step if 동기화). Sonnet web_search가 토큰 비용 주범인데 수확은 풀의 20%뿐 → 격일로 ~절반 절감. newsletter·newsroom(haiku·고수확·robots.txt 우회)은 **매일 유지**. 한·글·일 나이컷 72→120h(격일 갭+주말 보강), 중·동남아는 168h 유지. ※커버리지 정공법은 차단 일간지(조선·중앙·FT·Reuters 등 robots.txt 막힘)를 newsletter 구독으로 흡수 — 발신자만 `sources_newsletters.json`에 추가.
 - 2026-06-08: vibe_search v3 — 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
 - 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).

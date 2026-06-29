@@ -1,5 +1,5 @@
 {
-  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백).",
+  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백). broad=true는 일반·테크·비즈 종합 매체 — classify가 is_entertainment 게이트를 넓혀 음악·엔터 밖 교차 신호도 채택(순수 하드뉴스만 제외, 2026-06-29).",
   "sources": [
     {"from": "musically.com",              "name": "Music Ally",        "region": "global-en"},
     {"from": "mail.billboard.com",          "name": "Billboard",         "region": "global-en"},
@@ -20,6 +20,13 @@
     {"from": "newsletter.luminatedata.com",    "name": "Luminate",                  "region": "global-en"},
     {"from": "media-innovation.jp",            "name": "Media Innovation",          "region": "japan"},
     {"from": "tokyoweekender@mail.beehiiv.com","name": "Tokyo Weekender",           "region": "japan"},
-    {"from": "careet.net",                     "name": "캐릿",                      "region": "korea"}
+    {"from": "careet.net",                     "name": "캐릿",                      "region": "korea"},
+    {"from": "news.bloomberg.com",             "name": "Bloomberg",        "region": "global-en", "broad": true},
+    {"from": "theinformation.com",             "name": "The Information",  "region": "global-en", "broad": true},
+    {"from": "newsletters.wired.com",          "name": "WIRED",            "region": "global-en", "broad": true},
+    {"from": "newsletter.newyorker.com",       "name": "New Yorker",       "region": "global-en", "broad": true},
+    {"from": "vox.com",                        "name": "Vox",              "region": "global-en", "broad": true},
+    {"from": "nl.npr.org",                     "name": "NPR",              "region": "global-en", "broad": true},
+    {"from": "stratechery.com",                "name": "Stratechery",      "region": "global-en", "broad": true}
   ]
 }
