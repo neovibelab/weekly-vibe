@@ -40,7 +40,7 @@
 vibe_search(웹 수집)와 **같은 풀(`radar_items`)을 공유하는 두 번째 수집기.** 대표의 뉴스레터·AI서비스 전용 계정(tmifmdj@gmail.com)으로 구독하는 정예 뉴스레터를 소스 풀에 합친다.
 
 - **엔진**: `scripts/newsletter_ingest.py` — Gmail **IMAP 앱비밀번호**(stdlib `imaplib`, OAuth·검증 불필요) → allowlist 발신자의 최근 메일 → 본문 추출·추적URL 복원(base64 경로 디코드) → Claude haiku 분류(7렌즈 topics + 한국어 요약) → upsert. 지역은 발신자별 고정 힌트(본문 분류 비의존 — 매체별 지역이 고정).
-- **allowlist**: `sources_newsletters.json` — 발신자 12곳(Music Ally·Billboard·Naavik·Marion Ranchet·Aftermath·Jing Daily·Nanjing Marketing·SCMP·TokyoScope·Longblack·폴인레터·IPDaily). vibe_search의 도메인 화이트리스트 철학과 동일 — **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
+- **allowlist**: `sources_newsletters.json` — 발신자 20곳(Music Ally·Billboard·Naavik·Marion Ranchet·Aftermath·Jing Daily·Nanjing Marketing·SCMP·TokyoScope·Longblack·폴인레터·IPDaily + 2026-06-29 Gmail 전수 스윕 보강 8: Music Business Worldwide·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). vibe_search의 도메인 화이트리스트 철학과 동일 — **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
 - **스케줄**: `.github/workflows/newsletter-ingest.yml` 하루 2회 — **09:30 KST**(아침 클러스터: 빌보드·롱블랙·국내 일간 08시) + **23:00 KST**(저녁 클러스터: SCMP·Jing 2판·Nanjing·Marion) + `workflow_dispatch`(lookback_days). 받은편지함 실측 도착 시각 기반(2026-06-15). lookback 2일+URL dedup이라 2회 겹쳐도 안전(각 런은 직전 런 이후 신규만 적재). **Discord 미포스팅 — 대시보드 전용.** `total_score=0`(사전 큐레이션 소스라 점수 비중 낮음), 대시보드에 `📬` 출처 배지.
 - **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호) 신규. ANTHROPIC은 `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용.
 - **중복 제거**: 최근 14일 newsletter URL 집합(Supabase 조회) + URL upsert(merge-duplicates).
