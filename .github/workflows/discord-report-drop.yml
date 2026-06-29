@@ -21,4 +21,6 @@ jobs:
       - name: Send latest drop to Discord
         env:
           DISCORD_REPORT_WEBHOOK_URL: ${{ secrets.DISCORD_REPORT_WEBHOOK_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}       # 드롭 신규 리포트를 대시보드 뉴스룸 탭에도 적재
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python3 scripts/send_report_drop.py

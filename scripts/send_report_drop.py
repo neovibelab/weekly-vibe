@@ -15,6 +15,7 @@ import re
 import sys
 import glob
 import json
+import uuid
 import datetime
 import urllib.request
 import urllib.error
@@ -70,6 +71,105 @@ def drop_age_days(path):
     return (today - drop_date).days
 
 
+# ── 대시보드(nvl-vibe-radar 뉴스룸 탭) 적재 ──────────────────────────────────
+# '리포트를 디스코드에 드랍할 때 대시보드에도'(대표 2026-06-29). 드롭 .md의 신규 리포트
+# (🥇 추천 + 🆕 신규, 🔁 다시보기=기보유는 제외)를 파싱해 Supabase radar_items에
+# collector='newsroom'으로 적재 → 대시보드 뉴스룸 탭에 노출. URL 중복은 merge-duplicates 스킵.
+
+_REGION_LABELS = {"korea": "한국", "global-en": "글로벌(영어)", "china": "중국",
+                  "japan": "일본", "southeast-asia": "동남아"}
+
+
+def parse_drop_items(text):
+    """드롭 .md에서 신규 리포트(🥇+🆕)를 파싱. 🔁 다시보기는 제외.
+    반환: [{pub, title, domain, summary, url}]"""
+    body = re.split(r"##\s*🔁", text)[0]
+    items = []
+    for m in re.finditer(
+        r"\*\*\[(?P<pub>[^\]]+)\]\s*(?P<title>[^*]+?)\*\*(?P<rest>.*?)"
+        r"(?=\n##|\n-\s*\*\*\[|\n\*\*\[|\Z)", body, re.DOTALL):
+        rest = m.group("rest")
+        um = re.search(r"https?://[^\s<>)\]]+", rest)
+        if not um:
+            continue
+        dm = re.search(r"·\s*([^—\n<]+)", rest)
+        domain = dm.group(1).strip() if dm else ""
+        summ = re.sub(r"https?://\S+", "", rest)
+        summ = re.sub(r"[<>🔗📎✩★*·•]+", " ", summ)
+        if domain:
+            summ = summ.replace(domain, " ", 1)
+        summ = re.sub(r"^[\s—–-]+", "", re.sub(r"\s+", " ", summ)).strip()[:400]
+        items.append({"pub": m.group("pub").strip(), "title": m.group("title").strip(),
+                      "domain": domain, "summary": summ, "url": um.group(0)})
+    return items
+
+
+def _region_from_domain(domain):
+    d = domain.lower()
+    if "중국" in domain or "china" in d:
+        return "china"
+    if "일본" in domain or "japan" in d:
+        return "japan"
+    if "한국" in domain or "korea" in d:
+        return "korea"
+    return "global-en"
+
+
+def push_items_to_dashboard(items, drop_path):
+    """파싱한 리포트를 Supabase radar_items(collector='newsroom')에 적재. stdlib urllib."""
+    sb_url = os.environ.get("SUPABASE_URL")
+    sb_key = os.environ.get("SUPABASE_KEY")
+    if not sb_url or not sb_key:
+        print("[info] SUPABASE_URL/KEY 미설정 — 대시보드 적재 생략")
+        return 0
+    pub_iso = None
+    m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", os.path.basename(drop_path))
+    if m:
+        yy, mm, dd = (int(x) for x in m.groups())
+        try:
+            pub_iso = datetime.date(2000 + yy, mm, dd).isoformat() + "T00:00:00+00:00"
+        except ValueError:
+            pass
+    saved = 0
+    for it in items:
+        region = _region_from_domain(it["domain"])
+        row = {
+            "id": str(uuid.uuid4()),
+            "title": it["title"][:500],
+            "url": it["url"],
+            "source": it["pub"][:200],
+            "category": _REGION_LABELS.get(region, region),
+            "summary": it["summary"][:1000],
+            "filter_verdict": "pass",
+            "status": "pending",
+            "tags": [],
+            "collector": "newsroom",
+            "region": region,
+            "topics": [],
+            "is_entertainment": True,
+            "total_score": 0,
+            "published_date": pub_iso or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+        req = urllib.request.Request(
+            f"{sb_url}/rest/v1/radar_items", data=json.dumps(row).encode("utf-8"),
+            method="POST", headers={
+                "apikey": sb_key, "Authorization": f"Bearer {sb_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "NVL-report-drop/1.0",
+                "Prefer": "resolution=merge-duplicates"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                if resp.status in (200, 201):
+                    saved += 1
+        except urllib.error.HTTPError as e:
+            if e.code != 409:  # 409 = URL 중복(정상 스킵)
+                print(f"[warn] 대시보드 적재 실패 ({it['pub']}): HTTP {e.code}")
+        except Exception as e:
+            print(f"[warn] 대시보드 적재 오류 ({it['pub']}): {e}")
+    print(f"[info] 대시보드(뉴스룸 탭) 적재: {saved}/{len(items)}건")
+    return saved
+
+
 def main():
     path = find_latest_drop()
     if not path:
@@ -110,6 +210,13 @@ def main():
         print(f"::error::Discord webhook 실패 (HTTP {code})")
         return 1
     print("[info] Discord 전송 완료")
+    # 대시보드(뉴스룸 탭)에도 적재 — '디스코드 드랍할 때 대시보드에도' (2026-06-29).
+    # Discord 발송은 이미 성공했으므로, 적재 실패가 전체 실패가 되지 않게 가드.
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            push_items_to_dashboard(parse_drop_items(f.read()), path)
+    except Exception as e:
+        print(f"[warn] 대시보드 적재 단계 오류: {e}")
     return 0
 
 

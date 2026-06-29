@@ -79,7 +79,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
 - 생성: `/report-scan` 스킬(미네바) — **격주(2주 1회) 운영**(2026-06-29 대표 결정, 토큰 대비 수확·발행처 월간성). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + **마스터 색인 반영**(06-04 동결 해제, 색인 본래 SSOT 목적)
-- 발송 로직: `scripts/send_report_drop.py` — 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. **① 명시 User-Agent 필수**(2026-06-29 — urllib 기본 UA는 Discord Cloudflare가 403/`error 1010` 차단). **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 8)일↑ 지나면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음). 정시·백업 공용 모듈(stdlib). 과거 YAML heredoc startup_failure → 스크립트 분리로 차단(2026-06-15).
+- 발송 로직: `scripts/send_report_drop.py` — 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. **① 명시 User-Agent 필수**(2026-06-29 — urllib 기본 UA는 Discord Cloudflare가 403/`error 1010` 차단). **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 8)일↑ 지나면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음). **③ 대시보드 적재(2026-06-29): 발송 직후 드롭의 🥇+🆕 신규 리포트를 파싱(`parse_drop_items`)해 Supabase `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭 노출**(🔁 다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env 필요·정시+백업 워크플로 양쪽 주입). 정시·백업 공용 모듈(stdlib). 과거 YAML heredoc startup_failure → 스크립트 분리로 차단(2026-06-15).
 - 포스팅(정시): `.github/workflows/discord-report-drop.yml` — 매주 월요일 **10:17 KST** cron(정시 :00 회피). 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만 = 격주 리듬**(cron은 매주지만 stale 드롭 재발송 안 함).
 - 백업 감시: `.github/workflows/report-drop-watchdog.yml` — 월 **10:40 KST** 점검 → 정시 누락 시 직접 재발송 + woojin@ 메일 알림(`check_drop_posted.py` 발송판정·`send_drop_alert.py` 메일). GitHub cron best-effort 누락 대비. 중복 발송·지연 레이스 가드 포함.
 
