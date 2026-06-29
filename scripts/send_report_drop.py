@@ -43,7 +43,11 @@ def post_to_discord(webhook, content):
     data = json.dumps({"content": content}).encode("utf-8")
     req = urllib.request.Request(
         webhook, data=data,
-        headers={"Content-Type": "application/json"}, method="POST")
+        headers={
+            "Content-Type": "application/json",
+            # Discord Cloudflare가 기본 Python-urllib UA를 403(error 1010)으로 차단 → 명시 UA 필수 (2026-06-29)
+            "User-Agent": "Mozilla/5.0 (compatible; NVL-report-drop/1.0; +https://neovibelab.com)",
+        }, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return resp.status, ""

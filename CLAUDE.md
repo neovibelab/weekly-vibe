@@ -107,6 +107,8 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-06-29: **리포트 드롭 403 진짜 원인 = User-Agent** (≠ 죽은 웹훅). `send_report_drop.py`가 urllib 기본 UA(`Python-urllib`)로 POST → Discord Cloudflare가 `error 1010`으로 차단(06-22 이후 규칙 강화 추정). 명시 UA(`Mozilla/…`) 헤더 추가로 해결, 게시→삭제 실전송으로 end-to-end 검증. 웹훅 자체는 유효였음(대표 신규 발급분으로 `DISCORD_REPORT_WEBHOOK_URL` secret 갱신). vibe_search `send_to_discord`는 `requests`(python-requests UA)라 현재 통과 중 — 차단 강화 대비 명시 UA는 후속 권장(현재 미적용).
+- 2026-06-29: 뉴스레터 allowlist 12→20 (Gmail 전수 스윕에서 기구독·미등록 고신호 8건 발견 — MBW·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). §1-1 참조.
 - 2026-06-29: **vibe_search 격일 전환** (`ai-news-daily.yml` cron 3개 `*/2` + step if 동기화). Sonnet web_search가 토큰 비용 주범인데 수확은 풀의 20%뿐 → 격일로 ~절반 절감. newsletter·newsroom(haiku·고수확·robots.txt 우회)은 **매일 유지**. 한·글·일 나이컷 72→120h(격일 갭+주말 보강), 중·동남아는 168h 유지. ※커버리지 정공법은 차단 일간지(조선·중앙·FT·Reuters 등 robots.txt 막힘)를 newsletter 구독으로 흡수 — 발신자만 `sources_newsletters.json`에 추가.
 - 2026-06-08: vibe_search v3 — 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
 - 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
