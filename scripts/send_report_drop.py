@@ -15,6 +15,7 @@ import re
 import sys
 import glob
 import json
+import datetime
 import urllib.request
 import urllib.error
 
@@ -55,6 +56,20 @@ def post_to_discord(webhook, content):
         return e.code, e.read().decode("utf-8", "replace")
 
 
+def drop_age_days(path):
+    """파일명 YY.MM.DD에서 드롭 날짜를 파싱해 KST 기준 경과일. 실패 시 None(보수적: 발송 허용)."""
+    m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", os.path.basename(path))
+    if not m:
+        return None
+    yy, mm, dd = (int(x) for x in m.groups())
+    try:
+        drop_date = datetime.date(2000 + yy, mm, dd)
+    except ValueError:
+        return None
+    today = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=9)).date()
+    return (today - drop_date).days
+
+
 def main():
     path = find_latest_drop()
     if not path:
@@ -70,6 +85,16 @@ def main():
 
     if os.environ.get("DRY_RUN") == "1":
         print("[dry-run] 전송 생략")
+        return 0
+
+    # 격주 발송 중복 방지 (2026-06-29): 정시 cron은 매주 월요일 '최신 드롭'을 재발송하므로,
+    # 생성 주기(격주)보다 발송이 잦으면 같은 드롭이 반복 발송된다. 드롭 파일명 날짜가
+    # DROP_MAX_AGE_DAYS(기본 8) 이상 지났으면 '신규 드롭 없음'으로 보고 발송 생략.
+    # return 0(정상) → 정시 워크플로 success 유지 → watchdog 오경보 없음(check_drop_posted가 success를 발송으로 판정).
+    max_age = int(os.environ.get("DROP_MAX_AGE_DAYS", "8"))
+    age = drop_age_days(path)
+    if age is not None and age >= max_age:
+        print(f"[info] 최신 드롭 {os.path.basename(path)} {age}일 경과(>= {max_age}일) — 신규 드롭 없음, 발송 생략")
         return 0
 
     webhook = os.environ.get("DISCORD_REPORT_WEBHOOK_URL")
