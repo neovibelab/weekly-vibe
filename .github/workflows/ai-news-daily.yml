@@ -1,5 +1,7 @@
-name: Vibe 후보 수집 (매일)
+name: Vibe 후보 수집 (격일)
 # v3: 지역·언어 기반 수집. 지역별 현지 발행 리듬에 맞춰 3개 시간대로 분산 (2026-06-17).
+# 격일 전환 (2026-06-29 — 토큰 절감. Sonnet web_search 비용 주범이라 vibe_search만 격일,
+#   newsletter·newsroom[haiku·고수확]은 매일 유지). 나이컷 한·글·일 72→120h(격일 갭+주말 보강).
 #   오전 07:00 KST — 한국·일본 (UTC+9, 현지 조간 직후)
 #   오후 14:00 KST — 중국·동남아 (UTC+7~8, 현지 정오 = 그날 오전 기사 반영)
 #   저녁 21:00 KST — 글로벌(영어, 영국 오후·미국 전일 마감분 흡수)
@@ -8,9 +10,9 @@ name: Vibe 후보 수집 (매일)
 
 on:
   schedule:
-    - cron: '0 22 * * *'   # 07:00 KST — 한국·일본
-    - cron: '0 5 * * *'    # 14:00 KST — 중국·동남아
-    - cron: '0 12 * * *'   # 21:00 KST — 글로벌(영어)
+    - cron: '0 22 */2 * *'   # 07:00 KST — 한국·일본
+    - cron: '0 5 */2 * *'    # 14:00 KST — 중국·동남아
+    - cron: '0 12 */2 * *'   # 21:00 KST — 글로벌(영어)
   workflow_dispatch:
     inputs:
       region:
@@ -52,7 +54,7 @@ jobs:
 
       - name: 한국
         id: korea
-        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'korea')) || (github.event_name == 'schedule' && github.event.schedule == '0 22 * * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'korea')) || (github.event_name == 'schedule' && github.event.schedule == '0 22 */2 * *') }}
         timeout-minutes: 10
         continue-on-error: true
         env:
@@ -61,11 +63,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
+          MAX_AGE_HOURS: '120'   # 격일 갭+주말 보강 (기본 72→120, 2026-06-29)
         run: python scripts/vibe_search.py korea ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 글로벌(영어)
         id: global_en
-        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'global-en')) || (github.event_name == 'schedule' && github.event.schedule == '0 12 * * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'global-en')) || (github.event_name == 'schedule' && github.event.schedule == '0 12 */2 * *') }}
         timeout-minutes: 10
         continue-on-error: true
         env:
@@ -74,11 +77,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
+          MAX_AGE_HOURS: '120'   # 격일 갭+주말 보강 (기본 72→120, 2026-06-29)
         run: python scripts/vibe_search.py global-en ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 중국
         id: china
-        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'china')) || (github.event_name == 'schedule' && github.event.schedule == '0 5 * * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'china')) || (github.event_name == 'schedule' && github.event.schedule == '0 5 */2 * *') }}
         timeout-minutes: 10
         continue-on-error: true
         env:
@@ -93,7 +97,7 @@ jobs:
 
       - name: 일본
         id: japan
-        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'japan')) || (github.event_name == 'schedule' && github.event.schedule == '0 22 * * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'japan')) || (github.event_name == 'schedule' && github.event.schedule == '0 22 */2 * *') }}
         timeout-minutes: 10
         continue-on-error: true
         env:
@@ -102,11 +106,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
+          MAX_AGE_HOURS: '120'   # 격일 갭+주말 보강 (기본 72→120, 2026-06-29)
         run: python scripts/vibe_search.py japan ${{ inputs.dry_run && '--dry-run' || '' }}
 
       - name: 동남아
         id: sea
-        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'southeast-asia')) || (github.event_name == 'schedule' && github.event.schedule == '0 5 * * *') }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && (github.event.inputs.region == '' || github.event.inputs.region == 'all' || github.event.inputs.region == 'southeast-asia')) || (github.event_name == 'schedule' && github.event.schedule == '0 5 */2 * *') }}
         timeout-minutes: 10
         continue-on-error: true
         env:

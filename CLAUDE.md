@@ -11,7 +11,7 @@
 ## 1. 수집 파이프라인
 
 ```
-매일 3개 시간대 KST (GitHub Actions ai-news-daily.yml — cron 3개로 분산)
+격일 3개 시간대 KST (GitHub Actions ai-news-daily.yml — cron 3개 */2, 2026-06-29 토큰절감. vibe_search만 격일, newsletter·newsroom은 매일)
   오전 07시 한국·일본 / 오후 14시 중국·동남아 / 저녁 21시 글로벌(영어)
     → scripts/vibe_search.py (Claude Sonnet web_search, 해당 시간대 지역 순차)
     → 품질 게이트 (validate_candidates → URL 생존 확인)
@@ -107,6 +107,7 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-06-29: **vibe_search 격일 전환** (`ai-news-daily.yml` cron 3개 `*/2` + step if 동기화). Sonnet web_search가 토큰 비용 주범인데 수확은 풀의 20%뿐 → 격일로 ~절반 절감. newsletter·newsroom(haiku·고수확·robots.txt 우회)은 **매일 유지**. 한·글·일 나이컷 72→120h(격일 갭+주말 보강), 중·동남아는 168h 유지. ※커버리지 정공법은 차단 일간지(조선·중앙·FT·Reuters 등 robots.txt 막힘)를 newsletter 구독으로 흡수 — 발신자만 `sources_newsletters.json`에 추가.
 - 2026-06-08: vibe_search v3 — 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
 - 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
 - 2026-06-10: 품질 게이트 추가(48시간 컷·URL 생존 확인). CLAUDE.md 재작성 — 구 주간 브리핑 제작 가이드 제거, 수집 엔진 정본으로 전환.
