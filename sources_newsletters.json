@@ -12,6 +12,14 @@
     {"from": "patrickmacias@substack.com",  "name": "TokyoScope",        "region": "japan"},
     {"from": "longblack.co",                "name": "Longblack",         "region": "korea"},
     {"from": "folin.co",                    "name": "폴인레터",          "region": "korea"},
-    {"from": "iptargets.com",               "name": "IPDaily",           "region": "korea"}
+    {"from": "iptargets.com",               "name": "IPDaily",           "region": "korea"},
+    {"from": "musicbizworldwide.com",          "name": "Music Business Worldwide", "region": "global-en"},
+    {"from": "complete-music-update@ghost.io", "name": "CMU",                       "region": "global-en"},
+    {"from": "nme.com",                        "name": "NME",                       "region": "global-en"},
+    {"from": "consequence.net",                "name": "Consequence",               "region": "global-en"},
+    {"from": "newsletter.luminatedata.com",    "name": "Luminate",                  "region": "global-en"},
+    {"from": "media-innovation.jp",            "name": "Media Innovation",          "region": "japan"},
+    {"from": "tokyoweekender@mail.beehiiv.com","name": "Tokyo Weekender",           "region": "japan"},
+    {"from": "careet.net",                     "name": "캐릿",                      "region": "korea"}
   ]
 }
