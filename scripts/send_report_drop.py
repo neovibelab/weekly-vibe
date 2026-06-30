@@ -82,7 +82,8 @@ _REGION_LABELS = {"korea": "한국", "global-en": "글로벌(영어)", "china": 
 
 def parse_drop_items(text):
     """드롭 .md에서 신규 리포트(🥇+🆕)를 파싱. 🔁 다시보기는 제외.
-    반환: [{pub, title, domain, summary, url}]"""
+    각 항목 헤더 '· 도메인 · YYYY-MM-DD'에서 실제 발행일도 추출(없으면 빈 문자열).
+    반환: [{pub, title, header, date, summary, url}]"""
     body = re.split(r"##\s*🔁", text)[0]
     items = []
     for m in re.finditer(
@@ -92,25 +93,24 @@ def parse_drop_items(text):
         um = re.search(r"https?://[^\s<>)\]]+", rest)
         if not um:
             continue
-        dm = re.search(r"·\s*([^—\n<]+)", rest)
-        domain = dm.group(1).strip() if dm else ""
-        summ = re.sub(r"https?://\S+", "", rest)
-        summ = re.sub(r"[<>🔗📎✩★*·•]+", " ", summ)
-        if domain:
-            summ = summ.replace(domain, " ", 1)
-        summ = re.sub(r"^[\s—–-]+", "", re.sub(r"\s+", " ", summ)).strip()[:400]
+        header = re.split(r"[—\n]", rest, 1)[0]            # "· 도메인 · YYYY-MM-DD"
+        dt = re.search(r"(\d{4})[-.](\d{2})[-.](\d{2})", header)
+        item_date = "-".join(dt.groups()) if dt else ""
+        summ = re.sub(r"https?://\S+", "", rest.replace(header, " ", 1))
+        summ = re.sub(r"[<>🔗📎✩★*]+", " ", summ)
+        summ = re.sub(r"^[\s—–\-·]+", "", re.sub(r"\s+", " ", summ)).strip()[:400]
         items.append({"pub": m.group("pub").strip(), "title": m.group("title").strip(),
-                      "domain": domain, "summary": summ, "url": um.group(0)})
+                      "header": header, "date": item_date, "summary": summ, "url": um.group(0)})
     return items
 
 
-def _region_from_domain(domain):
-    d = domain.lower()
-    if "중국" in domain or "china" in d:
+def _region_from_text(s):
+    sl = s.lower()
+    if "중국" in s or "china" in sl:
         return "china"
-    if "일본" in domain or "japan" in d:
+    if "일본" in s or "japan" in sl:
         return "japan"
-    if "한국" in domain or "korea" in d:
+    if "한국" in s or "korea" in sl:
         return "korea"
     return "global-en"
 
@@ -122,17 +122,19 @@ def push_items_to_dashboard(items, drop_path):
     if not sb_url or not sb_key:
         print("[info] SUPABASE_URL/KEY 미설정 — 대시보드 적재 생략")
         return 0
-    pub_iso = None
+    # 발행일 폴백 = 드롭 날짜(파일명). 각 항목에 실제 발행일(it["date"])이 있으면 그걸 우선.
+    drop_iso = None
     m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", os.path.basename(drop_path))
     if m:
         yy, mm, dd = (int(x) for x in m.groups())
         try:
-            pub_iso = datetime.date(2000 + yy, mm, dd).isoformat() + "T00:00:00+00:00"
+            drop_iso = datetime.date(2000 + yy, mm, dd).isoformat() + "T00:00:00+00:00"
         except ValueError:
             pass
     saved = 0
     for it in items:
-        region = _region_from_domain(it["domain"])
+        region = _region_from_text(it.get("header", ""))
+        item_iso = (it["date"] + "T00:00:00+00:00") if it.get("date") else drop_iso
         row = {
             "id": str(uuid.uuid4()),
             "title": it["title"][:500],
@@ -148,7 +150,8 @@ def push_items_to_dashboard(items, drop_path):
             "topics": [],
             "is_entertainment": True,
             "total_score": 0,
-            "published_date": pub_iso or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            # 각 리포트 실제 발행일(없으면 드롭 날짜). 수집시각(now) 폴백 금지 — 카드에 수집일 표기 방지.
+            "published_date": item_iso or datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
         req = urllib.request.Request(
             f"{sb_url}/rest/v1/radar_items", data=json.dumps(row).encode("utf-8"),
@@ -156,7 +159,8 @@ def push_items_to_dashboard(items, drop_path):
                 "apikey": sb_key, "Authorization": f"Bearer {sb_key}",
                 "Content-Type": "application/json",
                 "User-Agent": "NVL-report-drop/1.0",
-                "Prefer": "resolution=merge-duplicates"})
+                # ignore-duplicates: 이미 있는 URL은 건드리지 않음(재발송이 교정된 발행일을 덮지 않게).
+                "Prefer": "resolution=ignore-duplicates"})
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
                 if resp.status in (200, 201):
