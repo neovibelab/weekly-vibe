@@ -193,9 +193,10 @@ def main():
 
     # 격주 발송 중복 방지 (2026-06-29): 정시 cron은 매주 월요일 '최신 드롭'을 재발송하므로,
     # 생성 주기(격주)보다 발송이 잦으면 같은 드롭이 반복 발송된다. 드롭 파일명 날짜가
-    # DROP_MAX_AGE_DAYS(기본 8) 이상 지났으면 '신규 드롭 없음'으로 보고 발송 생략.
+    # DROP_MAX_AGE_DAYS(기본 7) 이상 지났으면 '신규 드롭 없음'으로 보고 발송 생략.
+    # 격주의 쉬는 주 월요일에 드롭은 정확히 7일 경과 — 기본 8이면 7<8로 통과해 중복 발송됨(2026-07-06 실측).
     # return 0(정상) → 정시 워크플로 success 유지 → watchdog 오경보 없음(check_drop_posted가 success를 발송으로 판정).
-    max_age = int(os.environ.get("DROP_MAX_AGE_DAYS", "8"))
+    max_age = int(os.environ.get("DROP_MAX_AGE_DAYS", "7"))
     age = drop_age_days(path)
     if age is not None and age >= max_age:
         print(f"[info] 최신 드롭 {os.path.basename(path)} {age}일 경과(>= {max_age}일) — 신규 드롭 없음, 발송 생략")

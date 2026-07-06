@@ -79,7 +79,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
 - 생성: `/report-scan` 스킬(미네바) — **격주(2주 1회) 운영**(2026-06-29 대표 결정, 토큰 대비 수확·발행처 월간성). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + **마스터 색인 반영**(06-04 동결 해제, 색인 본래 SSOT 목적)
-- 발송 로직: `scripts/send_report_drop.py` — 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. **① 명시 User-Agent 필수**(2026-06-29 — urllib 기본 UA는 Discord Cloudflare가 403/`error 1010` 차단). **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 8)일↑ 지나면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음). **③ 대시보드 적재(2026-06-29): 발송 직후 드롭의 🥇+🆕 신규 리포트를 파싱(`parse_drop_items`)해 Supabase `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭 노출**(🔁 다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env 필요·정시+백업 워크플로 양쪽 주입). 정시·백업 공용 모듈(stdlib). 과거 YAML heredoc startup_failure → 스크립트 분리로 차단(2026-06-15).
+- 발송 로직: `scripts/send_report_drop.py` — 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. **① 명시 User-Agent 필수**(2026-06-29 — urllib 기본 UA는 Discord Cloudflare가 403/`error 1010` 차단). **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일↑ 지나면 발송 생략**(기본 8이던 것을 2026-07-06 7로 — 쉬는 주 월요일에 드롭이 정확히 7일 경과라 7<8로 통과, 6/29 드롭이 7/6 중복 발송된 실측 버그)(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음). **③ 대시보드 적재(2026-06-29): 발송 직후 드롭의 🥇+🆕 신규 리포트를 파싱(`parse_drop_items`)해 Supabase `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭 노출**(🔁 다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env 필요·정시+백업 워크플로 양쪽 주입). 정시·백업 공용 모듈(stdlib). 과거 YAML heredoc startup_failure → 스크립트 분리로 차단(2026-06-15).
 - 포스팅(정시): `.github/workflows/discord-report-drop.yml` — 매주 월요일 **10:17 KST** cron(정시 :00 회피). 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만 = 격주 리듬**(cron은 매주지만 stale 드롭 재발송 안 함).
 - 백업 감시: `.github/workflows/report-drop-watchdog.yml` — 월 **10:40 KST** 점검 → 정시 누락 시 직접 재발송 + woojin@ 메일 알림(`check_drop_posted.py` 발송판정·`send_drop_alert.py` 메일). GitHub cron best-effort 누락 대비. 중복 발송·지연 레이스 가드 포함.
 
@@ -107,6 +107,7 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-07-06: **리포트 드롭 격주 가드 경계값 수정** — `DROP_MAX_AGE_DAYS` 기본 8→7. 격주 리듬에서 쉬는 주 월요일에 최신 드롭이 정확히 7일 경과인데 7<8로 가드를 통과, 6/29 드롭이 7/6 디스코드에 그대로 재발송됨(대시보드 적재는 URL dedup으로 0/6 정상 스킵). `age >= 7`이면 생략으로 변경 — 당일 발송(age 0)은 통과, 쉬는 주(age 7)는 차단.
 - 2026-06-29: **리포트 드롭 403 진짜 원인 = User-Agent** (≠ 죽은 웹훅). `send_report_drop.py`가 urllib 기본 UA(`Python-urllib`)로 POST → Discord Cloudflare가 `error 1010`으로 차단(06-22 이후 규칙 강화 추정). 명시 UA(`Mozilla/…`) 헤더 추가로 해결, 게시→삭제 실전송으로 end-to-end 검증. 웹훅 자체는 유효였음(대표 신규 발급분으로 `DISCORD_REPORT_WEBHOOK_URL` secret 갱신). vibe_search `send_to_discord`는 `requests`(python-requests UA)라 현재 통과 중 — 차단 강화 대비 명시 UA는 후속 권장(현재 미적용).
 - 2026-06-29: 뉴스레터 allowlist 12→27 (Gmail 전수 스윕). ① 고신호 8(MBW·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). ② **교차성 `broad` 7**(Bloomberg·The Information·WIRED·New Yorker·Vox·NPR·Stratechery) — `classify(broad=True)`로 is_entertainment 게이트 확대(엔터·소비·문화 함의 또는 교차성 있으면 채택, 순수 하드뉴스만 제외). 대표 "음악 집중 X, 무관한 영역에서 교차성·인사이트" 지시. §1-1 참조.
 - 2026-06-29: **vibe_search 격일 전환** (`ai-news-daily.yml` cron 3개 `*/2` + step if 동기화). Sonnet web_search가 토큰 비용 주범인데 수확은 풀의 20%뿐 → 격일로 ~절반 절감. newsletter·newsroom(haiku·고수확·robots.txt 우회)은 **매일 유지**. 한·글·일 나이컷 72→120h(격일 갭+주말 보강), 중·동남아는 168h 유지. ※커버리지 정공법은 차단 일간지(조선·중앙·FT·Reuters 등 robots.txt 막힘)를 newsletter 구독으로 흡수 — 발신자만 `sources_newsletters.json`에 추가.
