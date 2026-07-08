@@ -64,6 +64,9 @@ TOPIC_LABELS: dict[str, str] = {
     # 세대를 횡단하는 취향/가치 신호로 전환. 엔터 밖 소비 시장 전반 포함
     # (패션·뷰티·F&B·여행·리테일). 구 키 gen-z-lifestyle.
     "taste-values": "취향·가치",
+    # 타 업종 이전 가능 신호 — 엔터 레퍼런스 프레임 (2026-07-09). 검색 주제(search_terms)가 아니라
+    # **병기 태그**: 엔터 사례 중 타 업종이 가져갈 원리(팬덤 구축·IP 운용·브랜딩·커뮤니티)가 보일 때만.
+    "cross-industry": "교차산업",
 }
 
 TOPIC_KEYS = list(TOPIC_LABELS.keys())
@@ -352,6 +355,10 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
         "**다음은 tech-issues 아닙니다**: 순수 SaaS·B2B 협업툴·반도체·클라우드·"
         "엔터프라이즈 AI·일반 IT 정책. 이런 기사는 (1차 게이트에서 이미 제외되었어야 하고) "
         "혹시 통과했어도 tech-issues로 태깅하지 마세요.\n\n"
+        "## 토픽 정의 주의 — cross-industry (병기 태그)\n"
+        "cross-industry는 별도 검색 주제가 아니라 **병기 태그**입니다. 후보 기사가 엔터·문화 사례이면서 "
+        "다른 업종(뷰티·패션·F&B·리테일·테크·투자 등)이 가져갈 원리(팬덤 구축·IP 운용·브랜딩·커뮤니티 전략의 "
+        "이전 가능성)를 담고 있으면 해당 토픽에 더해 병기하세요. 원리가 실제로 보일 때만 — 억지 태깅 금지.\n\n"
         "## 검색 대상 매체 (화이트리스트)\n"
         "검색은 다음 매체로 제한됩니다 — 주요 일간지·주간지·매거진·전문지 위주:\n"
         f"{region['trusted_sources']}\n"
