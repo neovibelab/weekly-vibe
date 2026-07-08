@@ -37,7 +37,6 @@ ALLOWLIST_PATH = os.path.join(os.path.dirname(HERE), "sources_newsletters.json")
 TOPIC_KEYS = [  # 키 동기화: newsroom_ingest·vibe_search·reclassify + nvl-vibe-radar(app.py VALID_TOPICS·dashboard.html TOPICS)
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
     "artist-ownership", "tech-issues", "taste-values",  # 구 gen-z-lifestyle (2026-06-17 재정의)
-    "cross-industry",  # 타 업종 이전 가능 신호 — 엔터 레퍼런스 프레임 (2026-07-09)
 ]
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))
@@ -297,8 +296,6 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "순수 SaaS·B2B 협업툴·반도체·엔터프라이즈 AI는 tech-issues 아님.\n"
-            "  ※ cross-industry는 엔터 사례 중 타 업종(뷰티·패션·F&B·리테일·테크·투자)이 가져갈 원리"
-            "(팬덤 구축·IP 운용·브랜딩·커뮤니티 전략)가 보일 때만 다른 토픽에 **병기**. 억지 태깅 금지.\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
             "region: 이 기사가 주로 다루는 시장·지역을 내용 기준으로 하나만 — "

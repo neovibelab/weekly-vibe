@@ -63,7 +63,6 @@ log = logging.getLogger(__name__)
 TOPIC_KEYS = [
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
     "artist-ownership", "tech-issues", "taste-values",
-    "cross-industry",  # 타 업종 이전 가능 신호 — 엔터 레퍼런스 프레임 (2026-07-09). 재분류가 기존 태그를 지우지 않게 유효키 등재
 ]
 
 

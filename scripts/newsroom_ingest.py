@@ -32,7 +32,6 @@ ALLOWLIST_PATH = os.path.join(os.path.dirname(HERE), "sources_newsrooms.json")
 TOPIC_KEYS = [
     "fan-behavior", "consumer-behavior", "ent-deals", "ip-business",
     "artist-ownership", "tech-issues", "taste-values",  # 구 gen-z-lifestyle (2026-06-17 재정의)
-    "cross-industry",  # 타 업종 이전 가능 신호 — 엔터 레퍼런스 프레임 (2026-07-09)
 ]
 VALID_REGIONS = {"korea", "global-en", "china", "japan", "southeast-asia"}
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
@@ -141,8 +140,6 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "일반 IT·SaaS·반도체는 tech-issues 아님.\n"
-            "  ※ cross-industry는 엔터 사례 중 타 업종(뷰티·패션·F&B·리테일·테크·투자)이 가져갈 원리"
-            "(팬덤 구축·IP 운용·브랜딩·커뮤니티 전략)가 보일 때만 다른 토픽에 **병기**. 억지 태깅 금지.\n"
             "is_promo: 단순 홍보면 true, 산업 신호면 false. "
             "true=신작·시즌 공개, 예고편·트레일러, 출시일/공개일 안내, 자사 콘텐츠·작품 마케팅, 수상 자축 등 보도자료성 홍보. "
             "false=사업 전략·투자·M&A·실적·구독자/이용 데이터·기술·정책·인사·파트너십 등 산업 신호. "
