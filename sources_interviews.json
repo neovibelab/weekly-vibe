@@ -1,0 +1,17 @@
+{
+  "_comment": "Vibe Radar 아티스트 인터뷰 수집 소스. feed=검증된 피드 URL(2026-07-09 직접 fetch 확인·유효 XML). region=고정 지역힌트. media=text|video(힌트). collector='interview'. 텍스트는 매체 RSS(인터뷰/피처 강한 섹션), 영상은 유튜브 채널 RSS(https://www.youtube.com/feeds/videos.xml?channel_id=UC...). feed가 '_'로 시작하면 비활성(사유는 옆 주석). 추가·제거는 이 JSON만 편집하되 피드 URL은 실제 fetch로 유효성 검증 후 등재.",
+  "sources": [
+    {"feed": "https://www.thefader.com/feed",                                        "name": "The FADER",        "region": "global-en", "media": "text"},
+    {"feed": "https://www.stereogum.com/feed",                                        "name": "Stereogum",        "region": "global-en", "media": "text"},
+    {"feed": "https://www.theguardian.com/music/rss",                                 "name": "The Guardian Music","region": "global-en", "media": "text"},
+    {"feed": "https://pitchfork.com/feed/feed-features/rss",                          "name": "Pitchfork Features","region": "global-en", "media": "text"},
+    {"feed": "https://www.nme.com/feed",                                              "name": "NME",              "region": "global-en", "media": "text"},
+    {"feed": "https://www.rollingstone.com/music/feed/",                             "name": "Rolling Stone Music","region": "global-en", "media": "text"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBv7HEHuVlNAELGi5XJd85Q", "name": "Apple Music",   "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ", "name": "Broken Record", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw", "name": "Tape Notes",    "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG 문명특급",  "region": "korea",     "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCtCiO5t2voB14CmZKTkIzPQ", "name": "딩고 뮤직",      "region": "korea",     "media": "video"},
+    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCeLPm9yH_a_QH8n6445G-Ow", "name": "KBS 더 시즌즈", "region": "korea",     "media": "video", "_reason": "더 시즌즈 전용 채널 미확인(2026-07-09) — 클립이 KBS Kpop 종합 채널(UCeLPm9yH…)에 산재. 종합 채널은 퍼포먼스·예능 비중이 커 is_interview 게이트 노이즈가 커서 비활성. 전용 채널·핸들 확인 시 UC 교체 후 '_' 제거해 활성화."}
+  ]
+}

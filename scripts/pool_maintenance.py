@@ -124,9 +124,12 @@ def _picked_age_days(row, now):
 
 def picked_expiry_targets(rows, now, cluster_member_ids):
     # 픽 시효: PICKED_MAX_DAYS 초과 + 묶음 미소속 → archived. 나이 미상은 보존(안전 우선).
+    # collector='interview'는 면제 — 인터뷰는 에버그린 소재라 소스 뱅크 이관 전까지 픽 보존
+    #   (2026-07-09 인터뷰 수집기 신설). 20일 시효는 뉴스성 픽에만 적용.
     out = []
     for r in rows:
-        if r.get("status") != "picked" or r["id"] in cluster_member_ids:
+        if (r.get("status") != "picked" or r["id"] in cluster_member_ids
+                or r.get("collector") == "interview"):
             continue
         age = _picked_age_days(r, now)
         if age is not None and age >= PICKED_MAX_DAYS:

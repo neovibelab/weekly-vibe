@@ -56,6 +56,18 @@ vibe_search·newsletter와 **같은 풀을 공유하는 세 번째 수집기.** 
 - **시크릿**: `SUPABASE_*`·ANTHROPIC(`ANTHROPIC_API_KEY_WEEKLY_BRIEFING`). 피드는 무인증이라 신규 시크릿 없음.
 - **중복 제거**: 최근 30일 newsroom URL 집합(Supabase 조회) + URL upsert.
 
+## 1-3. 인터뷰 수집기 (collector='interview', 2026-07-09 신설)
+
+vibe_search·newsletter·newsroom과 **같은 풀(`radar_items`)을 공유하는 네 번째 수집기.** 국내외 아티스트·창작자 인터뷰(텍스트·영상)를 모아 대시보드 인터뷰 탭에 노출한다. 용처 = @nvl.seoul "insight/quote/reels" 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
+
+- **엔진**: `scripts/interview_ingest.py` — 매체 RSS·유튜브 채널 RSS(`videos.xml?channel_id=UC…`) fetch(stdlib `xml.etree`) → Claude haiku 분류 → **is_interview=true만** upsert. YouTube Atom의 `<media:group>` 중첩 제목·설명도 파싱(newsroom 파서 확장). 지역은 소스 고정 힌트(분류 값 우선).
+- **분류 게이트**: haiku가 ① `is_interview`(아티스트 본인 발화 중심만 true — 뉴스·리뷰·차트·퍼포먼스 단독·MV·리스트는 false, 애매하면 false=정밀 우선) ② `person_ko`(주 인물 한국어 표기) ③ title_ko/summary_ko/region. summary는 "인물 — 요지" 관례. `is_interview=false`·분류실패는 `filtered_out`(verdict `not_interview`/`classify_failed`)로 적재해 풀·인터뷰탭에서 숨김.
+- **allowlist**: `sources_interviews.json` — 검증된 12소스(활성 11 + 비활성 1). 텍스트 6(The FADER·Stereogum·Guardian Music·Pitchfork Features·NME·Rolling Stone Music), 영상 5(Apple Music·Broken Record·Tape Notes·MMTG 문명특급·딩고 뮤직). 비활성: KBS 더 시즌즈(전용 채널 미확인 — `_` 접두). 각 소스 `media`("text"|"video") 힌트 → 대시보드 `tags`. 피드 URL은 실제 fetch로 유효 XML 검증 후 등재(newsroom 규칙 동일), `_` 접두=비활성.
+- **스케줄**: `.github/workflows/interview-ingest.yml` **화·금 11:00 KST**(02:00 UTC) + `workflow_dispatch`(lookback_days). 인터뷰는 저빈도·에버그린이라 주 2회로 충분. **룩백 14일·나이컷 없음**(에버그린 — RSS 특성상 최신만 잡힘). Discord 미포스팅·대시보드 전용, `total_score=0`, 대시보드 `🎙` 배지·인터뷰 탭. ※GitHub 신규 예약 워크플로는 첫 예정 발화를 스킵하는 알려진 지연 — 첫 자동 수집이 안 보이면 `workflow_dispatch` 1회 수동.
+- **시크릿**: `SUPABASE_*`·ANTHROPIC(`ANTHROPIC_API_KEY_WEEKLY_BRIEFING`). 피드 무인증이라 신규 시크릿 없음.
+- **중복 제거**: 최근 **60일** interview URL 집합(에버그린이라 dedup 창을 뉴스룸 30일보다 넓게) + URL upsert(merge-duplicates).
+- **픽 시효 면제**: `pool_maintenance.py`의 픽 20일 시효(`picked_expiry_targets`)에서 `collector='interview'` 픽은 **면제**(에버그린 — 소스 뱅크 이관 전까지 보존). 뉴스성 픽에만 20일 적용.
+
 ## 2. 품질 게이트 (2026-06-10)
 
 Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제한다.
@@ -95,9 +107,16 @@ weekly-vibe/
 │   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)
 │   ├── send_drop_alert.py       ← 백업: 리포트 드롭 누락 시 woojin@ 메일 알림
 │   ├── notify_region_failure.py ← 일일 수집: 지역 검색 실패 시 woojin@ 메일 경보
+│   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
+│   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
+│   ├── pool_maintenance.py      ← 풀 유지보수(상한 archive + 픽 시효)
 │   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
+├── sources_newsrooms.json       ← 뉴스룸 피드 allowlist
+├── sources_interviews.json      ← 인터뷰 피드·채널 allowlist
 ├── .github/workflows/
 │   ├── ai-news-daily.yml        ← 매일 3시간대 수집(오전 한·일/오후 중·동남아/저녁 글로벌)
+│   ├── newsroom-ingest.yml      ← 매일 10:00 KST 뉴스룸 수집
+│   ├── interview-ingest.yml     ← 화·금 11:00 KST 인터뷰 수집
 │   ├── discord-report-drop.yml  ← 월 10:17 KST 정시 리포트 드롭
 │   └── report-drop-watchdog.yml ← 월 10:40 KST 백업(누락 시 재발송+메일)
 ├── drops/                       ← 주간 리포트 드롭 마크다운
@@ -107,6 +126,7 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-07-09: **인터뷰 수집기 신설**(collector='interview', §1-3). 매체 RSS 6 + 유튜브 채널 RSS 5(활성 11·비활성 1) → haiku `is_interview` 게이트 분류 → 인터뷰만 `radar_items` 적재. 화·금 11:00 KST 주 2회(`interview-ingest.yml`), 룩백 14일·나이컷 없음(에버그린), dedup 60일. 대시보드 인터뷰 탭·🎙 배지 추가, pool_maintenance 픽 20일 시효에서 interview 픽 면제. 용처=@nvl.seoul insight/quote/reels 소재 + Icon Lab 인물 레이더(루→아스토나지 dev-queue).
 - 2026-07-09: **`cross-industry` 병기 태그 당일 도입·회수** (대표 결정). 포지셔닝 재정의(엔터=타 산업 레퍼런스) 캐스케이드로 수집기 3종+대시보드에 태그를 실장했다가 같은 날 회수 — 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈라 태그 분리가 프레임과 모순(태그 없는 신호=교차 아님 역메시지). 프레임 적용은 nvl-vibe-radar 보조·추천 프롬프트(`REF_FRAME`)로 일원화. OPERATING-MODEL §0의 구 "cross-industry 플래그 병기" 문구(2026-06-08, 옛 프레임 유산)도 동시 폐기.
 - 2026-07-06: **리포트 드롭 격주 가드 경계값 수정** — `DROP_MAX_AGE_DAYS` 기본 8→7. 격주 리듬에서 쉬는 주 월요일에 최신 드롭이 정확히 7일 경과인데 7<8로 가드를 통과, 6/29 드롭이 7/6 디스코드에 그대로 재발송됨(대시보드 적재는 URL dedup으로 0/6 정상 스킵). `age >= 7`이면 생략으로 변경 — 당일 발송(age 0)은 통과, 쉬는 주(age 7)는 차단.
 - 2026-06-29: **리포트 드롭 403 진짜 원인 = User-Agent** (≠ 죽은 웹훅). `send_report_drop.py`가 urllib 기본 UA(`Python-urllib`)로 POST → Discord Cloudflare가 `error 1010`으로 차단(06-22 이후 규칙 강화 추정). 명시 UA(`Mozilla/…`) 헤더 추가로 해결, 게시→삭제 실전송으로 end-to-end 검증. 웹훅 자체는 유효였음(대표 신규 발급분으로 `DISCORD_REPORT_WEBHOOK_URL` secret 갱신). vibe_search `send_to_discord`는 `requests`(python-requests UA)라 현재 통과 중 — 차단 강화 대비 명시 UA는 후속 권장(현재 미적용).
