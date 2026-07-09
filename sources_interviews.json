@@ -12,6 +12,22 @@
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw", "name": "Tape Notes",    "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG 문명특급",  "region": "korea",     "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCtCiO5t2voB14CmZKTkIzPQ", "name": "딩고 뮤직",      "region": "korea",     "media": "video"},
-    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCeLPm9yH_a_QH8n6445G-Ow", "name": "KBS 더 시즌즈", "region": "korea",     "media": "video", "_reason": "더 시즌즈 전용 채널 미확인(2026-07-09) — 클립이 KBS Kpop 종합 채널(UCeLPm9yH…)에 산재. 종합 채널은 퍼포먼스·예능 비중이 커 is_interview 게이트 노이즈가 커서 비활성. 전용 채널·핸들 확인 시 UC 교체 후 '_' 제거해 활성화."}
+    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCeLPm9yH_a_QH8n6445G-Ow", "name": "KBS 더 시즌즈", "region": "korea",     "media": "video", "_reason": "더 시즌즈 전용 채널 미확인(2026-07-09) — 클립이 KBS Kpop 종합 채널(UCeLPm9yH…)에 산재. 종합 채널은 퍼포먼스·예능 비중이 커 is_interview 게이트 노이즈가 커서 비활성. 전용 채널·핸들 확인 시 UC 교체 후 '_' 제거해 활성화."},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAJnnJPeWf45gPDuQ15-Z6w", "name": "Zach Sang Show", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPD_bxCRGpmmeQcbe2kpPaA", "name": "First We Feast (Hot Ones)", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC5Gat6FdyiG5ydUUHqPTAEQ", "name": "Tetragrammaton with Rick Rubin", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCySxr2WDpgkNJp6jTJB9agA", "name": "And The Writer Is...", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0q8v3JNJ9h_330rEX9VTsw", "name": "OK POP!!", "region": "korea", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWe4Yf70Tl7gTBdOb2LcYqA", "name": "재즈기자 Jazz Editor", "region": "korea", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2YKXCQ8wt1RFpQEELwILCQ", "name": "SXSW", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw", "name": "Music Tectonics", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAuUUnT6oDeKwE6v1NGQxug", "name": "TED", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCCjyq_K1Xwfg8Lndy7lKMpA", "name": "TechCrunch", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpVgvGCq0ZRNnYtoFwVG4Wg", "name": "Neighborhood Art Supply", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyGi3eCuxko37WB6uUr7LjA", "name": "Call Her Daddy", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiemDAS1bXMBTx3jIIOukFg", "name": "Masters of Scale", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyFZMEnm1il5Wv3a6tPscbA", "name": "Genius", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCq4isO8ZYOZfmvGJ-_1UdIA", "name": "GRAMMYS", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZ8Sxmkweh65HetaZfR8YuA", "name": "The Hollywood Reporter", "region": "global-en", "media": "video"}
   ]
 }
