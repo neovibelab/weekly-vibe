@@ -34,5 +34,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           INTERVIEW_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '14' }}
         run: python scripts/interview_ingest.py ${{ inputs.dry_run && '--dry-run' || '' }}

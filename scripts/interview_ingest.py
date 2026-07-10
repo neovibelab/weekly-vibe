@@ -10,7 +10,13 @@ vibe_search·newsletter·newsroom과 같은 풀(radar_items)을 공유하는 네
 환경변수:
   SUPABASE_URL / SUPABASE_KEY
   ANTHROPIC_API_KEY           분류용(없으면 미분류 filtered_out 적재)
+  YOUTUBE_API_KEY             영상 소스용(2026-07-10 추가). 없으면 RSS 폴백 시도(대개 실패).
   INTERVIEW_LOOKBACK_DAYS     기본 14 (주 2회 스케줄 + 여유. RSS 특성상 최신만 잡힘)
+
+2026-07-10 수정: YouTube 채널 RSS(`/feeds/videos.xml`)가 GitHub Actions 러너 IP에서
+전량 404(로컬에서는 200 — IP 차단/제한으로 추정, UA는 이미 브라우저 값이라 무관).
+영상 소스는 YouTube Data API v3(`playlistItems`, uploads 재생목록 = 채널ID의 UC→UU
+치환)로 전환. 텍스트 소스(매체 RSS)는 기존 방식 그대로.
 사용: python scripts/interview_ingest.py [--dry-run]
 """
 from __future__ import annotations
@@ -38,6 +44,46 @@ LOOKBACK_DAYS = int(os.environ.get("INTERVIEW_LOOKBACK_DAYS", "14"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY", "")
+
+
+def extract_channel_id(feed_url: str) -> str | None:
+    m = re.search(r"channel_id=([\w-]+)", feed_url)
+    return m.group(1) if m else None
+
+
+def fetch_youtube_api(channel_id: str) -> list[dict]:
+    """YouTube Data API v3(playlistItems)로 채널 최신 업로드 조회.
+    uploads 재생목록 ID = 채널ID의 'UC' 접두를 'UU'로 치환(공식 규칙) — channels.list
+    호출 없이 1회 요청으로 끝남(쿼터 1 unit/채널)."""
+    if not channel_id.startswith("UC"):
+        return []
+    playlist_id = "UU" + channel_id[2:]
+    try:
+        r = requests.get(
+            "https://www.googleapis.com/youtube/v3/playlistItems",
+            params={"part": "snippet", "playlistId": playlist_id,
+                    "maxResults": 15, "key": YOUTUBE_API_KEY},
+            timeout=20,
+        )
+        r.raise_for_status()
+        items = r.json().get("items", [])
+    except Exception as e:
+        log.warning("YouTube API fetch 실패 %s: %s", channel_id, e)
+        return []
+    out = []
+    for it in items:
+        sn = it.get("snippet", {})
+        vid = (sn.get("resourceId") or {}).get("videoId")
+        if not vid or not sn.get("title"):
+            continue
+        out.append({
+            "title": sn["title"],
+            "link": f"https://www.youtube.com/watch?v={vid}",
+            "date": sn.get("publishedAt", ""),
+            "summary": sn.get("description", ""),
+        })
+    return out
 
 
 # ── 피드 fetch / 파싱 (RSS·Atom·YouTube 공통) ──────────────────────────────────
@@ -217,11 +263,23 @@ def main() -> int:
     for src in sources:
         if src.get("feed", "").startswith("_"):
             continue
-        data = fetch_feed(src["feed"])
-        if not data:
-            continue
+        media = src.get("media", "text")
+        items: list[dict] = []
+        if media == "video":
+            cid = extract_channel_id(src["feed"])
+            if cid and YOUTUBE_API_KEY:
+                items = fetch_youtube_api(cid)
+            if not items:  # API 키 없음·실패 시 RSS 폴백 시도(대개 GH Actions에서 404)
+                data = fetch_feed(src["feed"])
+                if data:
+                    items = parse_feed(data)
+        else:
+            data = fetch_feed(src["feed"])
+            if not data:
+                continue
+            items = parse_feed(data)
         kept = 0
-        for it in parse_feed(data):
+        for it in items:
             if kept >= FETCH_CAP:
                 break
             url = it["link"].strip()
@@ -238,7 +296,6 @@ def main() -> int:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
             title = it["title"][:500]
             summary_raw = html_to_text(it.get("summary", ""))[:2000]
-            media = src.get("media", "text")
             cls = classify(title, summary_raw, media)
             failed = cls.get("_failed", False)
             is_int = cls.get("is_interview", False)
