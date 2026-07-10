@@ -19,7 +19,7 @@
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC5Gat6FdyiG5ydUUHqPTAEQ", "name": "Tetragrammaton with Rick Rubin", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCySxr2WDpgkNJp6jTJB9agA", "name": "And The Writer Is...", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0q8v3JNJ9h_330rEX9VTsw", "name": "OK POP!!", "region": "korea", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWe4Yf70Tl7gTBdOb2LcYqA", "name": "재즈기자 Jazz Editor", "region": "korea", "media": "video"},
+    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCWe4Yf70Tl7gTBdOb2LcYqA", "name": "재즈기자 Jazz Editor", "region": "korea", "media": "video", "_reason": "대표 지시로 제외 (2026-07-11)."},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2YKXCQ8wt1RFpQEELwILCQ", "name": "SXSW", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw", "name": "Music Tectonics", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAuUUnT6oDeKwE6v1NGQxug", "name": "TED", "region": "global-en", "media": "video"},
