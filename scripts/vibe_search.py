@@ -132,7 +132,7 @@ REGIONS: dict[str, dict] = {
             "Hits Daily Double, TechCrunch, Bloomberg, Axios, "
             "The Hollywood Reporter, Rolling Stone, NME, "
             "Music Ally, Digital Music News, CMU, "
-            "IFPI, MIDiA Research, Luminate"
+            "IFPI, MIDiA Research, Luminate, Diggit Magazine"
         ),
         "allowed_domains": [
             "billboard.com", "variety.com", "musicbusinessworldwide.com",
@@ -140,7 +140,7 @@ REGIONS: dict[str, dict] = {
             "axios.com", "hollywoodreporter.com", "rollingstone.com",
             "nme.com", "musically.com", "digitalmusicnews.com",
             "completemusicupdate.com", "ifpi.org", "midiaresearch.com",
-            "luminatedata.com",
+            "luminatedata.com", "diggitmagazine.com",
             # 주의: IP홀더 뉴스룸 도메인(sony.com 등)은 여기 넣지 말 것 — Anthropic
             # 크롤러 차단 도메인이 allowed_domains에 하나만 끼어도 web_search가
             # 요청 전체를 400 거부해 글로벌 수집이 통째로 죽는다 (2026-06-16~17 사고).

@@ -11,7 +11,6 @@
     {"feed": "https://www.sonymusic.com/feed/",                              "name": "Sony Music",      "region": "global-en"},
     {"feed": "https://corp.toei-anim.co.jp/contentFeeds/content/multi3/en/press", "name": "Toei Animation", "region": "japan"},
     {"feed": "https://news.speakola.com/feed",                                  "name": "Speakola",        "region": "global-en"},
-    {"feed": "https://www.diggitmagazine.com/rss.xml",                          "name": "Diggit Magazine", "region": "global-en"},
     {"feed": "https://geenadavisinstitute.org/feed/",                           "name": "Geena Davis Institute", "region": "global-en"}
   ]
 }
