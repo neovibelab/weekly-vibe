@@ -7,6 +7,7 @@
     {"feed": "https://pitchfork.com/feed/feed-features/rss",                          "name": "Pitchfork Features","region": "global-en", "media": "text"},
     {"feed": "https://www.nme.com/feed",                                              "name": "NME",              "region": "global-en", "media": "text"},
     {"feed": "https://www.rollingstone.com/music/feed/",                             "name": "Rolling Stone Music","region": "global-en", "media": "text"},
+    {"feed": "https://theankler.com/feed/",                                          "name": "The Ankler",       "region": "global-en", "media": "text"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBv7HEHuVlNAELGi5XJd85Q", "name": "Apple Music",   "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ", "name": "Broken Record", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw", "name": "Tape Notes",    "region": "global-en", "media": "video"},
@@ -28,6 +29,7 @@
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiemDAS1bXMBTx3jIIOukFg", "name": "Masters of Scale", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyFZMEnm1il5Wv3a6tPscbA", "name": "Genius", "region": "global-en", "media": "video"},
     {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCq4isO8ZYOZfmvGJ-_1UdIA", "name": "GRAMMYS", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZ8Sxmkweh65HetaZfR8YuA", "name": "The Hollywood Reporter", "region": "global-en", "media": "video"}
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZ8Sxmkweh65HetaZfR8YuA", "name": "The Hollywood Reporter", "region": "global-en", "media": "video"},
+    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnnIvsEv9cSQxp8LWyVhcew", "name": "The Town with Matt Belloni", "region": "global-en", "media": "video"}
   ]
 }

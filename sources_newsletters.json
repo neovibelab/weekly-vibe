@@ -27,6 +27,7 @@
     {"from": "newsletter.newyorker.com",       "name": "New Yorker",       "region": "global-en", "broad": true},
     {"from": "vox.com",                        "name": "Vox",              "region": "global-en", "broad": true},
     {"from": "nl.npr.org",                     "name": "NPR",              "region": "global-en", "broad": true},
-    {"from": "stratechery.com",                "name": "Stratechery",      "region": "global-en", "broad": true}
+    {"from": "stratechery.com",                "name": "Stratechery",      "region": "global-en", "broad": true},
+    {"from": "mail.theankler.com",              "name": "The Ankler",       "region": "global-en"}
   ]
 }
