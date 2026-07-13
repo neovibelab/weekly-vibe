@@ -41,20 +41,35 @@ def _hdr() -> dict:
     return {"apikey": k, "Authorization": f"Bearer {k}"}
 
 
+def _fetch_paged(url: str, params: dict) -> list[dict]:
+    # PostgREST는 limit과 무관하게 서버 max-rows(기본 1,000)로 응답을 자른다 —
+    # 테이블이 1,000행을 넘으면 부분 데이터로 계산해 정리 대상을 놓친다(2026-07-14 실측).
+    # Range 헤더로 전 행을 페이지 순회. id 정렬로 페이지 간 중복·누락 방지.
+    out: list[dict] = []
+    page = 1000
+    lo = 0
+    while True:
+        r = requests.get(url, headers={**_hdr(), "Range": f"{lo}-{lo + page - 1}"},
+                         params={**params, "order": "id.asc"}, timeout=30)
+        r.raise_for_status()
+        rows = r.json()
+        out.extend(rows)
+        if len(rows) < page:
+            return out
+        lo += page
+
+
 def fetch_all() -> list[dict]:
-    r = requests.get(_base(), headers=_hdr(), params={
-        "select": "id,status,collector,created_at,status_updated_at,source,title", "limit": "10000",
-    }, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    return _fetch_paged(_base(), {
+        "select": "id,status,collector,created_at,status_updated_at,source,title",
+    })
 
 
 def fetch_cluster_member_ids() -> set:
     """묶음에 물려 있는 카드 id — 픽 시효 면제 대상(작업 중)."""
     url = os.environ["SUPABASE_URL"].rstrip("/") + "/rest/v1/cluster_items"
-    r = requests.get(url, headers=_hdr(), params={"select": "item_id", "limit": "10000"}, timeout=30)
-    r.raise_for_status()
-    return {row["item_id"] for row in r.json() if row.get("item_id")}
+    rows = _fetch_paged(url, {"select": "item_id"})
+    return {row["item_id"] for row in rows if row.get("item_id")}
 
 
 def _age_days(row, now):

@@ -126,6 +126,7 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-07-14: **pool_maintenance PostgREST 1,000행 캡 버그 수정** — `fetch_all`이 `limit=10000`을 넘겨도 서버 max-rows(1,000)에 잘려, 테이블 1,304행 시점에 pending 227건 중 74건만 보고 "정리 대상 0건"으로 통과(풀 50 상한이 침묵 무력화, 관리 대상 pending 131건까지 누적 실측). `_fetch_paged`(Range 헤더 + id 정렬 페이지 순회) 신설로 `fetch_all`·`fetch_cluster_member_ids` 전 행 조회 전환, 수정 직후 apply로 초과분 81건 archived → 관리 풀 50건 복구.
 - 2026-07-09: **인터뷰 수집기 신설**(collector='interview', §1-3). 매체 RSS 6 + 유튜브 채널 RSS 5(활성 11·비활성 1) → haiku `is_interview` 게이트 분류 → 인터뷰만 `radar_items` 적재. 화·금 11:00 KST 주 2회(`interview-ingest.yml`), 룩백 14일·나이컷 없음(에버그린), dedup 60일. 대시보드 인터뷰 탭·🎙 배지 추가, pool_maintenance 픽 20일 시효에서 interview 픽 면제. 용처=@nvl.seoul insight/quote/reels 소재 + Icon Lab 인물 레이더(루→아스토나지 dev-queue).
 - 2026-07-09: **`cross-industry` 병기 태그 당일 도입·회수** (대표 결정). 포지셔닝 재정의(엔터=타 산업 레퍼런스) 캐스케이드로 수집기 3종+대시보드에 태그를 실장했다가 같은 날 회수 — 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈라 태그 분리가 프레임과 모순(태그 없는 신호=교차 아님 역메시지). 프레임 적용은 nvl-vibe-radar 보조·추천 프롬프트(`REF_FRAME`)로 일원화. OPERATING-MODEL §0의 구 "cross-industry 플래그 병기" 문구(2026-06-08, 옛 프레임 유산)도 동시 폐기.
 - 2026-07-06: **리포트 드롭 격주 가드 경계값 수정** — `DROP_MAX_AGE_DAYS` 기본 8→7. 격주 리듬에서 쉬는 주 월요일에 최신 드롭이 정확히 7일 경과인데 7<8로 가드를 통과, 6/29 드롭이 7/6 디스코드에 그대로 재발송됨(대시보드 적재는 URL dedup으로 0/6 정상 스킵). `age >= 7`이면 생략으로 변경 — 당일 발송(age 0)은 통과, 쉬는 주(age 7)는 차단.
