@@ -109,7 +109,7 @@ weekly-vibe/
 │   ├── notify_region_failure.py ← 일일 수집: 지역 검색 실패 시 woojin@ 메일 경보
 │   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
 │   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
-│   ├── pool_maintenance.py      ← 풀 유지보수(상한 archive + 픽 시효)
+│   ├── pool_maintenance.py      ← 풀 유지보수(상한 archive + 픽 시효 + 묶음 시의성 시효)
 │   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
 ├── sources_newsrooms.json       ← 뉴스룸 피드 allowlist
 ├── sources_interviews.json      ← 인터뷰 피드·채널 allowlist
@@ -126,6 +126,7 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
+- 2026-07-15: **pool_maintenance에 묶음 2종 수명제 반영** (nvl-vibe-radar v12 `clusters.evergreen`과 세트, 대표 결정). ① 정리 ③ 신설 — 시의성 묶음(evergreen=false, open·synthesized)이 10일(updated_at) 방치되면 묶음+멤버링크 삭제. ② 픽 20일 시효의 묶음 면제를 **에버그린·to_draft/drafted 묶음 멤버로 축소** — 구 "모든 묶음 멤버 면제"는 대시보드 추천이 매 실행 같은 옛 픽으로 묶음을 재생성해 옛 픽이 시효를 영원히 피하는 루프였음(추천 신선도 하락의 근원). v12 미적용 시 ③ 생략·전 묶음 보호로 안전 폴백. interview 픽 면제는 별개로 유지.
 - 2026-07-14: **pool_maintenance PostgREST 1,000행 캡 버그 수정** — `fetch_all`이 `limit=10000`을 넘겨도 서버 max-rows(1,000)에 잘려, 테이블 1,304행 시점에 pending 227건 중 74건만 보고 "정리 대상 0건"으로 통과(풀 50 상한이 침묵 무력화, 관리 대상 pending 131건까지 누적 실측). `_fetch_paged`(Range 헤더 + id 정렬 페이지 순회) 신설로 `fetch_all`·`fetch_cluster_member_ids` 전 행 조회 전환, 수정 직후 apply로 초과분 81건 archived → 관리 풀 50건 복구.
 - 2026-07-09: **인터뷰 수집기 신설**(collector='interview', §1-3). 매체 RSS 6 + 유튜브 채널 RSS 5(활성 11·비활성 1) → haiku `is_interview` 게이트 분류 → 인터뷰만 `radar_items` 적재. 화·금 11:00 KST 주 2회(`interview-ingest.yml`), 룩백 14일·나이컷 없음(에버그린), dedup 60일. 대시보드 인터뷰 탭·🎙 배지 추가, pool_maintenance 픽 20일 시효에서 interview 픽 면제. 용처=@nvl.seoul insight/quote/reels 소재 + Icon Lab 인물 레이더(루→아스토나지 dev-queue).
 - 2026-07-09: **`cross-industry` 병기 태그 당일 도입·회수** (대표 결정). 포지셔닝 재정의(엔터=타 산업 레퍼런스) 캐스케이드로 수집기 3종+대시보드에 태그를 실장했다가 같은 날 회수 — 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈라 태그 분리가 프레임과 모순(태그 없는 신호=교차 아님 역메시지). 프레임 적용은 nvl-vibe-radar 보조·추천 프롬프트(`REF_FRAME`)로 일원화. OPERATING-MODEL §0의 구 "cross-industry 플래그 병기" 문구(2026-06-08, 옛 프레임 유산)도 동시 폐기.
