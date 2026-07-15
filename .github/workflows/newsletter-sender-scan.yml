@@ -1,0 +1,30 @@
+name: 뉴스레터 발신자 스캔 (주간)
+# 최근 7일 받은편지함에서 allowlist·ignore 밖 발신자를 감지해 woojin@에 후보 리포트.
+# 대표가 새 뉴스레터를 구독해도 말하지 않으면 조용히 새던 문제의 자동 감지 (2026-07-16).
+# 등재 판단은 사람 몫 — 세션에서 "뉴스레터 스윕"으로 처리.
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'    # 월 09:00 KST (00:00 UTC)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (본문만 출력, 메일 미발송)'
+        type: boolean
+        default: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 발신자 스캔·리포트
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+        run: python scripts/newsletter_sender_scan.py

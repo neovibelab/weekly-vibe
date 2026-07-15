@@ -1,5 +1,10 @@
 {
-  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백). broad=true는 일반·테크·비즈 종합 매체 — classify가 is_entertainment 게이트를 넓혀 음악·엔터 밖 교차 신호도 채택(순수 하드뉴스만 제외, 2026-06-29).",
+  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백). broad=true는 일반·테크·비즈 종합 매체 — classify가 is_entertainment 게이트를 넓혀 음악·엔터 밖 교차 신호도 채택(순수 하드뉴스만 제외, 2026-06-29). catchall_ignore=캐치올(제목 게이트)·주간 발신자 스캔 공용 제외 목록 — 트랜잭션·서비스 알림·프로모 발신자(부분 문자열 매칭, 2026-07-16). 편집 매체는 여기 넣지 않는다(제목 게이트가 개별 판정).",
+  "catchall_ignore": [
+    "google.com", "googlemail.com", "vercel.com", "railway.app",
+    "supabase.com", "claude.com", "anthropic.com", "github.com", "lilys.ai", "apify.com",
+    "shortyawards.com", "neighborhoodartsupply.com", "mv-mail.fastcompany.com"
+  ],
   "sources": [
     {"from": "musically.com",              "name": "Music Ally",        "region": "global-en"},
     {"from": "mail.billboard.com",          "name": "Billboard",         "region": "global-en"},

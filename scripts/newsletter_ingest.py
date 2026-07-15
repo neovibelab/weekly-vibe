@@ -41,6 +41,10 @@ TOPIC_KEYS = [  # 키 동기화: newsroom_ingest·vibe_search·reclassify + nvl-
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))
 FETCH_CAP = int(os.environ.get("NL_FETCH_CAP", "6"))  # 발신자당 최대 처리 건수(env로 일시 상향 가능)
+# 캐치올(제목 게이트) — allowlist 밖 발신자라도 제목이 엔터·콘텐츠·미디어 신호면 수집 (2026-07-16 대표 지시).
+# 제목만 haiku 1회 배치 판정 → 통과분만 본문 파이프라인. NL_CATCHALL=0으로 끔.
+CATCHALL_ENABLED = os.environ.get("NL_CATCHALL", "1") != "0"
+CATCHALL_CAP = int(os.environ.get("NL_CATCHALL_CAP", "8"))  # 런당 최대 수집(프로모 폭주 가드)
 SKIP_LINK = ("unsubscribe", "stop-email", "mailto:", "/profile", "preferences",
              "list-manage.com/unsubscribe", "/cs", "수신거부")
 ASSET_HOST = ("googleapis.com", "gstatic.com", "w3.org", "schema.org", "googletagmanager",
@@ -361,6 +365,144 @@ def recent_urls(days: int = 14) -> set[str]:
         return set()
 
 
+# ── 행 생성 (allowlist·캐치올 공용) ───────────────────────────────────────────
+
+def build_row(msg, name: str, region_hint: str, broad: bool, seen: set[str], num: bytes) -> dict | None:
+    """메일 1통 → radar_items 행. URL 중복이면 None. seen에 URL 추가까지 수행."""
+    subject = decode_hdr(msg.get("Subject", "")).strip()
+    html_b, text_b = extract_bodies(msg)
+    body_text = (text_b.strip() or html_to_text(html_b))[:2000]
+    msgid = (msg.get("Message-ID") or "").strip().strip("<>")
+    try:
+        resolved = canonical_url(html_b)
+    except Exception as e:
+        log.warning("[%s] URL 추출 실패: %s", name, e)
+        resolved = ""
+    url = resolved or (
+        f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{quote(msgid)}"
+        if msgid else f"newsletter:{name}:{num.decode()}")
+    if url in seen:
+        return None
+    try:
+        pub = parsedate_to_datetime(msg.get("Date")).astimezone(datetime.timezone.utc).isoformat()
+    except Exception:
+        pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    cls = classify(subject, body_text, region_hint, broad=broad)
+    failed = cls.get("_failed", False)
+    is_ent = cls.get("is_entertainment", True)
+    is_gos = cls.get("is_gossip", False)
+    seen.add(url)
+    return {
+        "id": str(uuid.uuid4()),
+        "title": (cls.get("title_ko") or subject)[:500] or "(제목 없음)",
+        "url": url,
+        "source": name,
+        "category": "newsletter",
+        "collector": "newsletter",
+        "summary": (cls["summary_ko"] or body_text[:200]),
+        "topics": cls["topics"],
+        "tags": cls["topics"],
+        "is_entertainment": is_ent,
+        # region: classify가 내용 기준으로 판정한 값 우선, 없으면 발신자 고정 힌트로 폴백
+        # (발신 매체 국적 ≠ 기사 내용 지역 문제 해결 — 예: Longblack의 글로벌 기사, 2026-06-23)
+        "region": cls.get("region") or region_hint,
+        "published_date": pub,
+        # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
+        # classify_failed 표시 → backfill_translate.py가 재번역. 비엔터·가십도 filtered_out.
+        "status": "filtered_out" if (failed or not is_ent or is_gos) else "pending",
+        "filter_verdict": ("classify_failed" if failed else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
+        "total_score": 0,
+    }
+
+
+# ── 캐치올: 제목 게이트 (2026-07-16) ─────────────────────────────────────────
+# allowlist 밖 발신자의 메일도 제목이 엔터·콘텐츠·미디어·문화·소비 신호면 수집.
+# 1단: 제목 배치 haiku 판정(런당 1콜) → 2단: 통과분만 본문 fetch·classify(strict).
+# NYT류 종합지의 음악 코너처럼 allowlist 등재는 과하지만 개별 신호는 유효한 경우를 흡수.
+
+def imap_headers(M, num: bytes):
+    typ, data = M.fetch(num, "(BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)])")
+    if typ != "OK" or not data or not isinstance(data[0], tuple):
+        return None
+    return email.message_from_bytes(data[0][1])
+
+
+def subject_gate(cands: list[dict]) -> list[int]:
+    """후보 제목 배치 판정 — 수집 가치 있는 인덱스(0-base)만. 실패 시 빈 목록(안전 우선)."""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if not key or not cands:
+        return []
+    listing = "\n".join(f'{i + 1}. [{c["sender"]}] {c["subject"][:100]}' for i, c in enumerate(cands))
+    prompt = (
+        "아래는 뉴스레터 수집 allowlist 밖 발신자의 최근 메일 목록이다. "
+        "엔터테인먼트·콘텐츠·미디어·문화·소비 산업의 기사/분석/데이터 '신호'로 수집할 가치가 있는 것만 골라 JSON으로만 응답.\n"
+        "- 포함: 음악·영상·게임·웹툰·공연·아티스트·IP·팬덤·미디어 산업·소비 트렌드·문화 현상의 기사·분석·리포트\n"
+        "- 제외: 프로모션·세일·행사/웨비나/어워드 안내·계정/결제/보안/배송 알림·구독 관리·제품 광고·"
+        "정파 정치·거시경제 하드뉴스·스포츠 경기 결과. 애매하면 제외(정밀 우선).\n\n"
+        f"{listing}\n\n"
+        '{"picks": [번호, ...]}  (없으면 빈 배열)'
+    )
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        msg = client.messages.create(model="claude-haiku-4-5-20251001", max_tokens=300,
+                                     messages=[{"role": "user", "content": prompt}])
+        raw = msg.content[0].text.strip()
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        picks = json.loads(raw).get("picks", [])
+        return [p - 1 for p in picks if isinstance(p, int) and 1 <= p <= len(cands)]
+    except Exception as e:
+        log.warning("캐치올 제목 게이트 실패(생략): %s", e)
+        return []
+
+
+def catchall_pass(M, sources: list[dict], ignore: list[str], since, seen: set[str], rows: list[dict]) -> None:
+    """allowlist 밖 발신자 메일을 제목 게이트로 선별 수집. 실패해도 본류(allowlist)에 영향 없음."""
+    from email.utils import parseaddr
+    # 비활성(_ 접두) allowlist 소스도 제외 대상 — 캐치올로 부활 금지
+    allow_keys = [s.get("from", "").lstrip("_").lower() for s in sources if s.get("from")]
+    ignore_keys = [k.lower() for k in ignore]
+    typ, data = M.search(None, f'(SINCE "{since.strftime("%d-%b-%Y")}")')
+    nums = data[0].split() if typ == "OK" and data and data[0] else []
+    cands = []
+    for num in nums:
+        try:
+            h = imap_headers(M, num)
+        except Exception:
+            continue
+        if not h:
+            continue
+        sender = (parseaddr(decode_hdr(h.get("From", "")))[1] or "").lower()
+        subject = decode_hdr(h.get("Subject", "")).strip()
+        if not sender or not subject:
+            continue
+        if any(k in sender for k in allow_keys) or any(k in sender for k in ignore_keys):
+            continue
+        cands.append({"num": num, "sender": sender, "subject": subject})
+    if not cands:
+        log.info("캐치올: allowlist 밖 후보 0건")
+        return
+    picks = subject_gate(cands)
+    log.info("캐치올: 후보 %d건 중 제목 게이트 통과 %d건 (cap %d)", len(cands), len(picks), CATCHALL_CAP)
+    for i in picks[:CATCHALL_CAP]:
+        c = cands[i]
+        domain = c["sender"].split("@")[-1]
+        try:
+            msg = imap_message(M, c["num"])
+        except Exception as e:
+            log.warning("[캐치올 %s] fetch 실패: %s", domain, e)
+            continue
+        if not msg:
+            continue
+        row = build_row(msg, domain, "global-en", False, seen, c["num"])
+        if row:
+            rows.append(row)
+            log.info("[캐치올 %s] %s | %s", domain, "·".join(row["topics"]) or "-", c["subject"][:55])
+
+
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -393,51 +535,20 @@ def main() -> int:
                 continue
             if not msg:
                 continue
-            subject = decode_hdr(msg.get("Subject", "")).strip()
-            html_b, text_b = extract_bodies(msg)
-            body_text = (text_b.strip() or html_to_text(html_b))[:2000]
-            msgid = (msg.get("Message-ID") or "").strip().strip("<>")
-            try:
-                resolved = canonical_url(html_b)
-            except Exception as e:
-                log.warning("[%s] URL 추출 실패: %s", src["name"], e)
-                resolved = ""
-            url = resolved or (
-                f"https://mail.google.com/mail/u/0/#search/rfc822msgid:{quote(msgid)}"
-                if msgid else f"newsletter:{src['name']}:{num.decode()}")
-            if url in seen:
-                continue
-            try:
-                pub = parsedate_to_datetime(msg.get("Date")).astimezone(datetime.timezone.utc).isoformat()
-            except Exception:
-                pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            cls = classify(subject, body_text, src.get("region", "global-en"), broad=src.get("broad", False))
-            failed = cls.get("_failed", False)
-            is_ent = cls.get("is_entertainment", True)
-            is_gos = cls.get("is_gossip", False)
-            rows.append({
-                "id": str(uuid.uuid4()),
-                "title": (cls.get("title_ko") or subject)[:500] or "(제목 없음)",
-                "url": url,
-                "source": src["name"],
-                "category": "newsletter",
-                "collector": "newsletter",
-                "summary": (cls["summary_ko"] or body_text[:200]),
-                "topics": cls["topics"],
-                "tags": cls["topics"],
-                "is_entertainment": is_ent,
-                # region: classify가 내용 기준으로 판정한 값 우선, 없으면 발신자 고정 힌트로 폴백
-                # (발신 매체 국적 ≠ 기사 내용 지역 문제 해결 — 예: Longblack의 글로벌 기사, 2026-06-23)
-                "region": cls.get("region") or src.get("region", "global-en"),
-                "published_date": pub,
-                # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
-                # classify_failed 표시 → backfill_translate.py가 재번역. 비엔터·가십도 filtered_out.
-                "status": "filtered_out" if (failed or not is_ent or is_gos) else "pending",
-                "filter_verdict": ("classify_failed" if failed else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
-                "total_score": 0,
-            })
-            seen.add(url)
-            log.info("[%s] %s | %s", src["name"], "·".join(cls["topics"]) or "-", subject[:55])
+            row = build_row(msg, src["name"], src.get("region", "global-en"),
+                            src.get("broad", False), seen, num)
+            if row:
+                rows.append(row)
+                log.info("[%s] %s | %s", src["name"], "·".join(row["topics"]) or "-", row["title"][:55])
+
+    # 캐치올 — allowlist 밖 발신자 제목 게이트. 실패해도 본류 적재에 영향 없음.
+    if CATCHALL_ENABLED:
+        try:
+            with open(ALLOWLIST_PATH, encoding="utf-8") as f:
+                ignore = json.load(f).get("catchall_ignore", [])
+            catchall_pass(M, sources, ignore, since, seen, rows)
+        except Exception as e:
+            log.warning("캐치올 패스 실패(생략): %s", e)
 
     try:
         M.logout()
