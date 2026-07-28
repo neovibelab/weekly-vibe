@@ -2,7 +2,9 @@
 
 > **역할 (2026-06-09 전환)**: 엔터·문화 산업 뉴스의 **일일 자동 수집 엔진**. 매일 5개 지역을 현지 발행 리듬에 맞춰 3개 시간대로 나눠(오전 한국·일본 / 오후 중국·동남아 / 저녁 글로벌, 2026-06-17) 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
 >
-> **주간 브리핑(NEWSPAPER HTML) 발행은 2026-06-09 폐기.** 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존한다. `weeklybriefing.vercel.app`은 배포 중단 대상, 제작 스킬(`.claude/skills/weekly-vibe/`)은 2026-06-10 삭제. 구 제작 가이드(태그 시스템·디자인 시스템·검증 체크리스트)가 필요하면 이 파일의 git 히스토리(2026-06-10 이전) 참조.
+> **주간 브리핑(NEWSPAPER HTML) 발행은 2026-06-09 폐기.** 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존한다. 제작 스킬(`.claude/skills/weekly-vibe/`)은 2026-06-10 삭제. 구 제작 가이드(태그 시스템·디자인 시스템·검증 체크리스트)가 필요하면 이 파일의 git 히스토리(2026-06-10 이전) 참조.
+>
+> **`weeklybriefing.vercel.app` 공개 배포는 2026-07-28 대표 결정으로 삭제** — 워크플로만 지운 상태로 2개월간 05-30에 얼어붙은 페이지가 ECRI 브랜딩으로 공개돼 있었다(07-28 실측 HTTP 200). 발행 뉴스레터가 이 URL을 링크한 곳은 없어 끊어질 독자 경로는 없다(md-archive 5편의 매치는 메일리 태그 `weeklybriefing`이지 URL 아님). **이 수집 엔진 자체는 계속 돈다** — 삭제 대상은 Vercel 프로젝트 하나뿐이다.
 >
 > **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md`](../ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5.
 
