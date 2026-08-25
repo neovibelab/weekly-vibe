@@ -32,7 +32,11 @@ import requests
 # 자동수집 pending 풀에서 created_at 최신순 POOL_KEEP개만 유지, 초과분(오래된 것) → archived.
 # MANAGED_COLLECTORS 밖(manual)은 정리 대상 아님(영구 보존).
 POOL_KEEP = 50
-MANAGED_COLLECTORS = {"newsletter", "newsroom", "vibe_search"}
+MANAGED_COLLECTORS = {"newsletter", "newsroom", "vibe_search", "interview"}
+# interview 전용 상한 - 뉴스성 수집과 성격이 달라 같은 50을 쓰지 않는다.
+# 인터뷰는 에버그린 소재라 픽 시효도 면제받는다(picked_expiry_targets 참조).
+# 상한 관리 자체는 2026-08-26 대표 결정(pending 504건이 대시보드 노이즈).
+INTERVIEW_KEEP = 200
 # 픽 시효(일) — status_updated_at(픽 시점) 기준. 보호 묶음 멤버는 면제. (2026-07-09 대표 확정: 20일)
 PICKED_MAX_DAYS = 20
 # 시의성 묶음 시효(일) — updated_at 기준. 에버그린·to_draft/drafted는 면제. (2026-07-15 대표 확정: 10일)
@@ -133,10 +137,13 @@ def print_stats(rows, now):
 def archive_targets(rows, now):
     # 자동수집 collector의 pending을 created_at 최신순 POOL_KEEP개만 남기고
     # 초과분(오래된 것)을 archived 대상으로. manual·기타 status는 여기서 안 다룸.
-    pend = [r for r in rows
-            if r.get("status") == "pending" and r.get("collector") in MANAGED_COLLECTORS]
-    pend.sort(key=lambda r: r.get("created_at") or "", reverse=True)  # 최신 먼저
-    over = pend[POOL_KEEP:]  # POOL_KEEP 초과분 = 오래된 것
+    over = []
+    for coll in sorted(MANAGED_COLLECTORS):
+        keep = INTERVIEW_KEEP if coll == "interview" else POOL_KEEP
+        pend = [r for r in rows
+                if r.get("status") == "pending" and r.get("collector") == coll]
+        pend.sort(key=lambda r: r.get("created_at") or "", reverse=True)  # 최신 먼저
+        over.extend(pend[keep:])  # 상한 초과분 = 오래된 것
     return [(r, _age_days(r, now)) for r in over]
 
 
