@@ -6,7 +6,7 @@
 >
 > **`weeklybriefing.vercel.app` 공개 배포는 2026-07-28 대표 결정으로 삭제** - 워크플로만 지운 상태로 2개월간 05-30에 얼어붙은 페이지가 ECRI 브랜딩으로 공개돼 있었다(07-28 실측 HTTP 200). 발행 뉴스레터가 이 URL을 링크한 곳은 없어 끊어질 독자 경로는 없다(md-archive 5편의 매치는 메일리 태그 `weeklybriefing`이지 URL 아님). **이 수집 엔진 자체는 계속 돈다** - 삭제 대상은 Vercel 프로젝트 하나뿐이다.
 >
-> **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md`](../ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5.
+> **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md`](../OPERATING-MODEL.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5.
 
 ---
 
