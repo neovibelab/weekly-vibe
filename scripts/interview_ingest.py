@@ -194,6 +194,7 @@ def classify(title: str, text: str, media: str) -> dict:
             "person_ko: 인터뷰 주 인물(아티스트/창작자)의 이름을 한국어 표기로. 여럿이면 대표 1인, "
             "불명확하거나 인물 중심이 아니면 빈 문자열.\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
+            "**title_ko·summary_ko에 가운데 줄표(—)를 쓰지 않는다.** 쉼표나 하이픈(-)으로 바꾸거나 문장을 끊는다.\n"
             "summary_ko: 한국어 120자 이내 핵심 요약(누가 무엇을 말했는지).\n"
             "region: 인물·매체 기준 시장 하나만. korea/china/japan/southeast-asia/global-en.\n\n"
             '{"is_interview": true, "is_music_ent": true, "person_ko": "...", "title_ko": "...", "summary_ko": "...", "region": "..."}'

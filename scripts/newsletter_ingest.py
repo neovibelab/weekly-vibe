@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""뉴스레터 수집기 — allowlist 발신자의 새 뉴스레터를 Gmail(IMAP 앱비밀번호)로 가져와
+"""뉴스레터 수집기 - allowlist 발신자의 새 뉴스레터를 Gmail(IMAP 앱비밀번호)로 가져와
 분류 후 Supabase radar_items(collector='newsletter')에 적재. GitHub Actions 일일 cron.
 
-런타임 의존: requests, anthropic (Gmail은 stdlib imaplib — OAuth/검증 불필요).
+런타임 의존: requests, anthropic (Gmail은 stdlib imaplib - OAuth/검증 불필요).
 환경변수:
   GMAIL_USER / GMAIL_APP_PASS   Gmail 주소 + 앱비밀번호(IMAP)
   SUPABASE_URL / SUPABASE_KEY
@@ -41,7 +41,7 @@ TOPIC_KEYS = [  # 키 동기화: newsroom_ingest·vibe_search·reclassify + nvl-
 REGIONS = ["korea", "global-en", "china", "japan", "southeast-asia"]
 LOOKBACK_DAYS = int(os.environ.get("NL_LOOKBACK_DAYS", "2"))
 FETCH_CAP = int(os.environ.get("NL_FETCH_CAP", "6"))  # 발신자당 최대 처리 건수(env로 일시 상향 가능)
-# 캐치올(제목 게이트) — allowlist 밖 발신자라도 제목이 엔터·콘텐츠·미디어 신호면 수집 (2026-07-16 대표 지시).
+# 캐치올(제목 게이트) - allowlist 밖 발신자라도 제목이 엔터·콘텐츠·미디어 신호면 수집 (2026-07-16 대표 지시).
 # 제목만 haiku 1회 배치 판정 → 통과분만 본문 파이프라인. NL_CATCHALL=0으로 끔.
 CATCHALL_ENABLED = os.environ.get("NL_CATCHALL", "1") != "0"
 CATCHALL_CAP = int(os.environ.get("NL_CATCHALL_CAP", "8"))  # 런당 최대 수집(프로모 폭주 가드)
@@ -55,19 +55,19 @@ AD_HOST = ("servedbyadbutler", "adbutler", "doubleclick", "googleads", "adservic
            "/noclick", "pubads", "adsystem", "adnxs")
 # 리다이렉트 추적 후에도 이 패턴이 남으면 = 해결 실패(콘텐츠 미도달)로 간주.
 TRACKER_LEFTOVER = ("list-manage.com/track", "/track/click", "/click?", "e.mail.")
-# 이메일 "브라우저에서 보기" 웹버전 — 뉴스레터 원문 전체가 렌더되는 가장 안전한 단일 링크.
+# 이메일 "브라우저에서 보기" 웹버전 - 뉴스레터 원문 전체가 렌더되는 가장 안전한 단일 링크.
 WEB_VIEW_HOST = ("campaign-archive.com", "mailchi.mp/", "stib.ee/",
                  "stibee.com/api/v1.0/emails/share", "createsend.com")
 WEB_VIEW_TEXT = ("view this email", "view in browser", "view on", "view online",
                  "read online", "read in browser", "웹에서 보기", "브라우저에서 보기",
                  "온라인으로 보기", "웹브라우저", "이메일 보기")
-# 기사가 아닌 도착지(리다이렉트 후 판정) — 구독·소개·로그인·팔로우·계정 페이지.
+# 기사가 아닌 도착지(리다이렉트 후 판정) - 구독·소개·로그인·팔로우·계정 페이지.
 NON_ARTICLE = ("/subscription", "/subscribe", "/membership", "/pricing", "/plans/",
                "/account", "/login", "/signin", "/sign-in", "/register",
                "/mynews", "follow_config", "/about-us", "/about/", "/aboutus",
                "/authors/", "/author/", "/tag/", "/tags/", "/category/", "/categories/",
                "%ed%9a%8c%ec%82%ac%ec%86%8c%ea%b0%9c")  # 회사소개(IPDaily)
-# utm·메일 추적 쿼리 파라미터 — 최종 URL에서 제거(리다이렉트 완료 후라 불필요).
+# utm·메일 추적 쿼리 파라미터 - 최종 URL에서 제거(리다이렉트 완료 후라 불필요).
 TRACK_PARAMS = ("utm_", "mc_cid", "mc_eid", "ref=", "_hsenc", "_hsmi", "fbclid", "gclid",
                 "tpcc", "uuid", "cmcampaignid", "next_article_id", "article_id_list",
                 "tc=", "cmid", "cmpid")
@@ -187,7 +187,7 @@ def _is_homepage(u: str) -> bool:
 
 
 def _is_bad_final(u: str) -> bool:
-    """기사가 아닌 최종 URL — 광고·홈페이지·해결 실패 추적링크."""
+    """기사가 아닌 최종 URL - 광고·홈페이지·해결 실패 추적링크."""
     lo = u.lower()
     if not u.startswith("http"):
         return True
@@ -214,7 +214,7 @@ _ANCHOR_RE = re.compile(r'(?is)<a\b[^>]*?href="(https?://[^"]+)"[^>]*>(.*?)</a>'
 
 
 def _anchor_list(html_body: str) -> list[tuple[str, str]]:
-    """(href, 앵커텍스트) 목록 — 본문 등장 순서."""
+    """(href, 앵커텍스트) 목록 - 본문 등장 순서."""
     out = [(m.group(1), html_to_text(m.group(2))[:80]) for m in _ANCHOR_RE.finditer(html_body)]
     if not out:  # 앵커 파싱 실패 시 href만으로 폴백
         out = [(m.group(1), "") for m in re.finditer(r'href="(https?://[^"]+)"', html_body)]
@@ -235,7 +235,7 @@ def canonical_url(html_body: str, sess=None) -> str:
     sess = sess or _session()
     anchors = _anchor_list(html_body)
 
-    # 1) "브라우저에서 보기" 웹버전 — 뉴스레터 원문 전체가 렌더되는 가장 안전한 링크
+    # 1) "브라우저에서 보기" 웹버전 - 뉴스레터 원문 전체가 렌더되는 가장 안전한 링크
     for href, text in anchors:
         if _is_skip_link(href):
             continue
@@ -244,7 +244,7 @@ def canonical_url(html_body: str, sess=None) -> str:
             if f.startswith("http") and not _is_bad_final(f):
                 return _strip_tracking(f)
 
-    # 2) 첫 실제 기사 — 추적·단축 링크를 따라가 홈페이지·광고는 건너뜀
+    # 2) 첫 실제 기사 - 추적·단축 링크를 따라가 홈페이지·광고는 건너뜀
     tries = 0
     for href, _text in anchors:
         if _is_skip_link(href):
@@ -267,18 +267,18 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
     # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
     # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
     fallback = {"topics": [], "summary_ko": "", "title_ko": "", "is_gossip": False,
-                "is_entertainment": True, "_failed": True}
+                "is_promo": False, "is_entertainment": True, "_failed": True}
     if not key:
         return fallback
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
         # broad=True 소스(일반·테크·비즈 종합 매체)는 is_entertainment 게이트를 넓혀
-        # 다른 영역의 *교차 신호*를 발굴한다 — 음악·엔터에 국한하지 않음 (2026-06-29 대표 지시).
+        # 다른 영역의 *교차 신호*를 발굴한다 - 음악·엔터에 국한하지 않음 (2026-06-29 대표 지시).
         if broad:
             ie_rule = (
                 "is_entertainment: 이 발신자는 일반·테크·비즈 종합 매체다. 목적은 엔터·문화·미디어·"
-                "소비와 *다른 영역의 교차 신호*를 발굴하는 것 — 음악·엔터에 국한하지 않는다. "
+                "소비와 *다른 영역의 교차 신호*를 발굴하는 것 - 음악·엔터에 국한하지 않는다. "
                 "엔터·미디어·콘텐츠·소비·취향·라이프스타일·플랫폼·테크의 문화적 함의, 또는 무관해 보이는 "
                 "영역(노동·경제·도시·과학·정책 등)이라도 문화·소비·창작·팬덤·세대 인사이트로 이어질 "
                 "교차성이 조금이라도 있으면 true. 순수 하드뉴스(정파 정치·전쟁/안보·거시 금융지표·"
@@ -297,15 +297,22 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
             + ie_rule +
             "is_gossip: 연예인 사생활·열애/결혼/이혼·스캔들·루머·신변잡기 등 산업 신호가 아닌 단순 가십이면 true. "
             "작품·산업·비즈니스·정책·데이터는 false. 애매하면 false(보존 우선).\n"
-            "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
+            "is_promo: **기사가 아니라 발송 메일 자체의 잡음**이면 true. "
+            "프로모션·세일·할인·구독 권유·행사/웨비나/어워드 안내·수상자 공고·"
+            "계정/결제/보안/배송 알림·구독 관리·설문·제품 광고·독자 재참여 유도. "
+            "실제로 걸러야 했던 예 - '노동절 세일: 최대 85% 할인', '어라, 뉴니커 어디 갔어요?', "
+            "'뉴니커 통장에서 돈이 새고 있어요!'. "
+            "기사·분석·리포트·인터뷰면 false. 애매하면 false(보존 우선).\n"
+            "topics: 해당되는 것만 (배열 0~3개) - " + ", ".join(TOPIC_KEYS) + "\n"
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "순수 SaaS·B2B 협업툴·반도체·엔터프라이즈 AI는 tech-issues 아님.\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
+            "**title_ko·summary_ko에 가운데 줄표(—)를 쓰지 않는다.** 쉼표나 하이픈(-)으로 바꾸거나 문장을 끊는다.\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
-            "region: 이 기사가 주로 다루는 시장·지역을 내용 기준으로 하나만 — "
+            "region: 이 기사가 주로 다루는 시장·지역을 내용 기준으로 하나만 - "
             "korea/china/japan/southeast-asia/global-en. 발신 매체의 국적이 아니라 기사 내용 기준 "
             "(예: 한국 뉴스레터의 일본 기업 기사는 japan, 글로벌 브랜드 기사는 global-en, 특정 아시아국 아니면 global-en).\n\n"
-            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "title_ko": "...", "summary_ko": "...", "region": "..."}'
+            '{"is_entertainment": true, "is_gossip": false, "is_promo": false, "topics": [...], "title_ko": "...", "summary_ko": "...", "region": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -329,6 +336,8 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
             "summary_ko": (data.get("summary_ko") or "").strip(),
             "title_ko": (data.get("title_ko") or "").strip(),
             "is_gossip": bool(data.get("is_gossip", False)),
+            # is_promo는 신설(2026-09-02). 키가 없으면 False로 둬 수집이 멈추지 않게 한다.
+            "is_promo": bool(data.get("is_promo", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
             "region": reg if reg in set(REGIONS) else None,
         }
@@ -391,6 +400,9 @@ def build_row(msg, name: str, region_hint: str, broad: bool, seen: set[str], num
     failed = cls.get("_failed", False)
     is_ent = cls.get("is_entertainment", True)
     is_gos = cls.get("is_gossip", False)
+    # 발송 메일 자체의 잡음(프로모션·구독 관리·행사 안내)은 기사가 아니다 (2026-09-02 신설).
+    # 제외 문구가 캐치올 판정에만 있고 본 게이트엔 없어 "노동절 세일 85% 할인"이 풀에 들어와 있었다.
+    is_pro = cls.get("is_promo", False)
     seen.add(url)
     return {
         "id": str(uuid.uuid4()),
@@ -404,13 +416,14 @@ def build_row(msg, name: str, region_hint: str, broad: bool, seen: set[str], num
         "tags": cls["topics"],
         "is_entertainment": is_ent,
         # region: classify가 내용 기준으로 판정한 값 우선, 없으면 발신자 고정 힌트로 폴백
-        # (발신 매체 국적 ≠ 기사 내용 지역 문제 해결 — 예: Longblack의 글로벌 기사, 2026-06-23)
+        # (발신 매체 국적 ≠ 기사 내용 지역 문제 해결 - 예: Longblack의 글로벌 기사, 2026-06-23)
         "region": cls.get("region") or region_hint,
         "published_date": pub,
         # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
-        # classify_failed 표시 → backfill_translate.py가 재번역. 비엔터·가십도 filtered_out.
-        "status": "filtered_out" if (failed or not is_ent or is_gos) else "pending",
-        "filter_verdict": ("classify_failed" if failed else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
+        # classify_failed 표시 → backfill_translate.py가 재번역.
+        # 비엔터·가십·프로모션도 filtered_out (promo는 2026-09-02 신설).
+        "status": "filtered_out" if (failed or not is_ent or is_gos or is_pro) else "pending",
+        "filter_verdict": ("classify_failed" if failed else "non_ent" if not is_ent else "gossip" if is_gos else "promo" if is_pro else "pass"),
         "total_score": 0,
     }
 
@@ -428,7 +441,7 @@ def imap_headers(M, num: bytes):
 
 
 def subject_gate(cands: list[dict]) -> list[int]:
-    """후보 제목 배치 판정 — 수집 가치 있는 인덱스(0-base)만. 실패 시 빈 목록(안전 우선)."""
+    """후보 제목 배치 판정 - 수집 가치 있는 인덱스(0-base)만. 실패 시 빈 목록(안전 우선)."""
     key = os.environ.get("ANTHROPIC_API_KEY")
     if not key or not cands:
         return []
@@ -462,7 +475,7 @@ def subject_gate(cands: list[dict]) -> list[int]:
 def catchall_pass(M, sources: list[dict], ignore: list[str], since, seen: set[str], rows: list[dict]) -> None:
     """allowlist 밖 발신자 메일을 제목 게이트로 선별 수집. 실패해도 본류(allowlist)에 영향 없음."""
     from email.utils import parseaddr
-    # 비활성(_ 접두) allowlist 소스도 제외 대상 — 캐치올로 부활 금지
+    # 비활성(_ 접두) allowlist 소스도 제외 대상 - 캐치올로 부활 금지
     allow_keys = [s.get("from", "").lstrip("_").lower() for s in sources if s.get("from")]
     ignore_keys = [k.lower() for k in ignore]
     typ, data = M.search(None, f'(SINCE "{since.strftime("%d-%b-%Y")}")')
@@ -511,7 +524,7 @@ def main() -> int:
         sources = json.load(f)["sources"]
 
     if not os.environ.get("GMAIL_APP_PASS") or not os.environ.get("GMAIL_USER"):
-        log.error("GMAIL_USER/GMAIL_APP_PASS 미설정 — IMAP 앱비밀번호 시크릿 필요")
+        log.error("GMAIL_USER/GMAIL_APP_PASS 미설정 - IMAP 앱비밀번호 시크릿 필요")
         return 1
 
     M = imap_connect()
@@ -541,7 +554,7 @@ def main() -> int:
                 rows.append(row)
                 log.info("[%s] %s | %s", src["name"], "·".join(row["topics"]) or "-", row["title"][:55])
 
-    # 캐치올 — allowlist 밖 발신자 제목 게이트. 실패해도 본류 적재에 영향 없음.
+    # 캐치올 - allowlist 밖 발신자 제목 게이트. 실패해도 본류 적재에 영향 없음.
     if CATCHALL_ENABLED:
         try:
             with open(ALLOWLIST_PATH, encoding="utf-8") as f:

@@ -1,57 +1,273 @@
 {
-  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백). broad=true는 일반·테크·비즈 종합 매체 — classify가 is_entertainment 게이트를 넓혀 음악·엔터 밖 교차 신호도 채택(순수 하드뉴스만 제외, 2026-06-29). catchall_ignore=캐치올(제목 게이트)·주간 발신자 스캔 공용 제외 목록 — 트랜잭션·서비스 알림·프로모 발신자(부분 문자열 매칭, 2026-07-16). 편집 매체는 여기 넣지 않는다(제목 게이트가 개별 판정).",
+  "_comment": "Vibe Radar 뉴스레터 수집 allowlist. from=Gmail from: 매칭(전용 도메인은 도메인, 공유 도메인[substack]은 전체 주소). region=기본 지역힌트(본문 분류가 우선, 불명확 시 폴백). broad=true는 일반·테크·비즈 종합 매체 — classify가 is_entertainment 게이트를 넓혀 음악·엔터 밖 교차 신호도 채택(순수 하드뉴스만 제외, 2026-06-29). catchall_ignore=캐치올(제목 게이트)·주간 발신자 스캔 공용 제외 목록 — 트랜잭션·서비스 알림·프로모 발신자(부분 문자열 매칭, 2026-07-16). 편집 매체는 여기 넣지 않는다(제목 게이트가 개별 판정). 2026-09-02 대표 지시로 broad 12 → 6 축소. 근거 = 픽·묶음 실적과 「곧」 밀도가 둘 다 0인 소스(Tech in Asia는 수집 0 · HBR · Stratechery · WIRED · 슬로우뉴스 · New Yorker). 남긴 broad 6 = Bloomberg · Vox · NPR · 뉴닉 · The Information · 세컨드브러시 - 픽·묶음 실적이 있거나(Vox 3 · NPR 2 · 뉴닉 1) 살아있는 「곧」이 있다(Bloomberg 2 · 세컨드브러시 2 · The Information 1). broad 자체는 유지한다 - 2026-06-29 대표 지시로 교차 신호를 넓게 받는 자리이고 좌표계의 교차산업 공급원이다.",
   "catchall_ignore": [
-    "google.com", "googlemail.com", "vercel.com", "railway.app",
-    "supabase.com", "claude.com", "anthropic.com", "github.com", "lilys.ai", "apify.com",
-    "shortyawards.com", "neighborhoodartsupply.com", "mv-mail.fastcompany.com"
+    "google.com",
+    "googlemail.com",
+    "vercel.com",
+    "railway.app",
+    "supabase.com",
+    "claude.com",
+    "anthropic.com",
+    "github.com",
+    "lilys.ai",
+    "apify.com",
+    "shortyawards.com",
+    "neighborhoodartsupply.com",
+    "mv-mail.fastcompany.com"
   ],
   "sources": [
-    {"from": "musically.com",              "name": "Music Ally",        "region": "global-en"},
-    {"from": "mail.billboard.com",          "name": "Billboard",         "region": "global-en"},
-    {"from": "naavik.co",                   "name": "Naavik",            "region": "global-en"},
-    {"from": "marionranchet@substack.com",  "name": "Marion Ranchet",    "region": "global-en"},
-    {"from": "aftermath.site",              "name": "Aftermath",         "region": "global-en"},
-    {"from": "jingdaily.com",               "name": "Jing Daily",        "region": "china"},
-    {"from": "nanjingmarketinggroup.com",   "name": "Nanjing Marketing", "region": "china"},
-    {"from": "e.scmp.com",                  "name": "SCMP",              "region": "china"},
-    {"from": "patrickmacias@substack.com",  "name": "TokyoScope",        "region": "japan"},
-    {"from": "longblack.co",                "name": "Longblack",         "region": "korea"},
-    {"from": "folin.co",                    "name": "폴인레터",          "region": "korea"},
-    {"from": "iptargets.com",               "name": "IPDaily",           "region": "korea"},
-    {"from": "musicbizworldwide.com",          "name": "Music Business Worldwide", "region": "global-en"},
-    {"from": "complete-music-update@ghost.io", "name": "CMU",                       "region": "global-en"},
-    {"from": "nme.com",                        "name": "NME",                       "region": "global-en"},
-    {"from": "consequence.net",                "name": "Consequence",               "region": "global-en"},
-    {"from": "newsletter.luminatedata.com",    "name": "Luminate",                  "region": "global-en"},
-    {"from": "media-innovation.jp",            "name": "Media Innovation",          "region": "japan"},
-    {"from": "tokyoweekender@mail.beehiiv.com","name": "Tokyo Weekender",           "region": "japan"},
-    {"from": "careet.net",                     "name": "캐릿",                      "region": "korea"},
-    {"from": "musicbusinessworldwide.com",     "name": "MBW (보조 도메인)",         "region": "global-en"},
-    {"from": "trapital.com",                   "name": "Trapital",                  "region": "global-en"},
-    {"from": "musicexp@substack.com",          "name": "MUSIC x",                   "region": "global-en"},
-    {"from": "winformusic.org",                "name": "WIN (인디 음악 국제기구)",   "region": "global-en"},
-    {"from": "copyrightlately.com",            "name": "Copyright Lately",          "region": "global-en"},
-    {"from": "investgame.net",                 "name": "InvestGame",                "region": "global-en"},
-    {"from": "pudding.cool",                   "name": "The Pudding",               "region": "global-en"},
-    {"from": "contentasia.tv",                 "name": "ContentAsia",               "region": "southeast-asia"},
-    {"from": "giglifepro.com",                 "name": "Gig Life Pro",              "region": "southeast-asia"},
-    {"from": "22cs@ghost.io",                  "name": "22세기위성 (대만 음악)",     "region": "china"},
-    {"from": "animenomics",                    "name": "Animenomics",               "region": "japan"},
-    {"from": "dime.shogakukan.co.jp",          "name": "DIME (일본 트렌드)",         "region": "japan"},
-    {"from": "munhwa.cvs@maily.so",            "name": "문화편의점",                "region": "korea"},
-    {"from": "opensurvey.io",                  "name": "오픈서베이",                "region": "korea"},
-    {"from": "blog.secondbrush.co.kr",         "name": "세컨드브러시",     "region": "korea",     "broad": true},
-    {"from": "newneek.co",                     "name": "뉴닉",             "region": "korea",     "broad": true},
-    {"from": "slownews.kr",                    "name": "슬로우뉴스",       "region": "korea",     "broad": true},
-    {"from": "techinasia.com",                 "name": "Tech in Asia",     "region": "southeast-asia", "broad": true},
-    {"from": "emails.hbr.org",                 "name": "HBR",              "region": "global-en", "broad": true},
-    {"from": "news.bloomberg.com",             "name": "Bloomberg",        "region": "global-en", "broad": true},
-    {"from": "theinformation.com",             "name": "The Information",  "region": "global-en", "broad": true},
-    {"from": "newsletters.wired.com",          "name": "WIRED",            "region": "global-en", "broad": true},
-    {"from": "newsletter.newyorker.com",       "name": "New Yorker",       "region": "global-en", "broad": true},
-    {"from": "vox.com",                        "name": "Vox",              "region": "global-en", "broad": true},
-    {"from": "nl.npr.org",                     "name": "NPR",              "region": "global-en", "broad": true},
-    {"from": "stratechery.com",                "name": "Stratechery",      "region": "global-en", "broad": true},
-    {"from": "mail.theankler.com",              "name": "The Ankler",       "region": "global-en"}
+    {
+      "from": "musically.com",
+      "name": "Music Ally",
+      "region": "global-en"
+    },
+    {
+      "from": "mail.billboard.com",
+      "name": "Billboard",
+      "region": "global-en"
+    },
+    {
+      "from": "naavik.co",
+      "name": "Naavik",
+      "region": "global-en"
+    },
+    {
+      "from": "marionranchet@substack.com",
+      "name": "Marion Ranchet",
+      "region": "global-en"
+    },
+    {
+      "from": "aftermath.site",
+      "name": "Aftermath",
+      "region": "global-en"
+    },
+    {
+      "from": "jingdaily.com",
+      "name": "Jing Daily",
+      "region": "china"
+    },
+    {
+      "from": "nanjingmarketinggroup.com",
+      "name": "Nanjing Marketing",
+      "region": "china"
+    },
+    {
+      "from": "e.scmp.com",
+      "name": "SCMP",
+      "region": "china"
+    },
+    {
+      "from": "patrickmacias@substack.com",
+      "name": "TokyoScope",
+      "region": "japan"
+    },
+    {
+      "from": "longblack.co",
+      "name": "Longblack",
+      "region": "korea"
+    },
+    {
+      "from": "folin.co",
+      "name": "폴인레터",
+      "region": "korea"
+    },
+    {
+      "from": "iptargets.com",
+      "name": "IPDaily",
+      "region": "korea"
+    },
+    {
+      "from": "musicbizworldwide.com",
+      "name": "Music Business Worldwide",
+      "region": "global-en"
+    },
+    {
+      "from": "complete-music-update@ghost.io",
+      "name": "CMU",
+      "region": "global-en"
+    },
+    {
+      "from": "nme.com",
+      "name": "NME",
+      "region": "global-en"
+    },
+    {
+      "from": "consequence.net",
+      "name": "Consequence",
+      "region": "global-en"
+    },
+    {
+      "from": "newsletter.luminatedata.com",
+      "name": "Luminate",
+      "region": "global-en"
+    },
+    {
+      "from": "media-innovation.jp",
+      "name": "Media Innovation",
+      "region": "japan"
+    },
+    {
+      "from": "tokyoweekender@mail.beehiiv.com",
+      "name": "Tokyo Weekender",
+      "region": "japan"
+    },
+    {
+      "from": "careet.net",
+      "name": "캐릿",
+      "region": "korea"
+    },
+    {
+      "from": "musicbusinessworldwide.com",
+      "name": "MBW (보조 도메인)",
+      "region": "global-en"
+    },
+    {
+      "from": "trapital.com",
+      "name": "Trapital",
+      "region": "global-en"
+    },
+    {
+      "from": "musicexp@substack.com",
+      "name": "MUSIC x",
+      "region": "global-en"
+    },
+    {
+      "from": "winformusic.org",
+      "name": "WIN (인디 음악 국제기구)",
+      "region": "global-en"
+    },
+    {
+      "from": "copyrightlately.com",
+      "name": "Copyright Lately",
+      "region": "global-en"
+    },
+    {
+      "from": "investgame.net",
+      "name": "InvestGame",
+      "region": "global-en"
+    },
+    {
+      "from": "pudding.cool",
+      "name": "The Pudding",
+      "region": "global-en"
+    },
+    {
+      "from": "contentasia.tv",
+      "name": "ContentAsia",
+      "region": "southeast-asia"
+    },
+    {
+      "from": "giglifepro.com",
+      "name": "Gig Life Pro",
+      "region": "southeast-asia"
+    },
+    {
+      "from": "22cs@ghost.io",
+      "name": "22세기위성 (대만 음악)",
+      "region": "china"
+    },
+    {
+      "from": "animenomics",
+      "name": "Animenomics",
+      "region": "japan"
+    },
+    {
+      "from": "dime.shogakukan.co.jp",
+      "name": "DIME (일본 트렌드)",
+      "region": "japan"
+    },
+    {
+      "from": "munhwa.cvs@maily.so",
+      "name": "문화편의점",
+      "region": "korea"
+    },
+    {
+      "from": "opensurvey.io",
+      "name": "오픈서베이",
+      "region": "korea"
+    },
+    {
+      "from": "blog.secondbrush.co.kr",
+      "name": "세컨드브러시",
+      "region": "korea",
+      "broad": true
+    },
+    {
+      "from": "newneek.co",
+      "name": "뉴닉",
+      "region": "korea",
+      "broad": true
+    },
+    {
+      "from": "_slownews.kr",
+      "name": "슬로우뉴스",
+      "region": "korea",
+      "broad": true,
+      "_reason": "36건 수집·픽 0·묶음 0·「곧」 0·살아있는 항목 0. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "_techinasia.com",
+      "name": "Tech in Asia",
+      "region": "southeast-asia",
+      "broad": true,
+      "_reason": "피드가 죽었다 - 수집 0건. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "_emails.hbr.org",
+      "name": "HBR",
+      "region": "global-en",
+      "broad": true,
+      "_reason": "5건 수집·80% 걸러짐·픽 0·묶음 0·「곧」 0. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "news.bloomberg.com",
+      "name": "Bloomberg",
+      "region": "global-en",
+      "broad": true
+    },
+    {
+      "from": "theinformation.com",
+      "name": "The Information",
+      "region": "global-en",
+      "broad": true
+    },
+    {
+      "from": "_newsletters.wired.com",
+      "name": "WIRED",
+      "region": "global-en",
+      "broad": true,
+      "_reason": "18건 수집·픽 0·묶음 0·「곧」 0. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "_newsletter.newyorker.com",
+      "name": "New Yorker",
+      "region": "global-en",
+      "broad": true,
+      "_reason": "27건 수집·픽 0·묶음 0·「곧」 0인데 걸러짐이 4%라 거의 전량 통과했다. 살아있는 4건이 전부 단신(노동절 세일 2건 포함). broad 소스 중 최대 잡음원. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "vox.com",
+      "name": "Vox",
+      "region": "global-en",
+      "broad": true
+    },
+    {
+      "from": "nl.npr.org",
+      "name": "NPR",
+      "region": "global-en",
+      "broad": true
+    },
+    {
+      "from": "_stratechery.com",
+      "name": "Stratechery",
+      "region": "global-en",
+      "broad": true,
+      "_reason": "12건 수집·픽 0·묶음 0·「곧」 0. 2026-09-02 실측 정리."
+    },
+    {
+      "from": "mail.theankler.com",
+      "name": "The Ankler",
+      "region": "global-en"
+    }
   ]
 }
