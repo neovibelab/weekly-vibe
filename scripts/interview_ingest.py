@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""인터뷰 수집기 — allowlist 매체 RSS·유튜브 채널 RSS에서 최신 항목을 가져와
+"""인터뷰 수집기 - allowlist 매체 RSS·유튜브 채널 RSS에서 최신 항목을 가져와
 분류(is_interview 게이트)한 뒤 인터뷰만 Supabase radar_items(collector='interview')에 적재.
-GitHub Actions 화·금 주 2회 cron. Discord 미포스팅 — 대시보드 전용.
+GitHub Actions 화·금 주 2회 cron. Discord 미포스팅 - 대시보드 전용.
 
 vibe_search·newsletter·newsroom과 같은 풀(radar_items)을 공유하는 네 번째 수집기.
 용처: @nvl.seoul 'insight/quote/reels' 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
 
-런타임 의존: requests, anthropic (피드 파싱은 stdlib xml.etree — 외부 feedparser 불필요).
+런타임 의존: requests, anthropic (피드 파싱은 stdlib xml.etree - 외부 feedparser 불필요).
 환경변수:
   SUPABASE_URL / SUPABASE_KEY
   ANTHROPIC_API_KEY           분류용(없으면 미분류 filtered_out 적재)
@@ -14,7 +14,7 @@ vibe_search·newsletter·newsroom과 같은 풀(radar_items)을 공유하는 네
   INTERVIEW_LOOKBACK_DAYS     기본 14 (주 2회 스케줄 + 여유. RSS 특성상 최신만 잡힘)
 
 2026-07-10 수정: YouTube 채널 RSS(`/feeds/videos.xml`)가 GitHub Actions 러너 IP에서
-전량 404(로컬에서는 200 — IP 차단/제한으로 추정, UA는 이미 브라우저 값이라 무관).
+전량 404(로컬에서는 200 - IP 차단/제한으로 추정, UA는 이미 브라우저 값이라 무관).
 영상 소스는 YouTube Data API v3(`playlistItems`, uploads 재생목록 = 채널ID의 UC→UU
 치환)로 전환. 텍스트 소스(매체 RSS)는 기존 방식 그대로.
 사용: python scripts/interview_ingest.py [--dry-run]
@@ -54,7 +54,7 @@ def extract_channel_id(feed_url: str) -> str | None:
 
 def fetch_youtube_api(channel_id: str) -> list[dict]:
     """YouTube Data API v3(playlistItems)로 채널 최신 업로드 조회.
-    uploads 재생목록 ID = 채널ID의 'UC' 접두를 'UU'로 치환(공식 규칙) — channels.list
+    uploads 재생목록 ID = 채널ID의 'UC' 접두를 'UU'로 치환(공식 규칙) - channels.list
     호출 없이 1회 요청으로 끝남(쿼터 1 unit/채널)."""
     if not channel_id.startswith("UC"):
         return []
@@ -133,7 +133,7 @@ def parse_feed(data: bytes) -> list[dict]:
                 d.setdefault("date", txt)
             elif ln in ("description", "summary", "content") and txt:
                 d.setdefault("summary", txt)
-            elif ln == "group":  # YouTube <media:group> — 제목·설명이 여기 중첩
+            elif ln == "group":  # YouTube <media:group> - 제목·설명이 여기 중첩
                 for g in ch:
                     gln = _local(g.tag)
                     gtxt = (g.text or "").strip()
@@ -171,8 +171,8 @@ def classify(title: str, text: str, media: str) -> dict:
     key = os.environ.get("ANTHROPIC_API_KEY")
     # _failed: 하드 실패(키 없음·API 예외). main이 이걸 보고 미분류 원문을 인터뷰로 오적재하지 않고
     # filtered_out + classify_failed로 적재한다(is_interview 판정 불가 → 풀 노출 안 함).
-    fallback = {"is_interview": False, "person_ko": "", "summary_ko": "", "title_ko": "",
-                "region": None, "_failed": True}
+    fallback = {"is_interview": False, "is_music_ent": False, "person_ko": "", "summary_ko": "",
+                "title_ko": "", "region": None, "_failed": True}
     if not key:
         return fallback
     try:
@@ -181,15 +181,22 @@ def classify(title: str, text: str, media: str) -> dict:
         prompt = (
             "아래는 음악·엔터 매체의 글 또는 유튜브 영상이다. 인터뷰 수집기용으로 분류해 JSON으로만 응답.\n\n"
             f"형태 힌트: {media}\n제목: {title}\n본문/설명 발췌: {text[:1500]}\n\n"
-            "is_interview: 아티스트·창작자 **본인의 발화(인터뷰·대담·Q&A·라운드테이블·본인 해설/코멘터리)가 중심**이면 true. "
+            "**두 축을 따로 판정한다. 형태와 주제다.**\n"
+            "is_interview(형태): 아티스트·창작자 **본인의 발화(인터뷰·대담·Q&A·라운드테이블·본인 해설/코멘터리)가 중심**이면 true. "
             "false=뉴스·보도·리뷰/평점·차트/순위·라이브/퍼포먼스 단독·뮤직비디오·리스트클릭베이트·부고·행사 공지·홍보. "
-            "애매하면 false(정밀 우선 — 인터뷰만 통과).\n"
+            "애매하면 false(정밀 우선, 인터뷰만 통과).\n"
+            "is_music_ent(주제): 발화 내용이 **음악·엔터 창작이나 그 산업**에 관한 것이면 true. "
+            "곡·앨범·프로덕션·공연·팬덤·레이블·계약·플랫폼·IP·업계 구조 등. "
+            "false=연애·육아·건강·심리·창업·테크·정치·요리·잡담. "
+            "**말하는 사람이 아티스트여도 주제가 음악·엔터가 아니면 false다.** "
+            "실제로 걸러야 했던 예 - 배우가 팟캐스트에서 임신 이야기를 한다, "
+            "창작자가 TED에서 우주론을 강연한다, 뮤지션이 예능에서 매운 음식을 먹는다.\n"
             "person_ko: 인터뷰 주 인물(아티스트/창작자)의 이름을 한국어 표기로. 여럿이면 대표 1인, "
             "불명확하거나 인물 중심이 아니면 빈 문자열.\n"
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
             "summary_ko: 한국어 120자 이내 핵심 요약(누가 무엇을 말했는지).\n"
-            "region: 인물·매체 기준 시장 하나만 — korea/china/japan/southeast-asia/global-en.\n\n"
-            '{"is_interview": true, "person_ko": "...", "title_ko": "...", "summary_ko": "...", "region": "..."}'
+            "region: 인물·매체 기준 시장 하나만. korea/china/japan/southeast-asia/global-en.\n\n"
+            '{"is_interview": true, "is_music_ent": true, "person_ko": "...", "title_ko": "...", "summary_ko": "...", "region": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -203,12 +210,19 @@ def classify(title: str, text: str, media: str) -> dict:
         data = json.loads(raw)
         if isinstance(data, list):  # 모델이 배열로 응답하는 엣지
             data = next((x for x in data if isinstance(x, dict)), {})
-        ii = data.get("is_interview")
-        if isinstance(ii, str):
-            ii = ii.strip().lower() in ("true", "1", "yes", "y", "예")
+        def _b(v):
+            if isinstance(v, str):
+                return v.strip().lower() in ("true", "1", "yes", "y", "예")
+            return bool(v)
+
+        ii = _b(data.get("is_interview"))
+        # 주제 축은 신설(2026-09-02)이라 모델이 키를 빠뜨리면 통과시킨다.
+        # 형태 축까지 같이 죽으면 수집이 통째로 멈춘다.
+        me = _b(data.get("is_music_ent")) if "is_music_ent" in data else True
         reg = (data.get("region") or "").strip()
         return {
-            "is_interview": bool(ii),
+            "is_interview": ii,
+            "is_music_ent": me,
             "person_ko": (data.get("person_ko") or "").strip(),
             "summary_ko": (data.get("summary_ko") or "").strip(),
             "title_ko": (data.get("title_ko") or "").strip(),
@@ -290,7 +304,7 @@ def main() -> int:
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=datetime.timezone.utc)
                 if dt < cutoff:
-                    continue  # 룩백 밖(오래된 글) — RSS라 어차피 최신만 잡힘
+                    continue  # 룩백 밖(오래된 글) - RSS라 어차피 최신만 잡힘
                 pub = dt.astimezone(datetime.timezone.utc).isoformat()
             else:
                 pub = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -298,11 +312,12 @@ def main() -> int:
             summary_raw = html_to_text(it.get("summary", ""))[:2000]
             cls = classify(title, summary_raw, media)
             failed = cls.get("_failed", False)
-            is_int = cls.get("is_interview", False)
+            # 형태와 주제 둘 다 통과해야 적재한다 (2026-09-02 주제 축 신설).
+            is_int = cls.get("is_interview", False) and cls.get("is_music_ent", True)
             person = cls.get("person_ko", "")
-            # summary 관례: "인물 — 요지" (인물 있으면 접두)
+            # summary 관례: "인물 - 요지" (인물 있으면 접두)
             base_sum = cls.get("summary_ko") or summary_raw[:200]
-            summary = f"{person} — {base_sum}" if person and base_sum else base_sum
+            summary = f"{person} - {base_sum}" if person and base_sum else base_sum
             rows.append({
                 "id": str(uuid.uuid4()),
                 "title": (cls.get("title_ko") or title)[:500],
@@ -312,7 +327,7 @@ def main() -> int:
                 "collector": "interview",
                 "summary": summary,
                 "topics": [],
-                "tags": [media],  # text|video — 대시보드에서 형태 구분용
+                "tags": [media],  # text|video - 대시보드에서 형태 구분용
                 "is_entertainment": True,  # 인터뷰 소스는 엔터 직결
                 "region": cls.get("region") or src.get("region", "global-en"),
                 "published_date": pub,

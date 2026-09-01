@@ -1,35 +1,207 @@
 {
-  "_comment": "Vibe Radar 아티스트 인터뷰 수집 소스. feed=검증된 피드 URL(2026-07-09 직접 fetch 확인·유효 XML). region=고정 지역힌트. media=text|video(힌트). collector='interview'. 텍스트는 매체 RSS(인터뷰/피처 강한 섹션), 영상은 유튜브 채널 RSS(https://www.youtube.com/feeds/videos.xml?channel_id=UC...). feed가 '_'로 시작하면 비활성(사유는 옆 주석). 추가·제거는 이 JSON만 편집하되 피드 URL은 실제 fetch로 유효성 검증 후 등재.",
+  "_comment": "Vibe Radar 아티스트 인터뷰 수집 소스. feed=검증된 피드 URL(2026-07-09 직접 fetch 확인·유효 XML). region=고정 지역힌트. media=text|video(힌트). collector='interview'. 텍스트는 매체 RSS(인터뷰/피처 강한 섹션), 영상은 유튜브 채널 RSS(https://www.youtube.com/feeds/videos.xml?channel_id=UC...). feed가 '_'로 시작하면 비활성(사유는 옆 주석). 추가·제거는 이 JSON만 편집하되 피드 URL은 실제 fetch로 유효성 검증 후 등재. 2026-09-02 대표 지시로 활성 26 → 8. 근거 = 2개월 실측(1,992건 수집·픽 3건, 그 3건이 Music Tectonics 2·And The Writer Is... 1). 남긴 기준 = 영상(릴스가 본체) + 음악·창작 주제 + 국내 1개 + 텍스트 1개.",
   "sources": [
-    {"feed": "https://www.thefader.com/feed",                                        "name": "The FADER",        "region": "global-en", "media": "text"},
-    {"feed": "https://www.stereogum.com/feed",                                        "name": "Stereogum",        "region": "global-en", "media": "text"},
-    {"feed": "https://www.theguardian.com/music/rss",                                 "name": "The Guardian Music","region": "global-en", "media": "text"},
-    {"feed": "https://pitchfork.com/feed/feed-features/rss",                          "name": "Pitchfork Features","region": "global-en", "media": "text"},
-    {"feed": "https://www.nme.com/feed",                                              "name": "NME",              "region": "global-en", "media": "text"},
-    {"feed": "https://www.rollingstone.com/music/feed/",                             "name": "Rolling Stone Music","region": "global-en", "media": "text"},
-    {"feed": "https://theankler.com/feed/",                                          "name": "The Ankler",       "region": "global-en", "media": "text"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBv7HEHuVlNAELGi5XJd85Q", "name": "Apple Music",   "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ", "name": "Broken Record", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw", "name": "Tape Notes",    "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCUyfkq9e9ZfPzxOW5WQ9rzQ", "name": "MMTG 문명특급",  "region": "korea",     "media": "video"},
-    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCtCiO5t2voB14CmZKTkIzPQ", "name": "딩고 뮤직",      "region": "korea",     "media": "video", "_reason": "대표 지시로 제외 (2026-07-10)."},
-    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCeLPm9yH_a_QH8n6445G-Ow", "name": "KBS 더 시즌즈", "region": "korea",     "media": "video", "_reason": "더 시즌즈 전용 채널 미확인(2026-07-09) — 클립이 KBS Kpop 종합 채널(UCeLPm9yH…)에 산재. 종합 채널은 퍼포먼스·예능 비중이 커 is_interview 게이트 노이즈가 커서 비활성. 전용 채널·핸들 확인 시 UC 교체 후 '_' 제거해 활성화."},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAJnnJPeWf45gPDuQ15-Z6w", "name": "Zach Sang Show", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPD_bxCRGpmmeQcbe2kpPaA", "name": "First We Feast (Hot Ones)", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC5Gat6FdyiG5ydUUHqPTAEQ", "name": "Tetragrammaton with Rick Rubin", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCySxr2WDpgkNJp6jTJB9agA", "name": "And The Writer Is...", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0q8v3JNJ9h_330rEX9VTsw", "name": "OK POP!!", "region": "korea", "media": "video"},
-    {"feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCWe4Yf70Tl7gTBdOb2LcYqA", "name": "재즈기자 Jazz Editor", "region": "korea", "media": "video", "_reason": "대표 지시로 제외 (2026-07-11)."},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2YKXCQ8wt1RFpQEELwILCQ", "name": "SXSW", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw", "name": "Music Tectonics", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAuUUnT6oDeKwE6v1NGQxug", "name": "TED", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCCjyq_K1Xwfg8Lndy7lKMpA", "name": "TechCrunch", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpVgvGCq0ZRNnYtoFwVG4Wg", "name": "Neighborhood Art Supply", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyGi3eCuxko37WB6uUr7LjA", "name": "Call Her Daddy", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiemDAS1bXMBTx3jIIOukFg", "name": "Masters of Scale", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyFZMEnm1il5Wv3a6tPscbA", "name": "Genius", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCq4isO8ZYOZfmvGJ-_1UdIA", "name": "GRAMMYS", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZ8Sxmkweh65HetaZfR8YuA", "name": "The Hollywood Reporter", "region": "global-en", "media": "video"},
-    {"feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnnIvsEv9cSQxp8LWyVhcew", "name": "The Town with Matt Belloni", "region": "global-en", "media": "video"}
+    {
+      "feed": "_https://www.thefader.com/feed",
+      "name": "The FADER",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "텍스트라 릴스가 안 되고 타 음악 매체와 겹친다. 133건 수집 0픽. 텍스트는 Pitchfork Features 하나만 - 2026-09-02."
+    },
+    {
+      "feed": "_https://www.stereogum.com/feed",
+      "name": "Stereogum",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "텍스트 중복. 144건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.theguardian.com/music/rss",
+      "name": "The Guardian Music",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "텍스트 중복. 141건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "https://pitchfork.com/feed/feed-features/rss",
+      "name": "Pitchfork Features",
+      "region": "global-en",
+      "media": "text"
+    },
+    {
+      "feed": "_https://www.nme.com/feed",
+      "name": "NME",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "텍스트 중복. 116건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.rollingstone.com/music/feed/",
+      "name": "Rolling Stone Music",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "텍스트 중복. 138건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://theankler.com/feed/",
+      "name": "The Ankler",
+      "region": "global-en",
+      "media": "text",
+      "_reason": "인터뷰보다 업계 보도·논평이 본체. 120건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBv7HEHuVlNAELGi5XJd85Q",
+      "name": "Apple Music",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ",
+      "name": "Broken Record",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw",
+      "name": "Tape Notes",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCUyfkq9e9ZfPzxOW5WQ9rzQ",
+      "name": "MMTG 문명특급",
+      "region": "korea",
+      "media": "video"
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCtCiO5t2voB14CmZKTkIzPQ",
+      "name": "딩고 뮤직",
+      "region": "korea",
+      "media": "video",
+      "_reason": "대표 지시로 제외 (2026-07-10)."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCeLPm9yH_a_QH8n6445G-Ow",
+      "name": "KBS 더 시즌즈",
+      "region": "korea",
+      "media": "video",
+      "_reason": "더 시즌즈 전용 채널 미확인(2026-07-09) — 클립이 KBS Kpop 종합 채널(UCeLPm9yH…)에 산재. 종합 채널은 퍼포먼스·예능 비중이 커 is_interview 게이트 노이즈가 커서 비활성. 전용 채널·핸들 확인 시 UC 교체 후 '_' 제거해 활성화."
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCAJnnJPeWf45gPDuQ15-Z6w",
+      "name": "Zach Sang Show",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCPD_bxCRGpmmeQcbe2kpPaA",
+      "name": "First We Feast (Hot Ones)",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "셀럽 예능이라 산업·창작 발화가 아니다. 128건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UC5Gat6FdyiG5ydUUHqPTAEQ",
+      "name": "Tetragrammaton with Rick Rubin",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "주제가 음악 밖으로 넓다(철학·건강·스포츠). Broken Record로 대신한다 - 2026-09-02."
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCySxr2WDpgkNJp6jTJB9agA",
+      "name": "And The Writer Is...",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UC0q8v3JNJ9h_330rEX9VTsw",
+      "name": "OK POP!!",
+      "region": "korea",
+      "media": "video",
+      "_reason": "수집 0건 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCWe4Yf70Tl7gTBdOb2LcYqA",
+      "name": "재즈기자 Jazz Editor",
+      "region": "korea",
+      "media": "video",
+      "_reason": "대표 지시로 제외 (2026-07-11)."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UC2YKXCQ8wt1RFpQEELwILCQ",
+      "name": "SXSW",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "컨퍼런스 세션 영상. 26건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw",
+      "name": "Music Tectonics",
+      "region": "global-en",
+      "media": "video"
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCAuUUnT6oDeKwE6v1NGQxug",
+      "name": "TED",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "엔터·음악 아님 (강연). 85건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCCjyq_K1Xwfg8Lndy7lKMpA",
+      "name": "TechCrunch",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "엔터·음악 아님 (테크 뉴스). 75건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCpVgvGCq0ZRNnYtoFwVG4Wg",
+      "name": "Neighborhood Art Supply",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "엔터·음악 아님 (미술 용품). 6건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCyGi3eCuxko37WB6uUr7LjA",
+      "name": "Call Her Daddy",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "엔터·음악 아님 (연애·라이프 팟캐스트). 103건 수집 0픽, 살아있는 풀 최대 점유(33건) - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCiemDAS1bXMBTx3jIIOukFg",
+      "name": "Masters of Scale",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "엔터·음악 아님 (창업). 59건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCyFZMEnm1il5Wv3a6tPscbA",
+      "name": "Genius",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "가사 해설 클립이라 발화가 파편. 68건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCq4isO8ZYOZfmvGJ-_1UdIA",
+      "name": "GRAMMYS",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "시상식 클립·레드카펫. 66건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCZ8Sxmkweh65HetaZfR8YuA",
+      "name": "The Hollywood Reporter",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "인터뷰보다 보도가 본체. 88건 수집 0픽 - 2026-09-02 실측 정리."
+    },
+    {
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCnnIvsEv9cSQxp8LWyVhcew",
+      "name": "The Town with Matt Belloni",
+      "region": "global-en",
+      "media": "video",
+      "_reason": "업계 논평·분석. 65건 수집 0픽 - 2026-09-02 실측 정리."
+    }
   ]
 }
