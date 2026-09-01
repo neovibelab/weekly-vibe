@@ -134,14 +134,19 @@ def print_stats(rows, now):
         print(f"  {s} / {c}: {n}")
 
 
-def archive_targets(rows, now):
+def archive_targets(rows, now, exempt_ids=frozenset()):
     # 자동수집 collector의 pending을 created_at 최신순 POOL_KEEP개만 남기고
     # 초과분(오래된 것)을 archived 대상으로. manual·기타 status는 여기서 안 다룸.
+    #
+    # exempt_ids (2026-09-02 신설) - 살아있는 타깃(aims)의 근거 신호와 보호 묶음 멤버.
+    # 픽 시효에는 면제가 있었는데 여기엔 없어서 묶음 멤버 47건 중 40건이 쓸려나갔다(실측).
+    # 타깃을 세워뒀는데 근거가 사라지면 2 모은다가 빈손으로 시작한다.
     over = []
     for coll in sorted(MANAGED_COLLECTORS):
         keep = INTERVIEW_KEEP if coll == "interview" else POOL_KEEP
         pend = [r for r in rows
-                if r.get("status") == "pending" and r.get("collector") == coll]
+                if r.get("status") == "pending" and r.get("collector") == coll
+                and r.get("id") not in exempt_ids]
         pend.sort(key=lambda r: r.get("created_at") or "", reverse=True)  # 최신 먼저
         over.extend(pend[keep:])  # 상한 초과분 = 오래된 것
     return [(r, _age_days(r, now)) for r in over]
@@ -184,6 +189,27 @@ def cluster_expiry_targets(clusters, now):
         if idle is not None and idle >= CLUSTER_MAX_IDLE_DAYS:
             out.append((c, idle))
     out.sort(key=lambda t: -(t[1] or 0))
+    return out
+
+
+def aim_source_ids() -> set:
+    """살아있는 타깃(open·drafting)의 근거 신호 id. aims 테이블이 없으면 빈 집합.
+
+    타깃이 레이더의 출구가 되면서(v15) 근거 보존의 기준도 묶음에서 타깃으로 옮겨간다.
+    이관 기간에는 둘 다 면제한다.
+    """
+    try:
+        url = os.environ["SUPABASE_URL"].rstrip("/") + "/rest/v1/aims"
+        rows = _fetch_paged(url, {"select": "id,status,source_ids", "order": "id.asc"})
+    except Exception as e:
+        log_skip = str(e)[:80]
+        print(f"  (aims 조회 생략: {log_skip})")
+        return set()
+    out = set()
+    for a in rows:
+        if a.get("status") in ("open", "drafting"):
+            for sid in (a.get("source_ids") or []):
+                out.add(sid)
     return out
 
 
@@ -238,9 +264,19 @@ def main() -> int:
     if "--stats" in sys.argv:
         print_stats(rows, now)
 
-    targets = archive_targets(rows, now)
+    # 상한 면제 - 살아있는 타깃의 근거 + 보호 묶음 멤버. 조회 실패는 빈 집합(면제 없음)이
+    # 아니라 **정리 자체를 건너뛰는 쪽**이 안전하지만, 상한은 노이즈 관리라 면제 없이 진행한다.
+    exempt = aim_source_ids()
+    try:
+        _cl = fetch_clusters()
+        _lk = fetch_cluster_links()
+        exempt |= protected_member_ids(_cl, _lk, set())
+    except Exception as e:
+        print(f"  (묶음 면제 생략: {str(e)[:70]})")
+
+    targets = archive_targets(rows, now, exempt)
     mc = "·".join(sorted(MANAGED_COLLECTORS))
-    print(f"\n[archive 대상 ① pending 상한] {len(targets)}건 (최신 {POOL_KEEP}개 유지 · {mc} pending 대상 · manual 영구)")
+    print(f"\n[archive 대상 ① pending 상한] {len(targets)}건 (최신 {POOL_KEEP}개 유지 · {mc} pending 대상 · manual 영구 · 근거 면제 {len(exempt)}건)")
     for r, age in targets[:30]:
         print(f"  [{r.get('collector')}] {age}일 | {(r.get('title') or '')[:50]}")
     if len(targets) > 30:
