@@ -140,7 +140,7 @@ def archive_targets(rows, now, exempt_ids=frozenset()):
     #
     # exempt_ids (2026-09-02 신설) - 살아있는 타깃(aims)의 근거 신호와 보호 묶음 멤버.
     # 픽 시효에는 면제가 있었는데 여기엔 없어서 묶음 멤버 47건 중 40건이 쓸려나갔다(실측).
-    # 타깃을 세워뒀는데 근거가 사라지면 2 모은다가 빈손으로 시작한다.
+    # 타깃을 세워뒀는데 근거가 사라지면 2 리서치가 빈손으로 시작한다.
     over = []
     for coll in sorted(MANAGED_COLLECTORS):
         keep = INTERVIEW_KEEP if coll == "interview" else POOL_KEEP
