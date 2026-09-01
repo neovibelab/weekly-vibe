@@ -62,7 +62,7 @@ vibe_search·newsletter와 **같은 풀을 공유하는 세 번째 수집기.** 
 
 ## 1-3. 인터뷰 수집기 (collector='interview', 2026-07-09 신설)
 
-vibe_search·newsletter·newsroom과 **같은 풀(`radar_items`)을 공유하는 네 번째 수집기.** 국내외 아티스트·창작자 인터뷰(텍스트·영상)를 모아 대시보드 인터뷰 탭에 노출한다. 용처 = @nvl.seoul "insight/quote/reels" 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
+vibe_search·newsletter·newsroom·gnews와 **같은 풀(`radar_items`)을 공유하는 수집기 다섯 중 하나.** 국내외 아티스트·창작자 인터뷰(텍스트·영상)를 모아 대시보드 인터뷰 탭에 노출한다. 용처 = @nvl.seoul "insight/quote/reels" 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
 
 - **엔진**: `scripts/interview_ingest.py` - 매체 RSS·유튜브 채널 RSS(`videos.xml?channel_id=UC…`) fetch(stdlib `xml.etree`) → Claude haiku 분류 → **is_interview=true만** upsert. YouTube Atom의 `<media:group>` 중첩 제목·설명도 파싱(newsroom 파서 확장). 지역은 소스 고정 힌트(분류 값 우선).
 - **분류 게이트 (2026-09-02 주제 축 신설)**: haiku가 **두 축을 따로** 판정하고 **둘 다 true여야 적재**한다. ① `is_interview`(**형태** - 아티스트 본인 발화 중심만 true. 뉴스·리뷰·차트·퍼포먼스 단독·MV·리스트는 false, 애매하면 false=정밀 우선) ② `is_music_ent`(**주제** - 발화 내용이 음악·엔터 창작이나 그 산업이면 true. 연애·육아·건강·심리·창업·테크·정치는 false. **말하는 사람이 아티스트여도 주제가 음악·엔터가 아니면 false**). **형태만 묻던 게이트가 배우의 임신 팟캐스트와 TED 우주론 강연을 통과시켜 왔다** - 2026-09-02 실측이 계기다. 모델이 `is_music_ent` 키를 빠뜨리면 통과시킨다(주제 축 하나로 수집이 통째로 멈추지 않게). ③ `person_ko`(주 인물 한국어 표기) ③ title_ko/summary_ko/region. summary는 "인물 - 요지" 관례. `is_interview=false`·분류실패는 `filtered_out`(verdict `not_interview`/`classify_failed`)로 적재해 풀·인터뷰탭에서 숨김.
