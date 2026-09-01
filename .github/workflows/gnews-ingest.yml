@@ -1,0 +1,39 @@
+name: 구글 뉴스 수집 (매일)
+# 구글 뉴스 RSS 18질의(nvl-vibe-radar/google-news-queries.md 정본)에서 최신 기사를
+# 가져와 엔터 게이트 통과분만 radar_items(collector='gnews')에 적재.
+# vibe_search·newsletter·newsroom·interview와 같은 풀.
+#
+# 대표가 브라우저 첫 화면으로 쓰던 구글 뉴스 커스텀 검색을 자동 수집으로 옮긴 것.
+# RSS라 키도 쿼터도 없다. 질의는 2단어 이내 - 다단어 AND는 수확이 0이 된다(실측).
+
+on:
+  schedule:
+    - cron: '30 21 * * *'   # 매일 06:30 KST (21:30 UTC) - 아시아 조간 전에 전일분 흡수
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: '며칠 이내 기사 수집 (기본 3)'
+        required: false
+        default: '3'
+      dry_run:
+        description: 'dry-run (수집·게이트만 - Supabase 미반영)'
+        type: boolean
+        default: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic requests
+      - name: 구글 뉴스 수집
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+          GNEWS_LOOKBACK_DAYS: ${{ github.event.inputs.lookback_days || '3' }}
+        run: python scripts/gnews_ingest.py ${{ inputs.dry_run && '--dry-run' || '' }}
