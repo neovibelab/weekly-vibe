@@ -1,19 +1,19 @@
 # weekly-vibe - 일일 수집 엔진 (vibe_search v3)
 
-> **역할 (2026-06-09 전환)**: 엔터·문화 산업 뉴스의 **일일 자동 수집 엔진**. 매일 5개 지역을 현지 발행 리듬에 맞춰 3개 시간대로 나눠(오전 한국·일본 / 오후 중국·동남아 / 저녁 글로벌, 2026-06-17) 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
+> **역할**: 엔터·문화 산업 뉴스의 일일 자동 수집 엔진. 5개 지역을 현지 발행 리듬에 맞춰 3개 시간대(오전 한국·일본 / 오후 중국·동남아 / 저녁 글로벌)로 수집해 Discord 5개 지역 채널에 알리고 Supabase `radar_items`에 적재한다.
 >
-> **주간 브리핑(NEWSPAPER HTML) 발행은 2026-06-09 폐기.** 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존한다. 제작 스킬(`.claude/skills/weekly-vibe/`)은 2026-06-10 삭제. 구 제작 가이드(태그 시스템·디자인 시스템·검증 체크리스트)가 필요하면 이 파일의 git 히스토리(2026-06-10 이전) 참조.
+> **주간 브리핑(NEWSPAPER HTML) 발행은 폐기**(2026-06-09). 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존하고 신규 생성하지 않는다. 제작 스킬(`.claude/skills/weekly-vibe/`)은 삭제됐다. 구 제작 가이드는 이 파일의 git 히스토리(2026-06-10 이전)에 있다.
 >
-> **`weeklybriefing.vercel.app` 공개 배포는 2026-07-28 대표 결정으로 삭제** - 워크플로만 지운 상태로 2개월간 05-30에 얼어붙은 페이지가 ECRI 브랜딩으로 공개돼 있었다(07-28 실측 HTTP 200). 발행 뉴스레터가 이 URL을 링크한 곳은 없어 끊어질 독자 경로는 없다(md-archive 5편의 매치는 메일리 태그 `weeklybriefing`이지 URL 아님). **이 수집 엔진 자체는 계속 돈다** - 삭제 대상은 Vercel 프로젝트 하나뿐이다.
+> **`weeklybriefing.vercel.app` 공개 배포는 삭제**(2026-07-28 대표 결정). 삭제 대상은 Vercel 프로젝트 하나뿐이고 이 수집 엔진은 계속 돈다. (경위 → DR)
 >
-> **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`ecri-ceo-staff/operations/26.06.08-daily-weekly-workflow.md`](../OPERATING-MODEL.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5.
+> **정본 관계**: 운영 워크플로(무엇을·언제·왜)는 [`OPERATING-MODEL.md`](../OPERATING-MODEL.md) §2 · 아키텍처·deprecated는 루트 [`CLAUDE.md`](../CLAUDE.md) §5 · 결정 경위·실측·사고 이력은 [`DECISION-RATIONALE.md`](DECISION-RATIONALE.md)(이하 DR). 이 파일은 매 턴 상주하므로 길이가 곧 비용이다. 여기에는 규칙만 적고, 규칙을 고치려 할 때는 DR을 먼저 읽는다.
 
 ---
 
 ## 1. 수집 파이프라인
 
 ```
-격일 3개 시간대 KST (GitHub Actions ai-news-daily.yml - cron 3개 */2, 2026-06-29 토큰절감. vibe_search만 격일, newsletter·newsroom은 매일)
+격일 3개 시간대 KST (GitHub Actions ai-news-daily.yml - cron 3개 */2. vibe_search만 격일, newsletter·newsroom은 매일)
   오전 07시 한국·일본 / 오후 14시 중국·동남아 / 저녁 21시 글로벌(영어)
     → scripts/vibe_search.py (Claude Sonnet web_search, 해당 시간대 지역 순차)
     → 품질 게이트 (validate_candidates → URL 생존 확인)
@@ -29,60 +29,62 @@
 | 일본 | 일본어 | `#vibe-japan` | `DISCORD_JAPAN_WEBHOOK` |
 | 동남아 | 영어+현지 | `#asia_vibe` | `DISCORD_SOUTHEAST_ASIA_WEBHOOK` |
 
-- **엔진**: `scripts/vibe_search.py` - Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 최소 1~최대 5건, 기준 충족 후보 없으면 그날은 생략.
-- **적재**: `scripts/supabase_writer.py` - REST API upsert → `radar_items`. env: `SUPABASE_URL`, `SUPABASE_KEY` (GitHub Secrets). nvl-vibe-radar 자체 수집기는 2026-06-09 폐기 - 풀을 채우는 수집기는 **vibe_search(웹)·newsletter_ingest(구독 뉴스레터, §1-1)·newsroom_ingest(기업 뉴스룸 RSS, §1-2) 3개**이고 radar는 조회·큐레이션 대시보드(collector/region 필터).
+- **엔진**: `scripts/vibe_search.py` - Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 1~5건, 기준 충족 후보 없으면 그날은 생략. 단일 워크플로에서 각 step `if`가 `github.event.schedule`·수동 region input으로 분기하고, skip 지역은 outcome=skipped라 실패 경보에 걸리지 않는다. (시간대 분산·격일 전환 경위 → DR)
+- **나이컷**: 한·글·일 120h, 중·동남아 168h(`MAX_AGE_HOURS`). robots.txt로 막힌 일간지(조선·중앙·FT·Reuters 등)는 뉴스레터 구독으로 흡수한다 - 발신자만 `sources_newsletters.json`에 추가.
+- **적재**: `scripts/supabase_writer.py` - REST API upsert → `radar_items`. env `SUPABASE_URL`·`SUPABASE_KEY`(GitHub Secrets). nvl-vibe-radar 자체 수집기는 폐기됐다. 풀을 채우는 수집기는 vibe_search(웹)·newsletter_ingest(§1-1)·newsroom_ingest(§1-2)·interview_ingest(§1-3)·gnews_ingest(구글 뉴스 RSS) 다섯이고, radar는 조회·큐레이션 대시보드(collector/region 필터)다.
+- **풀 유지보수**: `scripts/pool_maintenance.py`. 자동수집 pending은 최신순 `POOL_KEEP`(50)개만 남기고 초과분 archived. 픽은 20일 시효(`picked_expiry_targets`, interview 픽 면제). 시의성 묶음은 10일 방치 시 삭제, 에버그린·to_draft/drafted 묶음 멤버만 시효 면제(v12 `clusters.evergreen` 미적용이면 생략·전 묶음 보호. 묶음 자체는 2026-09-02 폐기 - 루트 §5). Supabase 전 행 조회는 반드시 `_fetch_paged`(Range 헤더 + id 정렬 순회) - PostgREST는 `limit`과 무관하게 1,000행에서 자른다. (경위 → DR)
 - **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
-- **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). **`cross-industry` 태그는 만들지 않는다**(2026-07-09 당일 도입·회수, 대표 결정) - 엔터 레퍼런스 프레임에서 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈. 타 업종 이전 원리 판정은 수집 태깅이 아니라 **대시보드 보조·추천 프롬프트(nvl-vibe-radar `REF_FRAME`)** 담당. `taste-values`(취향·가치)는 **세대를 가로지르는** 취향/가치 신호 - 지속가능·로컬·디깅 문화·시티팝/Y2K 리바이벌·앰비언트·취향 공동체 등(엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)을 2026-06-17 재정의(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영). **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar` 대시보드(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 변경. 대시보드는 과거 누적 `gen-z-lifestyle` 항목을 alias로 호환(마이그레이션 무용).
+- **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). **`cross-industry` 태그는 만들지 않는다**(대표 결정) - 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈다. 타 업종 이전 원리 판정은 대시보드 보조·추천 프롬프트(nvl-vibe-radar `REF_FRAME`)가 한다. `taste-values` = 세대를 가로지르는 취향·가치 신호(지속가능·로컬·디깅·리바이벌·취향 공동체, 엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)의 재정의. **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar`(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 바꾼다. 대시보드는 과거 `gen-z-lifestyle`을 alias로 호환(마이그레이션 불필요). (경위 → DR)
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. JSON 파싱은 `_parse_json_robust()` 3단계 폴백(원본→수리→개별 객체 추출).
-- **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input (all/korea/global-en/china/japan/southeast-asia).
-- **실패 경보 (2026-06-17 신설)**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 woojin@에 메일. **0건(정상)과 실패를 종료코드로 구분** - vibe_search가 검색 실패만 `exit 1`, 워크플로가 각 지역 `outcome`을 모아 `failure`만 통지(정상 0건엔 메일 안 감). 지역 스텝이 `continue-on-error`라 잡 전체는 success로 떠서 `gh run`·디스코드에 침묵 실패가 안 보이던 문제(06-15~16 글로벌 이틀 공백)의 능동 경보 장치. 구 `|| echo`(항상 exit 0으로 실패를 가리던 것)는 제거.
+- **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input(all/korea/global-en/china/japan/southeast-asia).
+- **실패 경보**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 woojin@에 메일. **0건(정상)과 실패를 종료코드로 구분한다** - vibe_search는 검색 실패만 `exit 1`, 워크플로가 각 지역 `outcome`을 모아 `failure`만 통지(정상 0건엔 메일 없음). 실패를 exit 0으로 가리는 `|| echo`는 쓰지 않는다. (경위 → DR)
 
-## 1-1. 뉴스레터 수집기 (collector='newsletter', 2026-06-15 신설)
+**§1-1~1-3 공통**: Discord 미포스팅·대시보드 전용, `total_score=0`(사전 큐레이션 소스), 대시보드에 출처 배지. 시크릿은 `SUPABASE_*` + ANTHROPIC `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용(피드는 무인증이라 신규 시크릿 없음). 피드 URL은 **실제 fetch로 유효 XML을 검증한 뒤 등재**(죽은 피드, 헤더만 주고 본문이 빈 깡통[예: Sanrio] 주의), `_` 접두 = 비활성. 소스 추가·제거는 각 JSON만 편집.
 
-vibe_search(웹 수집)와 **같은 풀(`radar_items`)을 공유하는 두 번째 수집기.** 대표의 뉴스레터·AI서비스 전용 계정(tmifmdj@gmail.com)으로 구독하는 정예 뉴스레터를 소스 풀에 합친다.
+## 1-1. 뉴스레터 수집기 (collector='newsletter')
 
-- **엔진**: `scripts/newsletter_ingest.py` - Gmail **IMAP 앱비밀번호**(stdlib `imaplib`, OAuth·검증 불필요) → allowlist 발신자의 최근 메일 → 본문 추출·추적URL 복원(base64 경로 디코드) → Claude haiku 분류(7렌즈 topics + 한국어 요약) → upsert. 지역은 발신자별 고정 힌트(본문 분류 비의존 - 매체별 지역이 고정).
-- **allowlist**: `sources_newsletters.json` - 발신자 47곳(2026-07-16 신규 구독 스윕 +19) = 엔터·문화·소비 직결 35(2026-06-29 스윕 보강 8 + 2026-07-16: Trapital·MUSIC x·WIN·Copyright Lately·InvestGame·The Pudding·ContentAsia·Gig Life Pro·22세기위성·Animenomics·DIME·문화편의점·오픈서베이 + MBW 보조 도메인 musicbusinessworldwide.com) + **`broad` 12**(Bloomberg·The Information·WIRED·New Yorker·Vox·NPR·Stratechery + 2026-07-16: 세컨드브러시·뉴닉·슬로우뉴스·Tech in Asia·HBR - 일반·테크·비즈 종합 매체). **`broad:true`** 소스는 `classify`가 is_entertainment 게이트를 넓혀 *다른 영역의 교차 신호*까지 채택(순수 하드뉴스만 제외) - "음악·엔터 밖에서 교차성·인사이트 발굴" 대표 지시(2026-06-29). vibe_search의 도메인 화이트리스트 철학과 동일 - **발신자**로 고신호 유지(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). 발신자 추가·제거는 이 JSON만 편집.
-- **스케줄**: `.github/workflows/newsletter-ingest.yml` 하루 2회 - **09:30 KST**(아침 클러스터: 빌보드·롱블랙·국내 일간 08시) + **23:00 KST**(저녁 클러스터: SCMP·Jing 2판·Nanjing·Marion) + `workflow_dispatch`(lookback_days). 받은편지함 실측 도착 시각 기반(2026-06-15). lookback 2일+URL dedup이라 2회 겹쳐도 안전(각 런은 직전 런 이후 신규만 적재). **Discord 미포스팅 - 대시보드 전용.** `total_score=0`(사전 큐레이션 소스라 점수 비중 낮음), 대시보드에 `` 출처 배지.
-- **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호) 신규. ANTHROPIC은 `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용.
+vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. 대표의 뉴스레터·AI서비스 전용 계정(tmifmdj@gmail.com)으로 구독하는 정예 뉴스레터를 소스 풀에 합친다.
+
+- **엔진**: `scripts/newsletter_ingest.py` - Gmail IMAP 앱비밀번호(stdlib `imaplib`, OAuth·검증 불필요) → allowlist 발신자의 최근 메일 → 본문 추출·추적URL 복원(base64 경로 디코드) → Claude haiku 분류(7렌즈 topics + 한국어 요약) → upsert. 지역은 발신자별 고정 힌트(본문 분류 비의존).
+- **allowlist**: `sources_newsletters.json` - 발신자 47곳 = 엔터·문화·소비 직결 35 + `broad` 12(일반·테크·비즈 종합 매체). `broad:true` 소스는 `classify`가 is_entertainment 게이트를 넓혀 다른 영역의 교차 신호까지 채택(순수 하드뉴스만 제외) - "음악·엔터 밖에서 교차성·인사이트 발굴" 대표 지시. 고신호는 **발신자**로 유지한다(받은편지함 대부분이 노이즈라 탭 통째 수집 안 함). (스윕 이력·보류 발신자 → DR)
+- **스케줄**: `.github/workflows/newsletter-ingest.yml` 하루 2회 - **09:30 KST**(아침 클러스터) + **23:00 KST**(저녁 클러스터) + `workflow_dispatch`(lookback_days). lookback 2일 + URL dedup이라 2회가 겹쳐도 안전.
+- **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호).
 - **중복 제거**: 최근 14일 newsletter URL 집합(Supabase 조회) + URL upsert(merge-duplicates).
-- **캐치올 제목 게이트 (2026-07-16 신설, 대표 지시 "발신자가 아니라 제목 기준으로도")**: allowlist 밖 발신자의 메일도 **제목이 엔터·콘텐츠·미디어·문화·소비 신호면 수집**. 2단 게이트 - ① 런당 haiku 1콜로 제목 배치 판정(`subject_gate`, 프로모·행사·계정알림·하드뉴스 제외, 애매하면 제외) ② 통과분만 본문 fetch·strict classify(비-broad 규칙). 런당 상한 `NL_CATCHALL_CAP`(기본 8, 프로모 폭주 가드), `NL_CATCHALL=0`으로 끔. `catchall_ignore`(JSON 최상위 키) = 트랜잭션·서비스 알림 제외 목록 - **편집 매체는 넣지 않는다**(NYT류 종합지의 음악 코너처럼 allowlist 등재는 과해도 개별 신호는 유효 - 제목 게이트가 개별 판정). 캐치올 수집분 source=발신 도메인.
-- **주간 발신자 스캔 (2026-07-16 신설)**: `scripts/newsletter_sender_scan.py` + `newsletter-sender-scan.yml`(**월 09:00 KST** + dispatch dry_run). 최근 7일 받은편지함 발신자를 allowlist(비활성 `_` 포함)·catchall_ignore와 대조 → 미등재 발신자를 통수·예시 제목과 함께 woojin@ 리포트(0건이면 메일 없음). 대표가 새 뉴스레터를 구독해도 조용히 새던 문제의 자동 감지 - **등재 판단은 사람**(세션 "뉴스레터 스윕"), 무시는 catchall_ignore 추가. 캐치올=개별 신호 안전망 / 스캔=발신자 승격 제안으로 역할 분담.
+- **캐치올 제목 게이트**(대표 지시 "발신자가 아니라 제목 기준으로도"): allowlist 밖 발신자의 메일도 제목이 엔터·콘텐츠·미디어·문화·소비 신호면 수집한다. 2단 게이트 - ① 런당 haiku 1콜로 제목 배치 판정(`subject_gate`, 프로모·행사·계정알림·하드뉴스 제외, 애매하면 제외) ② 통과분만 본문 fetch·strict classify(비-broad 규칙). 런당 상한 `NL_CATCHALL_CAP`(기본 8), `NL_CATCHALL=0`으로 끔. `catchall_ignore`(JSON 최상위 키) = 트랜잭션·서비스 알림 제외 목록 - **편집 매체는 넣지 않는다**(제목 게이트가 건별 판정). 캐치올 수집분의 source=발신 도메인.
+- **주간 발신자 스캔**: `scripts/newsletter_sender_scan.py` + `newsletter-sender-scan.yml`(**월 09:00 KST** + dispatch dry_run). 최근 7일 발신자를 allowlist(비활성 `_` 포함)·catchall_ignore와 대조해 미등재 발신자를 통수·예시 제목과 함께 woojin@에 리포트(0건이면 메일 없음). **등재 판단은 사람**(세션 "뉴스레터 스윕"), 무시는 catchall_ignore에 추가. 캐치올 = 개별 신호 안전망 / 스캔 = 발신자 승격 제안.
 
-## 1-2. 뉴스룸 수집기 (collector='newsroom', 2026-06-16 신설)
+## 1-2. 뉴스룸 수집기 (collector='newsroom')
 
-vibe_search·newsletter와 **같은 풀을 공유하는 세 번째 수집기.** 주요 엔터·미디어·IP홀더 기업의 뉴스룸/블로그 RSS·Atom 피드에서 1차 발표를 가져온다.
+같은 풀을 공유하는 세 번째 수집기. 주요 엔터·미디어·IP홀더 기업의 뉴스룸/블로그 RSS·Atom 피드에서 1차 발표를 가져온다.
 
-- **엔진**: `scripts/newsroom_ingest.py` - RSS·Atom 피드 fetch(stdlib `xml.etree`, 외부 feedparser 불필요) → 룩백 내 항목 → Claude haiku 분류(7렌즈 + 한국어 요약) → upsert. 지역은 소스별 고정 힌트. RSS(`item`)·Atom(`entry`) 양식 모두 파싱.
-- **allowlist**: `sources_newsrooms.json` - 피드 검증된 9소스(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei). 피드가 `_`로 시작하면 비활성. 추가·제거는 이 JSON만 편집(단 **피드 URL은 실제 fetch로 유효 XML 검증 후** 등재 - 죽은 피드, 또는 헤더만 주고 본문 빈 깡통[예: Sanrio] 주의).
-- **피드 없는 IP홀더: allowed_domains 사고 → 검색 키워드 흡수로 전환 (2026-06-17)**: Sony·WBD·NBCU·Nintendo·Bandai·Crunchyroll·Pokémon·Paramount를 `vibe_search.py` global-en `allowed_domains`에 넣어 웹검색으로 흡수하려 했으나(2026-06-16), `sony.com` 등이 Anthropic 크롤러 차단 도메인이라 **차단 도메인이 하나만 끼어도 web_search API가 요청 전체를 400 거부** → 글로벌 검색이 06-15~16 이틀 전량 실패(`continue-on-error`라 잡은 success로 가려짐). 8개 전부 제거해 원복. **차단 도메인은 `allowed_domains`에 넣을 수 없다 - 재시도하려면 `probe_domains.py`로 사전 검증 후 통과분만.** 피드 있는 IP홀더(Sony Music 등)는 newsroom 수집기가 흡수. **피드 없는 곳(Sony 그룹·Nintendo·Bandai·Crunchyroll·WBD·NBCU·Paramount)은 `vibe_search.py` `search_terms`에 회사 키워드 추가로 흡수**(2026-06-17 전환, global-en ent-deals·ip-business + japan ip-business). domains 아니라 400 안전 - 회사 자체 PR이 아니라 신뢰 매체 내 해당 기업 보도(분석·딜)를 적극 검색.
-- **스케줄**: `.github/workflows/newsroom-ingest.yml` 매일 **10:00 KST**(01:00 UTC - 미국 뉴스룸 전일분 흡수) + `workflow_dispatch`(lookback_days). 뉴스룸은 저빈도 발행이라 **lookback 7일**(뉴스레터 2일보다 김). Discord 미포스팅·대시보드 전용, `total_score=0`, 대시보드 `` 출처 배지.
-- **시크릿**: `SUPABASE_*`·ANTHROPIC(`ANTHROPIC_API_KEY_WEEKLY_BRIEFING`). 피드는 무인증이라 신규 시크릿 없음.
+- **엔진**: `scripts/newsroom_ingest.py` - RSS(`item`)·Atom(`entry`) 피드 fetch(stdlib `xml.etree`, 외부 feedparser 불필요) → 룩백 내 항목 → Claude haiku 분류(7렌즈 + 한국어 요약) → upsert. 지역은 소스별 고정 힌트.
+- **allowlist**: `sources_newsrooms.json` - 피드 검증된 9소스(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei).
+- **차단 도메인은 `allowed_domains`에 넣을 수 없다.** Anthropic 크롤러 차단 도메인이 하나만 끼어도 web_search API가 요청 전체를 400으로 거부한다. 추가하려면 `probe_domains.py`로 사전 검증 후 통과분만. 피드 있는 IP홀더(Sony Music 등)는 newsroom 수집기가 흡수하고, **피드 없는 곳(Sony 그룹·Nintendo·Bandai·Crunchyroll·WBD·NBCU·Paramount)은 `vibe_search.py` `search_terms`에 회사 키워드로 흡수**한다(global-en ent-deals·ip-business + japan ip-business). 키워드는 400에 안전하고, 신뢰 매체의 해당 기업 보도(분석·딜)를 찾는다. (사고 경위 → DR)
+- **스케줄**: `.github/workflows/newsroom-ingest.yml` 매일 **10:00 KST**(01:00 UTC) + `workflow_dispatch`(lookback_days). **lookback 7일**.
 - **중복 제거**: 최근 30일 newsroom URL 집합(Supabase 조회) + URL upsert.
 
-## 1-3. 인터뷰 수집기 (collector='interview', 2026-07-09 신설)
+## 1-3. 인터뷰 수집기 (collector='interview')
 
-vibe_search·newsletter·newsroom·gnews와 **같은 풀(`radar_items`)을 공유하는 수집기 다섯 중 하나.** 국내외 아티스트·창작자 인터뷰(텍스트·영상)를 모아 대시보드 인터뷰 탭에 노출한다. 용처 = @nvl.seoul "insight/quote/reels" 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
+같은 풀을 공유하는 수집기 다섯 중 하나. 국내외 아티스트·창작자 인터뷰(텍스트·영상)를 모아 대시보드 인터뷰 탭에 노출한다. 용처 = @nvl.seoul "insight/quote/reels" 소재 파이프라인 + Icon Lab 인물 발굴 레이더.
 
 - **엔진**: `scripts/interview_ingest.py` - 매체 RSS·유튜브 채널 RSS(`videos.xml?channel_id=UC…`) fetch(stdlib `xml.etree`) → Claude haiku 분류 → **is_interview=true만** upsert. YouTube Atom의 `<media:group>` 중첩 제목·설명도 파싱(newsroom 파서 확장). 지역은 소스 고정 힌트(분류 값 우선).
-- **분류 게이트 (2026-09-02 주제 축 신설)**: haiku가 **두 축을 따로** 판정하고 **둘 다 true여야 적재**한다. ① `is_interview`(**형태** - 아티스트 본인 발화 중심만 true. 뉴스·리뷰·차트·퍼포먼스 단독·MV·리스트는 false, 애매하면 false=정밀 우선) ② `is_music_ent`(**주제** - 발화 내용이 음악·엔터 창작이나 그 산업이면 true. 연애·육아·건강·심리·창업·테크·정치는 false. **말하는 사람이 아티스트여도 주제가 음악·엔터가 아니면 false**). **형태만 묻던 게이트가 배우의 임신 팟캐스트와 TED 우주론 강연을 통과시켜 왔다** - 2026-09-02 실측이 계기다. 모델이 `is_music_ent` 키를 빠뜨리면 통과시킨다(주제 축 하나로 수집이 통째로 멈추지 않게). ③ `person_ko`(주 인물 한국어 표기) ③ title_ko/summary_ko/region. summary는 "인물 - 요지" 관례. `is_interview=false`·분류실패는 `filtered_out`(verdict `not_interview`/`classify_failed`)로 적재해 풀·인터뷰탭에서 숨김.
-- **allowlist**: `sources_interviews.json` - **30소스 중 활성 8**(2026-09-02 대표 지시로 26 → 8 축소). 영상 7(Music Tectonics·And The Writer Is...·Tape Notes·Broken Record·Apple Music·Zach Sang Show·MMTG 문명특급) + 텍스트 1(Pitchfork Features). **근거 = 2개월 실측** - 1,992건 수집·픽 3건이고 그 3건이 Music Tectonics(2)·And The Writer Is...(1)에서 나왔다. 나머지 26소스는 전부 0픽. **남긴 기준** = 실적 → 영상(용처가 릴스라 영상이 본체) → 음악·창작 주제 → 국내 1 → 텍스트 1. **뺀 사유는 각 항목 `_reason`에** 적혀 있다(되살릴 때 왜 뺐는지 보이게). 세 갈래 - ⓐ 엔터가 아님(TED·TechCrunch·Call Her Daddy·Masters of Scale·Neighborhood Art Supply·Hot Ones) ⓑ 인터뷰가 아니라 보도·시상(The Ankler·THR·The Town·GRAMMYS·SXSW·Genius) ⓒ 텍스트 음악 매체 중복이고 릴스가 안 됨(FADER·Stereogum·Guardian Music·NME·Rolling Stone). **축소의 비용을 안다** - 게이트 검증에서 뺀 소스도 30%는 통과했다(FADER의 칠레 펑크 씬, GRAMMYS의 장비·창작 이야기). 게이트만으로도 뺀 소스 노이즈의 60%가 걸리므로, 유입이 부족해지면 FADER·GRAMMYS부터 되살린다. 각 소스 `media`("text"|"video") 힌트 → 대시보드 `tags`. 피드 URL은 실제 fetch로 유효 XML 검증 후 등재(newsroom 규칙 동일), `_` 접두=비활성.
-- **스케줄**: `.github/workflows/interview-ingest.yml` **화·금 11:00 KST**(02:00 UTC) + `workflow_dispatch`(lookback_days). 인터뷰는 저빈도·에버그린이라 주 2회로 충분. **룩백 14일·나이컷 없음**(에버그린 - RSS 특성상 최신만 잡힘). Discord 미포스팅·대시보드 전용, `total_score=0`, 대시보드 `` 배지·인터뷰 탭. ※GitHub 신규 예약 워크플로는 첫 예정 발화를 스킵하는 알려진 지연 - 첫 자동 수집이 안 보이면 `workflow_dispatch` 1회 수동.
-- **시크릿**: `SUPABASE_*`·ANTHROPIC(`ANTHROPIC_API_KEY_WEEKLY_BRIEFING`). 피드 무인증이라 신규 시크릿 없음.
-- **중복 제거**: 최근 **60일** interview URL 집합(에버그린이라 dedup 창을 뉴스룸 30일보다 넓게) + URL upsert(merge-duplicates).
-- **픽 시효 면제**: `pool_maintenance.py`의 픽 20일 시효(`picked_expiry_targets`)에서 `collector='interview'` 픽은 **면제**(에버그린 - 소스 뱅크 이관 전까지 보존). 뉴스성 픽에만 20일 적용.
+- **분류 게이트**: haiku가 두 축을 따로 판정하고 **둘 다 true여야 적재**한다. ① `is_interview`(형태 - 아티스트 본인 발화 중심만 true. 뉴스·리뷰·차트·퍼포먼스 단독·MV·리스트는 false, 애매하면 false = 정밀 우선) ② `is_music_ent`(주제 - 발화 내용이 음악·엔터 창작이나 그 산업이면 true. 연애·육아·건강·심리·창업·테크·정치는 false. **말하는 사람이 아티스트여도 주제가 음악·엔터가 아니면 false**). 모델이 `is_music_ent` 키를 빠뜨리면 통과시킨다. 그 밖에 `person_ko`(주 인물 한국어 표기)·title_ko/summary_ko/region. summary는 "인물 - 요지" 관례. `is_interview=false`·분류실패는 `filtered_out`(verdict `not_interview`/`classify_failed`)로 적재해 풀·인터뷰탭에서 숨긴다. (주제 축 신설 경위 → DR)
+- **allowlist**: `sources_interviews.json` - 30소스 중 활성 8(영상 7 + 텍스트 1, 2026-09-02 대표 지시). 남긴 기준 = 실적 → 영상 → 음악·창작 주제 → 국내 1 → 텍스트 1. **뺀 사유는 각 항목 `_reason`에 적는다**(되살릴 때 왜 뺐는지 보이게). 유입이 부족해지면 FADER·GRAMMYS부터 되살린다. 각 소스 `media`("text"|"video") 힌트 → 대시보드 `tags`. (축소 근거·실측 → DR)
+- **스케줄**: `.github/workflows/interview-ingest.yml` **화·금 11:00 KST**(02:00 UTC) + `workflow_dispatch`(lookback_days). 주 2회, **룩백 14일·나이컷 없음**. 대시보드 인터뷰 탭 노출. GitHub 신규 예약 워크플로는 첫 예정 발화를 스킵한다 - 첫 자동 수집이 안 보이면 `workflow_dispatch` 1회 수동.
+- **중복 제거**: 최근 **60일** interview URL 집합 + URL upsert(merge-duplicates).
+- **픽 시효 면제**: `pool_maintenance.py`의 픽 20일 시효(`picked_expiry_targets`)에서 `collector='interview'` 픽은 면제(소스 뱅크 이관 전까지 보존). 뉴스성 픽에만 20일 적용.
 
-## 2. 품질 게이트 (2026-06-10)
+## 2. 품질 게이트
 
 Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레벨로 강제한다.
 
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
-2. **출처 화이트리스트** - 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외 (AI타임스·에너지신문류 보도자료 재가공 매체 차단, 2026-06-10 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
-3. `validate_candidates()` - 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·**교차정체성**(각 0~2, 만점 8, 2026-06-17 추가). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 가능 - 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성 - 2026-06-10 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재)
-4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스 - 한 매체 독식 방지·동남아 방콕포스트 편중 대응, 2026-06-17. 미달 시 2차 패스에서 상한 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
-4. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
+2. **출처 화이트리스트** - 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외(보도자료 재가공 매체 차단, 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
+3. `validate_candidates()` - 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정, 지역별 값은 §1). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·교차정체성(각 0~2, 만점 8). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 - 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성, 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재). `radar_items`에 `cross_identity` 개별 컬럼은 없다(total_score에 합산만, 개별 표시가 필요하면 마이그레이션 후속)
+4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스로 한 매체 독식 방지. 미달 시 2차 패스에서 상한을 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
+5. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
 
-단위 테스트: `scripts/test_quality_gate.py`.
+단위 테스트: `scripts/test_quality_gate.py`. (도입 경위·4지표 개편 → DR)
 
 ## 3. 절대 금지 (위반 시 작업 중단)
 
@@ -94,33 +96,42 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 
 뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
-- 생성: `/report-scan` 스킬(미네바) - **격주(2주 1회) 운영**(2026-06-29 대표 결정, 토큰 대비 수확·발행처 월간성). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + **마스터 색인 반영**(06-04 동결 해제, 색인 본래 SSOT 목적)
-- 발송 로직: `scripts/send_report_drop.py` - 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. **① 명시 User-Agent 필수**(2026-06-29 - urllib 기본 UA는 Discord Cloudflare가 403/`error 1010` 차단). **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일↑ 지나면 발송 생략**(기본 8이던 것을 2026-07-06 7로 - 쉬는 주 월요일에 드롭이 정확히 7일 경과라 7<8로 통과, 6/29 드롭이 7/6 중복 발송된 실측 버그)(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음). **③ 대시보드 적재(2026-06-29): 발송 직후 드롭의 🥇+신규 리포트를 파싱(`parse_drop_items`)해 Supabase `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭 노출**(다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env 필요·정시+백업 워크플로 양쪽 주입). 정시·백업 공용 모듈(stdlib). 과거 YAML heredoc startup_failure → 스크립트 분리로 차단(2026-06-15).
-- 포스팅(정시): `.github/workflows/discord-report-drop.yml` - 매주 월요일 **10:17 KST** cron(정시 :00 회피). 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만 = 격주 리듬**(cron은 매주지만 stale 드롭 재발송 안 함).
+- 생성: `/report-scan` 스킬(미네바) - **격주(2주 1회) 운영**(대표 결정). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + 마스터 색인 반영(색인이 SSOT)
+- 발송 로직: `scripts/send_report_drop.py` - 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. 정시·백업 공용 모듈(stdlib). 워크플로 YAML 안에 heredoc으로 로직을 넣지 않는다. 세 가지 필수 - **① 명시 User-Agent**(urllib 기본 UA는 Discord Cloudflare가 403/`error 1010`으로 차단. vibe_search `send_to_discord`는 `requests` UA로 통과 중이라 명시 UA는 후속 권장·미적용) **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일 이상 지났으면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음) **③ 대시보드 적재: 발송 직후 드롭의 1위 메달+신규 리포트를 파싱(`parse_drop_items`)해 `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭**(다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env를 정시+백업 워크플로 양쪽에 주입). (403 원인·경계값 버그 → DR)
+- 포스팅(정시): `.github/workflows/discord-report-drop.yml` - 매주 월요일 **10:17 KST** cron. 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만 = 격주 리듬**(cron은 매주지만 stale 드롭은 재발송하지 않는다).
 - 백업 감시: `.github/workflows/report-drop-watchdog.yml` - 월 **10:40 KST** 점검 → 정시 누락 시 직접 재발송 + woojin@ 메일 알림(`check_drop_posted.py` 발송판정·`send_drop_alert.py` 메일). GitHub cron best-effort 누락 대비. 중복 발송·지연 레이스 가드 포함.
 
 ## 5. 파일 구조
 
 ```
 weekly-vibe/
-├── CLAUDE.md                    ← 이 파일
+├── CLAUDE.md                    ← 이 파일 (규칙만)
+├── DECISION-RATIONALE.md        ← 결정 경위·실측·사고 이력 (규칙 수정 전 필독)
 ├── scripts/
 │   ├── vibe_search.py           ← 수집 엔진 v3 (5지역)
 │   ├── supabase_writer.py       ← radar_items upsert
 │   ├── send_report_drop.py      ← 리포트 드롭 발송 공용 모듈 (정시+백업)
 │   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)
 │   ├── send_drop_alert.py       ← 백업: 리포트 드롭 누락 시 woojin@ 메일 알림
-│   ├── notify_region_failure.py ← 일일 수집: 지역 검색 실패 시 woojin@ 메일 경보
+│   ├── notify_region_failure.py ← 지역 검색 실패 시 woojin@ 메일 경보
+│   ├── newsletter_ingest.py     ← 뉴스레터 IMAP 수집기 (§1-1)
+│   ├── newsletter_sender_scan.py ← 미등재 발신자 주간 리포트 (§1-1)
 │   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
 │   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
+│   ├── gnews_ingest.py          ← 구글 뉴스 RSS 수집기 (collector='gnews')
 │   ├── pool_maintenance.py      ← 풀 유지보수(상한 archive + 픽 시효 + 묶음 시의성 시효)
-│   └── test_quality_gate.py    ← 품질 게이트 단위 테스트
+│   ├── probe_domains.py         ← allowed_domains 후보 사전 검증
+│   └── test_quality_gate.py     ← 품질 게이트 단위 테스트
+├── sources_newsletters.json     ← 뉴스레터 발신자 allowlist
 ├── sources_newsrooms.json       ← 뉴스룸 피드 allowlist
 ├── sources_interviews.json      ← 인터뷰 피드·채널 allowlist
 ├── .github/workflows/
-│   ├── ai-news-daily.yml        ← 매일 3시간대 수집(오전 한·일/오후 중·동남아/저녁 글로벌)
-│   ├── newsroom-ingest.yml      ← 매일 10:00 KST 뉴스룸 수집
-│   ├── interview-ingest.yml     ← 화·금 11:00 KST 인터뷰 수집
+│   ├── ai-news-daily.yml        ← 격일 3시간대 수집
+│   ├── newsletter-ingest.yml    ← 매일 09:30·23:00 KST
+│   ├── newsletter-sender-scan.yml ← 월 09:00 KST
+│   ├── newsroom-ingest.yml      ← 매일 10:00 KST
+│   ├── interview-ingest.yml     ← 화·금 11:00 KST
+│   ├── gnews-ingest.yml         ← 매일
 │   ├── discord-report-drop.yml  ← 월 10:17 KST 정시 리포트 드롭
 │   └── report-drop-watchdog.yml ← 월 10:40 KST 백업(누락 시 재발송+메일)
 ├── drops/                       ← 주간 리포트 드롭 마크다운
@@ -130,20 +141,4 @@ weekly-vibe/
 
 ## 6. 변경 이력
 
-- 2026-07-16: **캐치올 제목 게이트 + 주간 발신자 스캔 신설** (§1-1, 대표 지시). ① allowlist 밖 발신자도 제목이 엔터·콘텐츠·미디어 신호면 수집 - haiku 제목 배치 판정(런당 1콜) → 통과분만 본문 strict classify, 상한 8/런, `catchall_ignore`로 트랜잭션 제외(편집 매체는 안 넣음). `build_row` 헬퍼로 allowlist·캐치올 행 생성 일원화. ② 월 09:00 KST 미등재 발신자 리포트(woojin@) - 새 구독을 말 안 해도 자동 감지, 등재 판단은 사람. 게이트 실판정 테스트 PASS(NYT 음악 코너 통과·프로모/알림/법률 다이제스트 차단).
-- 2026-07-16: **뉴스레터 allowlist 28→47 (신규 구독 스윕)**. Gmail 최근 10일 실측 대조로 신규 구독 발신자 반영 - 직결 13(Trapital·MUSIC x·WIN·Copyright Lately·InvestGame·The Pudding·ContentAsia·Gig Life Pro·22세기위성[ghost 공유 도메인이라 전체 주소]·Animenomics[substack +tag 변형 대응 substring]·DIME·문화편의점[maily 공유 도메인 전체 주소]·오픈서베이) + broad 5(세컨드브러시·뉴닉·슬로우뉴스·Tech in Asia·HBR) + **MBW 보조 도메인 발견**(musicbusinessworldwide.com - 기존 musicbizworldwide.com과 별개 문자열이라 IMAP FROM 미매칭이던 갭). 보류: NYT·Economist·Fast Company·ITmedia·Lexology·시사IN(06-29 스윕 이전부터 수신 → 당시 제외 추정, 대표 지정 시 추가)·WIPO·오픈애즈·josh@maily.so·Max Power Gaming·note.com 다이제스트·기타 beehiiv/substack 불명 소스.
-- 2026-07-15: **pool_maintenance에 묶음 2종 수명제 반영** (nvl-vibe-radar v12 `clusters.evergreen`과 세트, 대표 결정). ① 정리 ③ 신설 - 시의성 묶음(evergreen=false, open·synthesized)이 10일(updated_at) 방치되면 묶음+멤버링크 삭제. ② 픽 20일 시효의 묶음 면제를 **에버그린·to_draft/drafted 묶음 멤버로 축소** - 구 "모든 묶음 멤버 면제"는 대시보드 추천이 매 실행 같은 옛 픽으로 묶음을 재생성해 옛 픽이 시효를 영원히 피하는 루프였음(추천 신선도 하락의 근원). v12 미적용 시 ③ 생략·전 묶음 보호로 안전 폴백. interview 픽 면제는 별개로 유지.
-- 2026-07-14: **pool_maintenance PostgREST 1,000행 캡 버그 수정** - `fetch_all`이 `limit=10000`을 넘겨도 서버 max-rows(1,000)에 잘려, 테이블 1,304행 시점에 pending 227건 중 74건만 보고 "정리 대상 0건"으로 통과(풀 50 상한이 침묵 무력화, 관리 대상 pending 131건까지 누적 실측). `_fetch_paged`(Range 헤더 + id 정렬 페이지 순회) 신설로 `fetch_all`·`fetch_cluster_member_ids` 전 행 조회 전환, 수정 직후 apply로 초과분 81건 archived → 관리 풀 50건 복구.
-- 2026-07-09: **인터뷰 수집기 신설**(collector='interview', §1-3). 매체 RSS 6 + 유튜브 채널 RSS 5(활성 11·비활성 1) → haiku `is_interview` 게이트 분류 → 인터뷰만 `radar_items` 적재. 화·금 11:00 KST 주 2회(`interview-ingest.yml`), 룩백 14일·나이컷 없음(에버그린), dedup 60일. 대시보드 인터뷰 탭·배지 추가, pool_maintenance 픽 20일 시효에서 interview 픽 면제. 용처=@nvl.seoul insight/quote/reels 소재 + Icon Lab 인물 레이더(루→아스토나지 dev-queue).
-- 2026-07-09: **`cross-industry` 병기 태그 당일 도입·회수** (대표 결정). 포지셔닝 재정의(엔터=타 산업 레퍼런스) 캐스케이드로 수집기 3종+대시보드에 태그를 실장했다가 같은 날 회수 - 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈라 태그 분리가 프레임과 모순(태그 없는 신호=교차 아님 역메시지). 프레임 적용은 nvl-vibe-radar 보조·추천 프롬프트(`REF_FRAME`)로 일원화. OPERATING-MODEL §0의 구 "cross-industry 플래그 병기" 문구(2026-06-08, 옛 프레임 유산)도 동시 폐기.
-- 2026-07-06: **리포트 드롭 격주 가드 경계값 수정** - `DROP_MAX_AGE_DAYS` 기본 8→7. 격주 리듬에서 쉬는 주 월요일에 최신 드롭이 정확히 7일 경과인데 7<8로 가드를 통과, 6/29 드롭이 7/6 디스코드에 그대로 재발송됨(대시보드 적재는 URL dedup으로 0/6 정상 스킵). `age >= 7`이면 생략으로 변경 - 당일 발송(age 0)은 통과, 쉬는 주(age 7)는 차단.
-- 2026-06-29: **리포트 드롭 403 진짜 원인 = User-Agent** (≠ 죽은 웹훅). `send_report_drop.py`가 urllib 기본 UA(`Python-urllib`)로 POST → Discord Cloudflare가 `error 1010`으로 차단(06-22 이후 규칙 강화 추정). 명시 UA(`Mozilla/…`) 헤더 추가로 해결, 게시→삭제 실전송으로 end-to-end 검증. 웹훅 자체는 유효였음(대표 신규 발급분으로 `DISCORD_REPORT_WEBHOOK_URL` secret 갱신). vibe_search `send_to_discord`는 `requests`(python-requests UA)라 현재 통과 중 - 차단 강화 대비 명시 UA는 후속 권장(현재 미적용).
-- 2026-06-29: 뉴스레터 allowlist 12→27 (Gmail 전수 스윕). ① 고신호 8(MBW·CMU·NME·Consequence·Luminate·Media Innovation·Tokyo Weekender·캐릿). ② **교차성 `broad` 7**(Bloomberg·The Information·WIRED·New Yorker·Vox·NPR·Stratechery) - `classify(broad=True)`로 is_entertainment 게이트 확대(엔터·소비·문화 함의 또는 교차성 있으면 채택, 순수 하드뉴스만 제외). 대표 "음악 집중 X, 무관한 영역에서 교차성·인사이트" 지시. §1-1 참조.
-- 2026-06-29: **vibe_search 격일 전환** (`ai-news-daily.yml` cron 3개 `*/2` + step if 동기화). Sonnet web_search가 토큰 비용 주범인데 수확은 풀의 20%뿐 → 격일로 ~절반 절감. newsletter·newsroom(haiku·고수확·robots.txt 우회)은 **매일 유지**. 한·글·일 나이컷 72→120h(격일 갭+주말 보강), 중·동남아는 168h 유지. ※커버리지 정공법은 차단 일간지(조선·중앙·FT·Reuters 등 robots.txt 막힘)를 newsletter 구독으로 흡수 - 발신자만 `sources_newsletters.json`에 추가.
-- 2026-06-08: vibe_search v3 - 주제 기반(6토픽)에서 지역·언어 기반(5지역)으로 재설계. 구 RSS 워크플로 5개 삭제.
-- 2026-06-09: Discord 5지역 웹훅 통합, Supabase 동시 적재, radar 자체 수집기 폐기, 주간 브리핑 발행 폐기(`weekly-briefing.yml`·`discord-notify.yml` 삭제).
-- 2026-06-10: 품질 게이트 추가(48시간 컷·URL 생존 확인). CLAUDE.md 재작성 - 구 주간 브리핑 제작 가이드 제거, 수집 엔진 정본으로 전환.
-- 2026-06-15: 리포트 드롭 워크플로 YAML 깨짐(인라인 heredoc) 수정 - 6/4부터 startup_failure로 미발송이던 것 복구. 발송 로직을 `scripts/send_report_drop.py`로 분리, cron 10:00→10:17(정시 고부하 회피), 백업 감시 워크플로(`report-drop-watchdog.yml`, 월 10:40) 신설 - 정시 누락 시 자동 재발송 + 메일 알림.
-- 2026-06-17: 수집 시간대 분산 - `ai-news-daily.yml` 단일 cron(07:00 일괄)에서 cron 3개로(07:00 한·일 / 14:00 중·동남아 / 21:00 글로벌). 지역별 현지 발행 리듬에 맞춰 신선도↑. 단일 워크플로 유지(각 step `if`가 `github.event.schedule`·수동 region input 분기), skip 지역은 outcome=skipped라 실패 경보 무영향.
-- 2026-06-17: 도메인 다양성 - `select_candidates`에 도메인당 2건 상한(`MAX_PER_DOMAIN`) 추가. 한 매체(동남아 방콕포스트)가 점수순 5건을 독식하던 구조 차단. 2-패스(1차 상한 적용 → 미달 시 2차 상한 해제)로 도메인 얕은 지역 건수 보존. `test_quality_gate.py` 케이스 추가.
-- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/26.06.17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 - SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).
+날짜별 변경 이력과 근거는 [`DECISION-RATIONALE.md`](DECISION-RATIONALE.md) §6으로 옮겼다(2026-09-04). 여기에는 더 쌓지 않는다 - 새 변경은 DR에 날짜·근거와 함께 적고, 이 파일에는 바뀐 규칙만 반영한다.
