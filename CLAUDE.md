@@ -64,7 +64,9 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 같은 풀을 공유하는 세 번째 수집기. 주요 엔터·미디어·IP홀더 기업의 뉴스룸/블로그 RSS·Atom 피드에서 1차 발표를 가져온다.
 
 - **엔진**: `scripts/newsroom_ingest.py` - RSS(`item`)·Atom(`entry`) 피드 fetch(stdlib `xml.etree`, 외부 feedparser 불필요) → 룩백 내 항목 → Claude haiku 분류(7렌즈 + 한국어 요약) → upsert. 지역은 소스별 고정 힌트.
-- **allowlist**: `sources_newsrooms.json` - 피드 검증된 9소스(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei).
+- **allowlist**: `sources_newsrooms.json` - 13소스. IP홀더·플랫폼(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei) + 아카이브·연구(Speakola·Geena Davis Institute) + **차트메트릭 2종**(Blog·Flow Insights, 2026-09-10 등재).
+- **소스 유형 둘** - 기본은 RSS·Atom 피드다. **피드가 없는 곳은 `type: "sitemap"`**으로 받는다(2026-09-10 신설). `sitemap.xml`의 `<loc>`을 `path_prefix`로 거른 뒤 각 기사 페이지에서 프리렌더된 `<title>`과 meta description을 뽑고, 그다음(게이트·번역·적재·중복제거)은 피드 경로와 같다. **사이트맵의 `lastmod`는 안 본다** - 매일 다시 찍혀 전건이 오늘로 나온다(실측). 발행일이 없으므로 최초 발견일을 쓰고, 30일 URL 중복 제거가 한 기사를 한 번만 들인다.
+  - 계기 = 차트메트릭 플로우. 단일 페이지 앱이라 `/rss`·`/feed`·`/rss.xml`이 전부 앱 껍데기를 200으로 돌려준다. **200이 곧 유효 피드가 아니다** - 등재 전 본문이 XML인지 본다.
 - **차단 도메인은 `allowed_domains`에 넣을 수 없다.** Anthropic 크롤러 차단 도메인이 하나만 끼어도 web_search API가 요청 전체를 400으로 거부한다. 추가하려면 `probe_domains.py`로 사전 검증 후 통과분만. 피드 있는 IP홀더(Sony Music 등)는 newsroom 수집기가 흡수하고, **피드 없는 곳(Sony 그룹·Nintendo·Bandai·Crunchyroll·WBD·NBCU·Paramount)은 `vibe_search.py` `search_terms`에 회사 키워드로 흡수**한다(global-en ent-deals·ip-business + japan ip-business). 키워드는 400에 안전하고, 신뢰 매체의 해당 기업 보도(분석·딜)를 찾는다. (사고 경위 → DR)
 - **스케줄**: `.github/workflows/newsroom-ingest.yml` 매일 **10:00 KST**(01:00 UTC) + `workflow_dispatch`(lookback_days). **lookback 7일**.
 - **중복 제거**: 최근 30일 newsroom URL 집합(Supabase 조회) + URL upsert.

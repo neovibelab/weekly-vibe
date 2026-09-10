@@ -124,6 +124,51 @@ def parse_feed(data: bytes) -> list[dict]:
     return out
 
 
+def parse_sitemap(data: bytes, prefix: str) -> list[str]:
+    """sitemap.xml에서 prefix로 시작하는 경로의 URL만 뽑는다.
+
+    lastmod는 안 본다 - 사이트맵이 매일 다시 찍혀 전건이 오늘로 나온다(2026-09-10 실측).
+    """
+    try:
+        root = ET.fromstring(data)
+    except Exception as e:
+        log.warning("사이트맵 파싱 실패: %s", e)
+        return []
+    out = []
+    for el in root.iter():
+        if _local(el.tag) != "loc":
+            continue
+        u = (el.text or "").strip()
+        if u and (not prefix or prefix in u):
+            out.append(u)
+    return out
+
+
+_TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.S | re.I)
+_DESC_RE = re.compile(
+    r'<meta\s+(?:name="description"|property="og:description")\s+content="([^"]*)"', re.I)
+
+
+def fetch_page_meta(url: str) -> dict | None:
+    """기사 페이지에서 제목과 요약만 뽑는다. 사이트맵 소스 전용."""
+    try:
+        r = requests.get(url, timeout=25, headers={"User-Agent": UA})
+        r.raise_for_status()
+        html = r.text[:400_000]
+    except Exception as e:
+        log.warning("페이지 실패 %s :: %s", url[:60], str(e)[:60])
+        return None
+    m = _TITLE_RE.search(html)
+    if not m:
+        return None
+    title = re.sub(r"\s+", " ", m.group(1)).strip()
+    # 「제목 | 매체명」 꼬리를 뗀다 - 카드마다 같은 말이 붙으면 사건 묶기가 흐려진다.
+    if " | " in title:
+        title = title.rsplit(" | ", 1)[0].strip()
+    d = _DESC_RE.search(html)
+    return {"title": title, "link": url, "date": "", "summary": d.group(1) if d else ""}
+
+
 def parse_date(s: str):
     if not s:
         return None
@@ -265,8 +310,19 @@ def main() -> int:
         data = fetch_feed(src["feed"])
         if not data:
             continue
+        # 피드가 없는 곳은 사이트맵으로 받는다(§1-2). 뽑는 모양은 parse_feed와 같다.
+        if src.get("type") == "sitemap":
+            items = []
+            for u in parse_sitemap(data, src.get("path_prefix", "")):
+                if u in seen or len(items) >= FETCH_CAP:
+                    continue
+                meta = fetch_page_meta(u)
+                if meta:
+                    items.append(meta)
+        else:
+            items = parse_feed(data)
         kept = 0
-        for it in parse_feed(data):
+        for it in items:
             if kept >= FETCH_CAP:
                 break
             url = it["link"].strip()
