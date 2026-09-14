@@ -57,7 +57,6 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 - **시크릿**: `GMAIL_USER`·`GMAIL_APP_PASS`(IMAP 앱비밀번호).
 - **중복 제거**: 최근 14일 newsletter URL 집합(Supabase 조회) + URL upsert(merge-duplicates).
 - **캐치올 제목 게이트**(대표 지시 "발신자가 아니라 제목 기준으로도"): allowlist 밖 발신자의 메일도 제목이 엔터·콘텐츠·미디어·문화·소비 신호면 수집한다. 2단 게이트 - ① 런당 haiku 1콜로 제목 배치 판정(`subject_gate`, 프로모·행사·계정알림·하드뉴스 제외, 애매하면 제외) ② 통과분만 본문 fetch·strict classify(비-broad 규칙). 런당 상한 `NL_CATCHALL_CAP`(기본 8), `NL_CATCHALL=0`으로 끔. `catchall_ignore`(JSON 최상위 키) = 트랜잭션·서비스 알림 제외 목록 - **편집 매체는 넣지 않는다**(제목 게이트가 건별 판정). 캐치올 수집분의 source=발신 도메인.
-- **주간 발신자 스캔**: `scripts/newsletter_sender_scan.py` + `newsletter-sender-scan.yml`(**월 09:00 KST** + dispatch dry_run). 최근 7일 발신자를 allowlist(비활성 `_` 포함)·catchall_ignore와 대조해 미등재 발신자를 통수·예시 제목과 함께 woojin@에 리포트(0건이면 메일 없음). **등재 판단은 사람**(세션 "뉴스레터 스윕"), 무시는 catchall_ignore에 추가. 캐치올 = 개별 신호 안전망 / 스캔 = 발신자 승격 제안.
 
 ## 1-2. 뉴스룸 수집기 (collector='newsroom')
 
@@ -152,7 +151,6 @@ weekly-vibe/
 │   ├── send_drop_alert.py       ← 백업: 리포트 드롭 누락 시 woojin@ 메일 알림
 │   ├── notify_region_failure.py ← 지역 검색 실패 시 woojin@ 메일 경보
 │   ├── newsletter_ingest.py     ← 뉴스레터 IMAP 수집기 (§1-1)
-│   ├── newsletter_sender_scan.py ← 미등재 발신자 주간 리포트 (§1-1)
 │   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
 │   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
 │   ├── gnews_ingest.py          ← 구글 뉴스 RSS 수집기 (collector='gnews')
