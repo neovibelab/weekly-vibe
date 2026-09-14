@@ -1,39 +1,33 @@
 #!/usr/bin/env python3
-"""지역 수집 스텝이 검색 실패(API/코드 에러)로 끝나면 대표에게 메일 경보.
+"""지역 수집 스텝이 검색 실패(API/코드 에러)로 끝나면 **워크플로를 실패시킨다**(메일 경보는 2026-09-14 폐기).
 
 ai-news-daily.yml 전용. 각 지역 스텝의 outcome을 OUTCOME_<REGION> env로 받아
-'failure'인 지역만 모아 woojin@에 알린다.
+'failure'인 지역만 모아 `::error::` + exit 1로 잡을 빨갛게 만든다.
 
 왜 필요한가: 지역 스텝이 continue-on-error라 한 지역이 죽어도 잡 전체는
 success로 떠서 gh run·디스코드에 티가 안 난다. 글로벌이 sony.com 400으로
-이틀 침묵 실패한 사고(2026-06-15~16)가 며칠 뒤에야 발견됐다. 이 메일이
+이틀 침묵 실패한 사고(2026-06-15~16)가 며칠 뒤에야 발견됐다. 잡 실패가
 침묵 실패에 대한 유일한 능동 경보다.
 
 0건과 실패의 구분: 정상적인 '후보 0건'은 vibe_search가 exit 0 → outcome
 success → 여기 안 잡힌다. web_search API 호출 자체가 실패한 경우만
-vibe_search가 exit 1 → outcome failure → 알림. 정상 0건엔 메일이 안 간다.
+vibe_search가 exit 1 → outcome failure → 알림. 정상 0건엔 잡이 성공으로 끝난다.
 
-메일 발송 실패가 워크플로를 죽이지 않도록 항상 0으로 끝낸다.
+실패 지역이 있을 때만 exit 1. 없으면 0.
 
 env:
-  GMAIL_USER, GMAIL_APP_PASS   Gmail 계정 + 앱비밀번호 (IMAP 수집·드롭 경보와 동일)
   OUTCOME_<REGION>             각 지역 스텝 outcome (success/failure/skipped/'')
   RUN_URL                      (선택) 해당 GitHub Actions 실행 URL
   DRY_RUN=1                    발송 없이 본문만 출력
 """
 import os
-import smtplib
-import ssl
 import sys
-from email.mime.text import MIMEText
-from email.utils import formatdate
 
 # Windows 콘솔(cp949)에서 이모지·em-dash 출력 시 UnicodeEncodeError 방지.
 # GitHub Actions(Linux)는 UTF-8 기본이라 무영향 — 로컬 DRY_RUN 테스트 호환용.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-TO_ADDR = "woojin@neovibelab.com"
 
 # env 키 → 한국어 지역명 (워크플로 알림 스텝의 OUTCOME_* 와 일치시킬 것)
 REGIONS = [
@@ -104,37 +98,29 @@ def build_message(failed: list[str], reasons: list[tuple[str, str, str]] | None 
 
 
 def main() -> int:
+    """실패 지역이 있으면 **워크플로를 실패시킨다**(메일은 2026-09-14 폐기).
+
+    대표 지시 - 「[NVL] 경보 메일이 불필요하다」. 다만 **침묵 실패는 그대로 두면 안 된다** -
+    지역 스텝이 continue-on-error라 한 지역이 죽어도 잡 전체가 success로 뜨고,
+    2026-06-15~16에 글로벌이 이틀 침묵 실패한 것이 며칠 뒤에야 발견됐다.
+
+    그래서 알림 경로를 **메일에서 GitHub Actions 실패로 바꿨다** - `::error::` + exit 1이면
+    잡이 빨갛게 뜨고 GitHub가 자기 알림을 보낸다. **추가 시크릿·채널이 필요 없다.**
+    `report-drop-watchdog.yml`의 「결과 판정」 스텝이 이미 쓰는 방식이다.
+
+    **되돌림** - 잡 실패가 눈에 안 띄어 침묵 실패가 또 늦게 발견되면, 메일이 아니라
+    **Discord 경보 전용 웹훅**을 세운다(이미 매일 쓰는 채널이라 눈에 띈다).
+    """
     failed = failed_regions()
     if not failed:
-        print("[info] 실패 지역 없음 — 알림 생략")
+        print("[info] 실패 지역 없음")
         return 0
 
-    subject, body = build_message(failed, read_failure_reasons())
-    user = os.environ.get("GMAIL_USER")
-    pw = os.environ.get("GMAIL_APP_PASS")
-
-    if os.environ.get("DRY_RUN") == "1":
-        print(f"[dry-run] To: {TO_ADDR}\n[dry-run] Subject: {subject}\n\n{body}")
-        return 0
-    if not user or not pw:
-        print("[warn] GMAIL_USER/GMAIL_APP_PASS 미설정 — 메일 생략")
-        return 0
-
-    msg = MIMEText(body, _charset="utf-8")
-    msg["Subject"] = subject
-    msg["From"] = user
-    msg["To"] = TO_ADDR
-    msg["Date"] = formatdate(localtime=True)
-    try:
-        ctx = ssl.create_default_context()
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as s:
-            s.starttls(context=ctx)
-            s.login(user, pw)
-            s.sendmail(user, [TO_ADDR], msg.as_string())
-        print(f"[info] Vibe 실패 경보 메일 발송 완료 → {TO_ADDR} ({', '.join(failed)})")
-    except Exception as e:  # noqa: BLE001 — 메일 실패는 워크플로를 죽이지 않음
-        print(f"[warn] 메일 발송 실패(무시): {e}")
-    return 0
+    _, body = build_message(failed, read_failure_reasons())
+    print(body)
+    joined = ", ".join(failed)
+    print(f"::error title=Vibe 수집 실패::{joined} - 검색 실패로 끝났다. 로그 확인 요망")
+    return 1
 
 
 if __name__ == "__main__":

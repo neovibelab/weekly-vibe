@@ -127,14 +127,13 @@ jobs:
           MAX_AGE_HOURS: '168'   # 동남아도 web_search 최신성 약함 - 7일 컷 (2026-06-19, 중국 선례)
         run: python scripts/vibe_search.py southeast-asia ${{ inputs.dry_run && '--dry-run' || '' }}
 
-      # 침묵 실패 경보: 위 지역 중 검색 실패(outcome=failure)가 있으면 woojin@ 메일.
+      # 침묵 실패 경보: 위 지역 중 검색 실패(outcome=failure)가 있으면 **잡을 실패시킨다**
+      # (메일은 2026-09-14 폐기). GitHub가 자기 알림을 보내므로 추가 채널이 필요 없다.
       # always() - 앞 스텝 결과와 무관하게 항상 평가. skip(skipped)·정상(success)은
       # 무시하고 failure만 모아 통지. 시간차 분산이라 한 번에 일부 지역만 돌아도 안전.
-      - name: 실패 지역 메일 경보
+      - name: 실패 지역 판정
         if: always()
         env:
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           OUTCOME_KOREA: ${{ steps.korea.outcome }}
           OUTCOME_GLOBAL: ${{ steps.global_en.outcome }}
           OUTCOME_CHINA: ${{ steps.china.outcome }}

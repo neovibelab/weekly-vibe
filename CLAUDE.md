@@ -43,7 +43,7 @@
 - **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). **`cross-industry` 태그는 만들지 않는다**(대표 결정) - 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈다. 타 업종 이전 원리 판정은 대시보드 보조·추천 프롬프트(nvl-vibe-radar `REF_FRAME`)가 한다. `taste-values` = 세대를 가로지르는 취향·가치 신호(지속가능·로컬·디깅·리바이벌·취향 공동체, 엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)의 재정의. **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar`(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 바꾼다. 대시보드는 과거 `gen-z-lifestyle`을 alias로 호환(마이그레이션 불필요). (경위 → DR)
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. **LLM 응답 JSON 파싱은 `scripts/llm_json.py` 하나로 모았다**(2026-09-10) - `parse_obj`(코드펜스 제거 → 첫 균형 블록 → 키별 정규식 3층, 실패 시 예외) · `parse_list`(원본 → 수리 → 개별 객체 추출 3단, 구 `_parse_json_robust`). **`nvl-vibe-radar/llm_json.py`와 쌍둥이다** - 두 저장소는 서로 import할 수 없으니 한쪽을 고치면 반드시 다른 쪽도 고친다.
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input(all/korea/global-en/china/japan/southeast-asia). 이건 **검색 프로파일**이지 저장 지역이 아니다(아래 §1-4).
-- **실패 경보**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 woojin@에 메일. **0건(정상)과 실패를 종료코드로 구분한다** - vibe_search는 검색 실패만 `exit 1`, 워크플로가 각 지역 `outcome`을 모아 `failure`만 통지(정상 0건엔 메일 없음). 실패를 exit 0으로 가리는 `|| echo`는 쓰지 않는다. (경위 → DR)
+- **실패 경보**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 **잡을 실패시킨다**(`::error::` + exit 1). **메일 경보는 2026-09-14 대표 지시로 폐기** - 「[NVL] 경보 메일이 불필요하다」. GitHub Actions가 자기 알림을 보내므로 추가 채널·시크릿이 필요 없다. **0건(정상)은 exit 0이라 안 잡힌다** - 침묵 실패만 본다. **되돌림** - 잡 실패가 눈에 안 띄어 침묵 실패가 또 늦게 발견되면 Discord 경보 전용 웹훅을 세운다.
 
 **§1-1~1-3 공통**: Discord 미포스팅·대시보드 전용, `total_score=0`(사전 큐레이션 소스), 대시보드에 출처 배지. 시크릿은 `SUPABASE_*` + ANTHROPIC `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용(피드는 무인증이라 신규 시크릿 없음). 피드 URL은 **실제 fetch로 유효 XML을 검증한 뒤 등재**(죽은 피드, 헤더만 주고 본문이 빈 깡통[예: Sanrio] 주의), `_` 접두 = 비활성. 소스 추가·제거는 각 JSON만 편집.
 
@@ -134,7 +134,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 - 생성: `/report-scan` 스킬(미네바) - **격주(2주 1회) 운영**(대표 결정). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + 마스터 색인 반영(색인이 SSOT)
 - 발송 로직: `scripts/send_report_drop.py` - 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. 정시·백업 공용 모듈(stdlib). 워크플로 YAML 안에 heredoc으로 로직을 넣지 않는다. 세 가지 필수 - **① 명시 User-Agent**(urllib 기본 UA는 Discord Cloudflare가 403/`error 1010`으로 차단. vibe_search `send_to_discord`는 `requests` UA로 통과 중이라 명시 UA는 후속 권장·미적용) **② 격주 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일 이상 지났으면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음) **③ 대시보드 적재: 발송 직후 드롭의 1위 메달+신규 리포트를 파싱(`parse_drop_items`)해 `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭**(다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env를 정시+백업 워크플로 양쪽에 주입). (403 원인·경계값 버그 → DR)
 - 포스팅(정시): `.github/workflows/discord-report-drop.yml` - 매주 월요일 **10:17 KST** cron. 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만 = 격주 리듬**(cron은 매주지만 stale 드롭은 재발송하지 않는다).
-- 백업 감시: `.github/workflows/report-drop-watchdog.yml` - 월 **10:40 KST** 점검 → 정시 누락 시 직접 재발송 + woojin@ 메일 알림(`check_drop_posted.py` 발송판정·`send_drop_alert.py` 메일). GitHub cron best-effort 누락 대비. 중복 발송·지연 레이스 가드 포함.
+- 백업 감시: `.github/workflows/report-drop-watchdog.yml` - 월 **10:40 KST** 점검 -> 정시 누락 시 직접 재발송(`check_drop_posted.py` 발송 판정). **메일 알림은 2026-09-14 폐기**(`send_drop_alert.py` 삭제) - 백업이 성공하면 드롭은 정상 전송된 것이라 알릴 것이 없고, 실패하면 「결과 판정」 스텝이 `::error::` + exit 1로 잡을 빨갛게 만든다. GitHub cron 신뢰성 보완.
 
 ## 5. 파일 구조
 
@@ -148,8 +148,7 @@ weekly-vibe/
 │   ├── supabase_writer.py       ← radar_items upsert
 │   ├── send_report_drop.py      ← 리포트 드롭 발송 공용 모듈 (정시+백업)
 │   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)
-│   ├── send_drop_alert.py       ← 백업: 리포트 드롭 누락 시 woojin@ 메일 알림
-│   ├── notify_region_failure.py ← 지역 검색 실패 시 woojin@ 메일 경보
+│   ├── notify_region_failure.py ← 지역 검색 실패 시 잡 실패(::error::)
 │   ├── newsletter_ingest.py     ← 뉴스레터 IMAP 수집기 (§1-1)
 │   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
 │   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
