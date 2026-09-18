@@ -438,19 +438,31 @@ def search_and_analyze(
     # allowed/blocked는 동시 사용 불가 — 차단 도메인은 코드 검증에서 처리.
     # web_fetch: 검색 메타데이터에 발행일이 없는 최종 후보의 기사 페이지를
     # 직접 열어 발행일을 확인 (화이트리스트 매체 기사도 page_age 누락이 잦음).
+    # 검색 예산 (2026-09-18 대표 지시로 조임). 서버사이드 검색은 검색할 때마다
+    # 앞선 결과를 다시 읽으므로 입력이 누적으로 자란다 - 검색 n회면 대략
+    # nB + (n-1)n/2 x S다. 9월 실측은 검색 288회에 입력 1,431만 토큰,
+    # 검색 1회당 49,700토큰이었고 비용의 32%를 차지했다.
+    # 모델은 허용 8회 중 6회를 썼다. 5로 내리면 누적항이 15S에서 10S가 된다.
+    # 4까지 내리면 60%가 줄지만 지역당 후보가 2~3건이고 품질 게이트가 버리는
+    # 것이 0건이라 수확에 여유가 없다. 환경변수로 재조정할 수 있게 뺐다.
+    search_uses = int(os.environ.get("VS_SEARCH_USES", "5"))
+    fetch_uses = int(os.environ.get("VS_FETCH_USES", "3"))
+    # fetch의 일은 발행일 확인 하나다. 날짜 하나 읽자고 본문 1만 토큰을 받아
+    # 그 뒤 모든 턴에서 다시 읽고 있었다. 날짜는 페이지 앞부분에 있다.
+    fetch_tokens = int(os.environ.get("VS_FETCH_TOKENS", "3000"))
     tools = [
         {
             "type": "web_search_20250305",
             "name": "web_search",
-            "max_uses": 8,
+            "max_uses": search_uses,
             "allowed_domains": region["allowed_domains"],
         },
         {
             "type": "web_fetch_20250910",
             "name": "web_fetch",
-            "max_uses": 5,
+            "max_uses": fetch_uses,
             "allowed_domains": region["allowed_domains"],
-            "max_content_tokens": 10000,
+            "max_content_tokens": fetch_tokens,
         },
     ]
 

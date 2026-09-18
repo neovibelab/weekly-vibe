@@ -30,6 +30,7 @@
 | 동남아 | 영어+현지 | `#asia_vibe` | `DISCORD_SOUTHEAST_ASIA_WEBHOOK` |
 
 - **엔진**: `scripts/vibe_search.py` - Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 1~5건, 기준 충족 후보 없으면 그날은 생략. 단일 워크플로에서 각 step `if`가 `github.event.schedule`·수동 region input으로 분기하고, skip 지역은 outcome=skipped라 실패 경보에 걸리지 않는다. (시간대 분산·격일 전환 경위 → DR)
+- **검색 예산** (2026-09-18 조임): `web_search` 5회 · `web_fetch` 3회 · fetch 본문 3,000토큰. 환경변수 `VS_SEARCH_USES`·`VS_FETCH_USES`·`VS_FETCH_TOKENS`로 조정한다. **서버사이드 검색은 검색할 때마다 앞선 결과를 다시 읽어 입력이 누적으로 자란다** - 검색 n회면 대략 `nB + (n-1)n/2 x S`. 9월 실측 = 검색 288회에 입력 1,431만 토큰(검색 1회당 49,700), 월 비용의 32%. 모델은 허용 8회 중 6회를 썼다. **되돌림 조건** - 지역당 후보가 2주 연속 평균 1건 아래면 `VS_SEARCH_USES=6`으로 되돌린다.
 - **나이컷**: 한·글·일 120h, 중·동남아 168h(`MAX_AGE_HOURS`). robots.txt로 막힌 일간지(조선·중앙·FT·Reuters 등)는 뉴스레터 구독으로 흡수한다 - 발신자만 `sources_newsletters.json`에 추가.
 - **적재**: `scripts/supabase_writer.py` - REST API upsert → `radar_items`. env `SUPABASE_URL`·`SUPABASE_KEY`(GitHub Secrets). nvl-vibe-radar 자체 수집기는 폐기됐다. 풀을 채우는 수집기는 vibe_search(웹)·newsletter_ingest(§1-1)·newsroom_ingest(§1-2)·interview_ingest(§1-3)·gnews_ingest(구글 뉴스 RSS) 다섯이고, radar는 조회·큐레이션 대시보드(collector/region 필터)다.
 - **풀 유지보수**: `scripts/pool_maintenance.py`. 매일 실행, `--apply` 없으면 미리보기만.
