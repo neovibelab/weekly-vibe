@@ -427,6 +427,41 @@ def build_search_prompt(region: dict, today: datetime.date, cutoff: datetime.dat
 # ── 검색 ──────────────────────────────────────────────────
 
 
+# 사용량 기록 (2026-09-30). 이 스크립트는 한 번 돌 때 얼마를 쓰는지 남기지 않아
+# 9-18 검색 예산 조임 뒤의 비용을 아무도 못 쟀다. 값은 달러 추정이고 청구서가 정본이다.
+# 단가 = 100만 토큰당 (입력, 출력). 캐시 읽기 0.1x, 쓰기 1.25x. 웹 검색 1,000건당 $10,
+# web_fetch는 도구 요금 없이 가져온 본문이 입력 토큰으로만 잡힌다.
+MODEL = "claude-sonnet-4-6"
+PRICE_PER_MTOK = (3.0, 15.0)
+SEARCH_USD = 0.01
+
+
+def _add_usage(total: dict, response) -> None:
+    u = getattr(response, "usage", None)
+    if u is None:
+        return
+    total["calls"] += 1
+    total["input"] += getattr(u, "input_tokens", 0) or 0
+    total["output"] += getattr(u, "output_tokens", 0) or 0
+    total["cache_read"] += getattr(u, "cache_read_input_tokens", 0) or 0
+    total["cache_write"] += getattr(u, "cache_creation_input_tokens", 0) or 0
+    stu = getattr(u, "server_tool_use", None)
+    if stu is not None:
+        total["search"] += getattr(stu, "web_search_requests", 0) or 0
+        total["fetch"] += getattr(stu, "web_fetch_requests", 0) or 0
+
+
+def _report_usage(region_name: str, t: dict) -> float:
+    pin, pout = PRICE_PER_MTOK
+    usd = (t["input"] * pin + t["cache_write"] * pin * 1.25 + t["cache_read"] * pin * 0.1
+           + t["output"] * pout) / 1e6 + t["search"] * SEARCH_USD
+    line = (f"사용량 {t['calls']}콜 · 입력 {t['input']:,} · 출력 {t['output']:,} · "
+            f"검색 {t['search']} · fetch {t['fetch']} · 추정 ${usd:.3f}")
+    log.info("[%s] %s", region_name, line)
+    write_step_summary(region_name, line)
+    return usd
+
+
 def search_and_analyze(
     client: Anthropic, region: dict, today: datetime.date, cutoff: datetime.date
 ) -> list[dict]:
@@ -470,9 +505,11 @@ def search_and_analyze(
     # HTTP 타임아웃 → SDK 재시도로 검색 비용만 중복 과금된다 (2026-06-10 실측).
     response = None
     extra: dict = {}
+    usage_total = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0,
+                   "search": 0, "fetch": 0, "calls": 0}
     for _ in range(3):  # pause_turn(서버 루프 한도) 연속 재개 최대 2회
         with client.messages.stream(
-            model="claude-sonnet-4-6",
+            model=MODEL,
             max_tokens=MAX_TOKENS,
             tools=tools,
             messages=messages,
@@ -480,6 +517,7 @@ def search_and_analyze(
         ) as stream:
             response = stream.get_final_message()
 
+        _add_usage(usage_total, response)
         log.info("stop_reason=%s", response.stop_reason)
         if response.stop_reason != "pause_turn":
             break
@@ -490,6 +528,8 @@ def search_and_analyze(
         # 코드 실행 동반 응답은 같은 컨테이너로 재개해야 함 (없으면 400)
         if getattr(response, "container", None):
             extra["container"] = response.container.id
+
+    _report_usage(region.get("name", "?"), usage_total)
 
     if response.stop_reason == "max_tokens":
         log.warning("응답이 max_tokens로 잘림 — 일부 결과만 사용")
