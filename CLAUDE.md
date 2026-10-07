@@ -41,6 +41,7 @@
   - **묶음 로직은 2026-09-10 제거** - 정리 ③(묶음 시의성 시효)·픽 시효의 보호 묶음 면제·상한 면제의 묶음 멤버. 묶음이 09-02 폐기라 셋 다 매 런 `clusters`·`cluster_items`를 조회하고 빈 목록을 받아 왔다.
   - Supabase 전 행 조회는 반드시 `_fetch_paged`(Range 헤더 + id 정렬 순회) - PostgREST는 `limit`과 무관하게 1,000행에서 자른다. (경위 → DR)
 - **중복 제거**: `seen-titles.txt` + Supabase URL 중복 체크.
+- **질의별 수확 보고** (2026-10-08 신설): gnews 적재 시 `tags`에 `q:<질의이름>`을 남기고 `scripts/query_yield.py`가 질의별 **수확 -> 통과 -> 좌표 -> 타깃** 깔때기를 집계한다. **판단은 좌표 열로 한다** - 수확 100건에 좌표 0이면 유행어를 긁고 있다는 뜻이다(오대산 문화축전이 「AI 음악」에 걸린 양상). 수확 20건 이상에 좌표 0이면 「죽었다」, 30건 이상에 5% 미만이면 「묽다」로 지목한다. **질의를 고치려면 이걸 먼저 돌린다.** 기준선 = 2026-10-08 전체 좌표율 41.2%(4,605건). `q:` 태그 이전 적재분은 「(태그 없음)」으로 묶인다. **되돌림** - 6개월 돌려 지목된 질의가 하나도 없으면 보고를 접는다(질의 집합이 안 썩는다는 뜻).
 - **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). **`cross-industry` 태그는 만들지 않는다**(대표 결정) - 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈다. 타 업종 이전 원리 판정은 대시보드 보조·추천 프롬프트(nvl-vibe-radar `REF_FRAME`)가 한다. `taste-values` = 세대를 가로지르는 취향·가치 신호(지속가능·로컬·디깅·리바이벌·취향 공동체, 엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)의 재정의. **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar`(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 바꾼다. 대시보드는 과거 `gen-z-lifestyle`을 alias로 호환(마이그레이션 불필요). (경위 → DR)
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. **LLM 응답 JSON 파싱은 `scripts/llm_json.py` 하나로 모았다**(2026-09-10) - `parse_obj`(코드펜스 제거 → 첫 균형 블록 → 키별 정규식 3층, 실패 시 예외) · `parse_list`(원본 → 수리 → 개별 객체 추출 3단, 구 `_parse_json_robust`). **`nvl-vibe-radar/llm_json.py`와 쌍둥이다** - 두 저장소는 서로 import할 수 없으니 한쪽을 고치면 반드시 다른 쪽도 고친다.
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input(all/korea/global-en/china/japan/southeast-asia). 이건 **검색 프로파일**이지 저장 지역이 아니다(아래 §1-4).
@@ -155,6 +156,7 @@ weekly-vibe/
 │   ├── newsroom_ingest.py       ← 뉴스룸 RSS 수집기 (§1-2)
 │   ├── interview_ingest.py      ← 인터뷰 RSS·유튜브 수집기 (§1-3)
 │   ├── gnews_ingest.py          ← 구글 뉴스 RSS 수집기 (collector='gnews')
+│   ├── query_yield.py             ← 질의별 수확 깔때기 보고(죽은 질의 지목)
 │   ├── regate.py                ← 보류·실패한 gnews 수집분 일괄 재판정 (§1-5)
 │   ├── fix_title_notation.py    ← 적재된 제목의 표기만 정규화 (§1-5)
 │   ├── pool_maintenance.py      ← 풀 유지보수(상한 archive + 픽 시효 + 묶음 시의성 시효)

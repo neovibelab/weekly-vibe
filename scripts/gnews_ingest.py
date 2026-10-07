@@ -58,8 +58,12 @@ QUERIES = [
     ("기존",       "일본·IP",       "音楽 IP",                          "ja",    "JP", "JP:ja"),
     ("IP",         "IP·영어",       "music IP licensing catalog",       "en-US", "US", "US:en"),
     # 기사가 쓰는 말로 고른다 (2026-10-08). 「음악 IP 라이선스」는 우리 분류 용어라
-    # 51건을 긁고도 10/07 카카오엔터x아틀란틱 제휴를 0건 잡았다. 「K팝 IP」는 16건.
-    ("IP",         "IP·한국",       "K팝 IP",                           "ko",    "KR", "KR:ko"),
+    # 51건을 긁고도 10/07 카카오엔터x아틀란틱 제휴를 0건 잡았다.
+    # 중복을 걷고 「100건당 서로 다른 사건」으로 재면 - 레이더가 event_key로 사건을
+    # 접으니 이게 진짜 수확이다 - 엔터테인먼트 IP 95 · 음악 IP 93 · K팝 IP 82 ·
+    # 엔터 IP 81이다. 「엔터 IP」는 구글이 토큰으로 매칭해 「카카오엔터」에 걸려
+    # K팝 IP보다도 중복이 심하다.
+    ("IP",         "IP·한국",       "엔터테인먼트 IP",                  "ko",    "KR", "KR:ko"),
     # 한국에 자본 축이 없었다. 다만 자본 **주제어**로는 안 잡힌다(「음악 투자」·
     # 「엔터 투자」등 6개 적중 0) - 제휴는 당사자명과 업계 관용어로 보도된다.
     ("자본",       "자본·한국",     "엔터 파트너십",                    "ko",    "KR", "KR:ko"),
@@ -275,6 +279,9 @@ def main() -> int:
                 continue
             seen.add(u)
             x["factor_hint"] = factor
+            # 어느 질의가 데려왔는지 남긴다 (2026-10-08). 이게 없으면 죽은 질의와
+            # 조용한 뉴스 주간이 구별되지 않는다. 집계는 scripts/query_yield.py.
+            x["query_name"] = name
             # 게이트 haiku가 내용 기준으로 판정한 값으로 나중에 덮인다. 여기 값은 폴백.
             x["region_fallback"] = REGION_BY_GL.get(gl, "multinational")
             # 룩백 컷에만 쓰고 버리던 발행일을 여기서 붙잡는다 (2026-09-10).
@@ -342,7 +349,7 @@ def main() -> int:
             "published_date": x.get("published_at"),
             "region": reg,
             "topics": [],
-            "tags": [x["factor_hint"]],
+            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")],
             "is_entertainment": is_ent,
             "status": "pending" if is_ent else "filtered_out",
             "filter_verdict": ("pass" if is_ent else (GATE_DEFERRED if (deferred and ie is None) else ("non_ent" if ie is not None else "classify_failed"))),
