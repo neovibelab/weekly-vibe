@@ -57,11 +57,11 @@
       "_strength": "플랫폼이 고른 아티스트 발언. 발매 맥락과 본인 설명"
     },
     {
-      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ",
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCiFad3ywc8c5IO-B3bBqqLQ",
       "name": "Broken Record",
       "region": "global-en",
       "media": "video",
-      "_strength": "제작과 창작 과정(릭 루빈). 만드는 사람의 방법론과 판단"
+      "_reason": "2026-10-08 - 같은 쇼의 **팟캐스트 본 피드**로 갈아탔다. 유튜브 채널은 클립 위주라 전체 회차가 거의 없다(Music Tectonics는 업로드 40개 중 12분 이상 1개)."
     },
     {
       "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UClKXK5yDY4Yx02TrXya-KWw",
@@ -141,11 +141,11 @@
       "_reason": "컨퍼런스 세션 영상. 26건 수집 0픽 - 2026-09-02 실측 정리."
     },
     {
-      "feed": "https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw",
+      "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCBwvVF4Nk2Eaa_pQQTGVECw",
       "name": "Music Tectonics",
       "region": "global-en",
       "media": "video",
-      "_strength": "음악 기술과 산업 구조. 플랫폼·유통·데이터가 어떻게 바뀌는지"
+      "_reason": "2026-10-08 - 같은 쇼의 **팟캐스트 본 피드**로 갈아탔다. 유튜브 채널은 클립 위주라 전체 회차가 거의 없다(Music Tectonics는 업로드 40개 중 12분 이상 1개)."
     },
     {
       "feed": "_https://www.youtube.com/feeds/videos.xml?channel_id=UCAuUUnT6oDeKwE6v1NGQxug",
@@ -217,6 +217,24 @@
       "media": "video",
       "_strength": "음악 비즈니스·카탈로그·자본. 딜 구조와 투자 논리를 당사자에게 직접 듣는다",
       "_reason": "2026-10-08 등재 - 대표 「매우 유용한데 모두 놓치고 있다」. 28일 2회차로 양을 안 늘린다"
+    },
+    {
+      "feed": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/ff0ba2f2-f33c-4193-aba2-ae32006cd633/11c188a1-cb86-4869-9c57-ae32006cd63c/podcast.rss",
+      "name": "Broken Record",
+      "region": "global-en",
+      "media": "audio",
+      "_transcript": "feed-vtt",
+      "_strength": "제작과 창작 과정(릭 루빈·맬컴 글래드웰). 만드는 사람의 방법론과 판단",
+      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 404회차 · 피드에 WebVTT 전사본이 화자 태그·타임코드와 함께 실려 온다(`<podcast:transcript>`)"
+    },
+    {
+      "feed": "https://rss.libsyn.com/shows/140255/destinations/878702.xml",
+      "name": "Music Tectonics",
+      "region": "global-en",
+      "media": "audio",
+      "_transcript": "mt-page",
+      "_strength": "음악 기술과 산업 구조. 플랫폼·유통·데이터가 어떻게 바뀌는지",
+      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 434회차 · 전사본은 피드가 아니라 musictectonics.com/post/<libsyn 슬러그>에 전문이 있다(슬러그 매핑 5/5 실측)"
     }
   ]
 }
