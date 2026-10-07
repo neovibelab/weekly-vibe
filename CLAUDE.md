@@ -94,6 +94,11 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 - **스케줄**: `.github/workflows/interview-ingest.yml` **화·금 11:00 KST**(02:00 UTC) + `workflow_dispatch`(lookback_days). 주 2회, **룩백 14일·나이컷 없음**. 대시보드 인터뷰 탭 노출. GitHub 신규 예약 워크플로는 첫 예정 발화를 스킵한다 - 첫 자동 수집이 안 보이면 `workflow_dispatch` 1회 수동.
 - **중복 제거**: 최근 **60일** interview URL 집합 + URL upsert(merge-duplicates).
 - **픽 시효 면제**: `pool_maintenance.py`의 픽 20일 시효(`picked_expiry_targets`)에서 `collector='interview'` 픽은 면제(소스 뱅크 이관 전까지 보존). 뉴스성 픽에만 20일 적용.
+- **쓰는 자리는 대시보드 탭이 아니라 digest다** (2026-10-08 대표). 「다 보고 들을 시간이 없다」 · 「당사자 발언이란 점에서 중요하게 관리하고 싶다」. 2,206건을 카드로 쌓아 타깃 0건·발행 인용 1건이었다 - **팟캐스트는 훑는 물건이 아니라 듣는 물건**이라 카드 목록이 맞지 않았다. `../scripts/podcast-digest.py`가 자동자막(yt-dlp, 위스퍼 불필요)으로 전사하고 haiku로 회차마다 **요지 3줄 + 당사자 발언 3\~5개(타임코드)**를 뽑아 두뇌 `raw/library/podcast/`에 채널별로 쌓는다. 주 23회차 = 듣는 데 17시간, 읽는 데 5분. 비용은 전사 0 + digest 주 $0.23.
+  - **채널마다 뽑을 것이 다르다** - `_strength` 칸이 그걸 적고 digest 프롬프트가 읽는다(Trapital 자본·카탈로그 · Music Tectonics 산업 구조 · And The Writer Is 창작과 업계 작동 · Zach Sang 아티스트 발언).
+  - **유튜브 채널 피드는 쇼츠·클립이 다수다**(2026-10-08 길이 표본 - 21편 중 0\~3분이 다수). 길이 문턱 12분이 메타만 보고 걸러 API를 안 쓴다. **근본 해법은 팟캐스트 RSS를 따로 붙이는 것**이고 추측 주소 6개가 전부 404라 쇼별 조회가 필요하다(미착수).
+  - **검증 층을 겹치지 않는다** - 위키 `status`(미검증→검증)는 **관점의 검증**이고, 당사자 발언의 검증은 「실제로 말했나」다. 후자는 타임코드·전사본이 보증한다. 그래서 적재물은 `citation_ready: false`에 **verbatim 직접 인용 금지**, 패러프레이즈는 출처 표기 후 자유. 선례 = `raw/library/2026-07-11-steve-stoute-unitedmasters.md`.
+  - **되돌림** - 8주 동안 digest가 팩트시트·발행에 한 번도 안 쓰이면 수집을 접는다.
 
 ## 1-4. 지역 축 (2026-09-10 개편)
 
