@@ -69,6 +69,18 @@
       "path_prefix": "/chartmetric-insights/",
       "region": "multinational",
       "_note": "RSS 없음 - 단일 페이지 앱이라 /rss·/feed가 앱 껍데기를 200으로 준다. 사이트맵의 기사 URL을 받아 프리렌더된 제목·요약을 뽑는다. 발행일이 없어 최초 발견일을 쓴다 (2026-09-10 등재)"
+    },
+    {
+      "feed": "https://www.techm.kr/rss/allArticle.xml",
+      "name": "테크M",
+      "region": "korea",
+      "_note": "한국 산업 매체. 플랫폼·콘텐츠 사업 보도가 주다 - 국감 티빙·리디 소환, 웹소설 수수료, 네이버·두나무 빅딜. 10/07 카카오엔터x아틀란틱 제휴를 잡은 곳이고 gnews 한국 질의는 못 잡았다 (2026-10-08 등재)"
+    },
+    {
+      "feed": "https://byline.network/feed/",
+      "name": "바이라인네트워크",
+      "region": "korea",
+      "_note": "한국 산업 매체. 커머스·플랫폼 분석(커머스BN 연재). 피드가 20건이라 빨리 밀린다 - 매일 수집이라 괜찮다. 보안·엔터프라이즈 AI 기사는 게이트의 is_entertainment가 떨어뜨린다 (2026-10-08 등재)"
     }
   ]
 }
