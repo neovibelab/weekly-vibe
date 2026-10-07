@@ -45,8 +45,11 @@ import sys
 
 import requests
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace",
-                              line_buffering=True)
+if (getattr(sys.stdout, "encoding", "") or "").lower() != "utf-8":
+    # 재감싸기 방지 - 이미 감싼 뒤 또 감싸면 앞 래퍼가 닫혀 ValueError가 난다
+    # (radar_audit이 이 모듈과 actor_watch를 같이 import하면서 터졌다, 2026-10-08).
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace",
+                                  line_buffering=True)
 
 NO_TAG = "(태그 없음)"
 
