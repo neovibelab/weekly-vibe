@@ -225,7 +225,8 @@
       "media": "audio",
       "_transcript": "feed-vtt",
       "_strength": "제작과 창작 과정(릭 루빈·맬컴 글래드웰). 만드는 사람의 방법론과 판단",
-      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 404회차 · 피드에 WebVTT 전사본이 화자 태그·타임코드와 함께 실려 온다(`<podcast:transcript>`)"
+      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 404회차 · 피드에 WebVTT 전사본이 화자 태그·타임코드와 함께 실려 온다(`<podcast:transcript>`)",
+      "_backfill_note": "창작·제작 이야기라 시효가 없다 - 전 기간 받는다. 2018 Tom Petty 'Wildflowers' · 2019 안드레 3000 x 릭 루빈 · 2021 Neil Young은 지금 구하기 어려운 1차 발언이다."
     },
     {
       "feed": "https://rss.libsyn.com/shows/140255/destinations/878702.xml",
@@ -234,7 +235,9 @@
       "media": "audio",
       "_transcript": "mt-page",
       "_strength": "음악 기술과 산업 구조. 플랫폼·유통·데이터가 어떻게 바뀌는지",
-      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 434회차 · 전사본은 피드가 아니라 musictectonics.com/post/<libsyn 슬러그>에 전문이 있다(슬러그 매핑 5/5 실측)"
+      "_reason": "2026-10-08 팟캐스트 본 피드로 등재. 434회차 · 전사본은 피드가 아니라 musictectonics.com/post/<libsyn 슬러그>에 전문이 있다(슬러그 매핑 5/5 실측)",
+      "_backfill_since": "2023",
+      "_backfill_note": "산업 기술 동향이라 시효가 있다. 2020 코로나 라이브스트림 · 2021 Twitch·탈중앙화 · 2022 메타버스 국면은 지금 재료로 안 쓴다. 구조 연구로 그 시기가 필요해지면 하한을 내린다."
     }
   ]
 }
