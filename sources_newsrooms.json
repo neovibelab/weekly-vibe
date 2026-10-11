@@ -27,6 +27,18 @@
       "region": "global-en"
     },
     {
+      "feed": "https://www.riaa.com/feed/",
+      "name": "RIAA",
+      "region": "north-america",
+      "_why": "2026-10-11 등재. 발행본이 인용한 1차 자료 중 레이더에 없던 것(미국 음악 매출·인증 통계). 공식 RSS 확인. robots는 /rebooting-the-record-label/만 막는다"
+    },
+    {
+      "feed": "https://newsroom-deezer.com/feed/",
+      "name": "Deezer Newsroom",
+      "region": "multinational",
+      "_why": "2026-10-11 등재. 발행본 인용 3회인데 레이더에 없었다. AI 음악 탐지·SACEM 제휴 같은 1차 발표가 나온다"
+    },
+    {
       "feed": "https://www.universalmusic.com/feed/",
       "name": "Universal Music",
       "region": "global-en"

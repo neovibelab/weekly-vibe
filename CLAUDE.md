@@ -31,7 +31,7 @@
 | 일본 | 일본어 | `#vibe-japan` | `DISCORD_JAPAN_WEBHOOK` |
 | 동남아 | 영어+현지 | `#asia_vibe` | `DISCORD_SOUTHEAST_ASIA_WEBHOOK` |
 
-- **엔진**: `scripts/vibe_search.py` - Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 1~5건, 기준 충족 후보 없으면 그날은 생략. 단일 워크플로에서 각 step `if`가 `github.event.schedule`·수동 region input으로 분기하고, skip 지역은 outcome=skipped라 실패 경보에 걸리지 않는다. (시간대 분산·격일 전환 경위 → DR)
+- **엔진**: `scripts/vibe_search.py` - Claude Sonnet `web_search` 서버사이드 도구(스트리밍 호출). 지역당 1\~5건, 기준 충족 후보 없으면 그날은 생략. 단일 워크플로에서 각 step `if`가 `github.event.schedule`·수동 region input으로 분기하고, skip 지역은 outcome=skipped라 실패 경보에 걸리지 않는다. (시간대 분산·격일 전환 경위 → DR)
 - **검색 예산** (2026-09-18 조임): `web_search` 5회 · `web_fetch` 3회 · fetch 본문 3,000토큰. 환경변수 `VS_SEARCH_USES`·`VS_FETCH_USES`·`VS_FETCH_TOKENS`로 조정한다. **서버사이드 검색은 검색할 때마다 앞선 결과를 다시 읽어 입력이 누적으로 자란다** - 검색 n회면 대략 `nB + (n-1)n/2 x S`. 9월 실측 = 검색 288회에 입력 1,431만 토큰(검색 1회당 49,700), 월 비용의 32%. 모델은 허용 8회 중 6회를 썼다. **되돌림 조건** - 지역당 후보가 2주 연속 평균 1건 아래면 `VS_SEARCH_USES=6`으로 되돌린다.
 - **나이컷**: 한·글·일 120h, 중·동남아 168h(`MAX_AGE_HOURS`). robots.txt로 막힌 일간지(조선·중앙·FT·Reuters 등)는 뉴스레터 구독으로 흡수한다 - 발신자만 `sources_newsletters.json`에 추가.
 - **적재**: `scripts/supabase_writer.py` - REST API upsert → `radar_items`. env `SUPABASE_URL`·`SUPABASE_KEY`(GitHub Secrets). nvl-vibe-radar 자체 수집기는 폐기됐다. 풀을 채우는 수집기는 vibe_search(웹)·newsletter_ingest(§1-1)·newsroom_ingest(§1-2)·interview_ingest(§1-3)·gnews_ingest(구글 뉴스 RSS) 다섯이고, radar는 조회·큐레이션 대시보드(collector/region 필터)다.
@@ -60,7 +60,7 @@
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input(all/korea/global-en/china/japan/southeast-asia). 이건 **검색 프로파일**이지 저장 지역이 아니다(아래 §1-4).
 - **실패 경보**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 **잡을 실패시킨다**(`::error::` + exit 1). **메일 경보는 2026-09-14 대표 지시로 폐기** - 「[NVL] 경보 메일이 불필요하다」. GitHub Actions가 자기 알림을 보내므로 추가 채널·시크릿이 필요 없다. **0건(정상)은 exit 0이라 안 잡힌다** - 침묵 실패만 본다. **되돌림** - 잡 실패가 눈에 안 띄어 침묵 실패가 또 늦게 발견되면 Discord 경보 전용 웹훅을 세운다.
 
-**§1-1~1-3 공통**: Discord 미포스팅·대시보드 전용, `total_score=0`(사전 큐레이션 소스), 대시보드에 출처 배지. 시크릿은 `SUPABASE_*` + ANTHROPIC `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용(피드는 무인증이라 신규 시크릿 없음). 피드 URL은 **실제 fetch로 유효 XML을 검증한 뒤 등재**(죽은 피드, 헤더만 주고 본문이 빈 깡통[예: Sanrio] 주의), `_` 접두 = 비활성. 소스 추가·제거는 각 JSON만 편집.
+**§1-1\~1-3 공통**: Discord 미포스팅·대시보드 전용, `total_score=0`(사전 큐레이션 소스), 대시보드에 출처 배지. 시크릿은 `SUPABASE_*` + ANTHROPIC `ANTHROPIC_API_KEY_WEEKLY_BRIEFING` 재사용(피드는 무인증이라 신규 시크릿 없음). 피드 URL은 **실제 fetch로 유효 XML을 검증한 뒤 등재**(죽은 피드, 헤더만 주고 본문이 빈 깡통[예: Sanrio] 주의), `_` 접두 = 비활성. 소스 추가·제거는 각 JSON만 편집.
 
 ## 1-1. 뉴스레터 수집기 (collector='newsletter')
 
@@ -78,7 +78,10 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 같은 풀을 공유하는 세 번째 수집기. 주요 엔터·미디어·IP홀더 기업의 뉴스룸/블로그 RSS·Atom 피드에서 1차 발표를 가져온다.
 
 - **엔진**: `scripts/newsroom_ingest.py` - RSS(`item`)·Atom(`entry`) 피드 fetch(stdlib `xml.etree`, 외부 feedparser 불필요) → 룩백 내 항목 → Claude haiku 분류(7렌즈 + 한국어 요약) → upsert. 지역은 소스별 고정 힌트.
-- **allowlist**: `sources_newsrooms.json` - 15소스. IP홀더·플랫폼(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei) + 아카이브·연구(Speakola·Geena Davis Institute) + **차트메트릭 2종**(Blog·Flow Insights, 2026-09-10 등재) + **한국 산업 매체 2종**(테크M·바이라인네트워크, 2026-10-08 등재).
+- **allowlist**: `sources_newsrooms.json` - 17소스. IP홀더·플랫폼(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei) + 아카이브·연구(Speakola·Geena Davis Institute) + **차트메트릭 2종**(Blog·Flow Insights, 2026-09-10 등재) + **한국 산업 매체 2종**(테크M·바이라인네트워크, 2026-10-08 등재) + **1차 자료 2종**(RIAA·Deezer Newsroom, 2026-10-11 등재).
+  - **1차 자료 층이 비어 있었다** (2026-10-11 실측). 2026 발행본 38편이 인용한 183종 중 레이더가 가진 건 37종(20%)인데, 없는 쪽 상위가 뉴스가 아니라 **1차 자료**였다 - `booking.naver.com` 12 · `kocca.kr` · `korea.kr` · `ifpi.org` · `riaa.com` · `newsroom-deezer.com` · `asobisystem.com`. 이 중 **공식 RSS가 있는 것은 RIAA와 Deezer뿐**이어서 둘만 넣었다(IFPI·Grammy는 `/feed/`가 HTML을 준다. KOCCA·문체부는 위 10-08 실측대로 없다). 예약 페이지·레딧·인스타는 **피드로 받을 성격이 아니고** 자동화 금지 쪽이라 손대지 않는다.
+  - **밀도 낮은 피드는 붙이지 않았다.** CJ 뉴스룸(`cjnews.cj.net/feed/`)과 벤처스퀘어는 피드가 살아 있지만 전자는 그룹 전체 보도자료(쇼핑·식자재)고 후자는 스타트업 일반이라 엔터 밀도가 낮다. **검수 로그의 읽는 법이 「수집/일은 올리면 안 되는 쪽」**이라 밀도가 기준이다.
+  - **되돌림** - RIAA·Deezer 수집분이 4주간 풀에 한 건도 안 남으면 뺀다(테크M·바이라인과 같은 조건).
   - **한국 기업 뉴스룸은 넣을 수 없다**(2026-10-08 실측). 카카오엔터·CJ ENM·네이버웹툰·지니뮤직·스튜디오드래곤은 단일 페이지 앱이라 표준 경로에 피드가 없고 두 곳의 `sitemap.xml`은 내비게이션 페이지만 담는다. 하이브는 403. 기관(KOCCA·문체부·저작권위)도 자체 RSS가 없고 네이버 블로그 RSS는 전시·이벤트 홍보다. 집계처 뉴스와이어는 피드가 있으나(`api.newswire.co.kr/rss/all`) B2B 중소기업 보도자료다. 대신 **니치 산업 매체**를 쓴다 - 가십 섹션이 없어 전체 피드가 곧 산업 피드이고 링크가 원문이다. 뺀 것 = 전자신문 방송통신(「[ET포토] 세븐틴」 연작이 피드를 덮는다) · 한국경제 엔터(가십) · 아웃스탠딩(유료 장벽) · 지디넷·블로터(일반 IT·분양). **되돌림** - 두 매체 수집분이 4주간 풀에 한 건도 안 남으면 뺀다.
 - **소스 유형 둘** - 기본은 RSS·Atom 피드다. **피드가 없는 곳은 `type: "sitemap"`**으로 받는다(2026-09-10 신설). `sitemap.xml`의 `<loc>`을 `path_prefix`로 거른 뒤 각 기사 페이지에서 프리렌더된 `<title>`과 meta description을 뽑고, 그다음(게이트·번역·적재·중복제거)은 피드 경로와 같다. **사이트맵의 `lastmod`는 안 본다** - 매일 다시 찍혀 전건이 오늘로 나온다(실측). 발행일이 없으므로 최초 발견일을 쓰고, 30일 URL 중복 제거가 한 기사를 한 번만 들인다.
   - 계기 = 차트메트릭 플로우. 단일 페이지 앱이라 `/rss`·`/feed`·`/rss.xml`이 전부 앱 껍데기를 200으로 돌려준다. **200이 곧 유효 피드가 아니다** - 등재 전 본문이 XML인지 본다.
@@ -118,7 +121,7 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 ## 1-5. 판정이 막혔을 때 (2026-09-10 신설)
 
 Anthropic 계정의 지출 한도에 걸리면 게이트 haiku가 전건 400으로 죽는다.
-수집은 RSS라 공짜인데 룩백이 2~3일뿐이라 그냥 멈추면 그 사이 기사를 영영 못 줍는다.
+수집은 RSS라 공짜인데 룩백이 2\~3일뿐이라 그냥 멈추면 그 사이 기사를 영영 못 줍는다.
 
 - **수집은 계속한다.** `gnews_ingest.py --no-gate`(워크플로 `no_gate` 입력)는 판정을
   건너뛰고 원문 제목 그대로 적재한다. 한도 오류는 자동 감지해 같은 자리로 떨어뜨리므로
@@ -138,7 +141,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 
 1. 프롬프트에 오늘 날짜(KST)+컷오프 주입, `published_date` 필드 요구
 2. **출처 화이트리스트** - 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외(보도자료 재가공 매체 차단, 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
-3. `validate_candidates()` - 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정, 지역별 값은 §1). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·교차정체성(각 0~2, 만점 8). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 - 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성, 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재). `radar_items`에 `cross_identity` 개별 컬럼은 없다(total_score에 합산만, 개별 표시가 필요하면 마이그레이션 후속)
+3. `validate_candidates()` - 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정, 지역별 값은 §1). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·교차정체성(각 0\~2, 만점 8). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 - 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성, 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재). `radar_items`에 `cross_identity` 개별 컬럼은 없다(total_score에 합산만, 개별 표시가 필요하면 마이그레이션 후속)
 4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스로 한 매체 독식 방지. 미달 시 2차 패스에서 상한을 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
 5. 드롭 통계를 GitHub Actions Step Summary에 노출(Discord 헤더는 10-11 폐지)
 
