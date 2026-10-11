@@ -6,7 +6,7 @@ name: 리포트 드롭 백업 감시
 
 on:
   schedule:
-    - cron: '40 1 * * 1'   # 매주 월요일 10:40 KST (01:40 UTC) - 정시 드롭(10:17) 후 점검, 지연 버퍼 23분
+    - cron: '40 4 * * 1'   # 매주 월요일 13:40 KST (04:40 UTC) - 백업 적재(13:17) 후 점검 (2026-10-11 이동)
   workflow_dispatch:
 
 permissions:
