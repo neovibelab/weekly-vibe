@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""drops/ 최신 주간 리포트 드롭 1편을 Discord 웹훅으로 전송.
+"""drops/ 최신 주간 리포트 드롭 1편을 대시보드(Supabase radar_items, 뉴스룸 탭)에 적재한다.
+
+2026-10-11 디스코드 전송 폐지 - 함수명·파일명은 워크플로 호환 위해 유지.
 
 primary(discord-report-drop) · backup(report-drop-watchdog) 워크플로 공용 모듈.
 stdlib만 사용(설치 불필요). YAML 인라인 heredoc의 들여쓰기 취약성을 제거하기 위해
 발송 로직을 이 파일로 분리한다.
 
 env:
-  DISCORD_REPORT_WEBHOOK_URL  전송 대상 웹훅 (필수, DRY_RUN 시 불필요)
   DRY_RUN=1                   전송 없이 찾기·정제까지만 (로컬 검증용)
 종료코드: 0 성공 / 1 실패(파일 없음·빈 내용·204 외 응답)
 """
@@ -216,26 +217,10 @@ def main():
         print(f"[info] 최신 드롭 {os.path.basename(path)} {age}일 경과(>= {max_age}일) — 신규 드롭 없음, 발송 생략")
         return 0
 
-    webhook = os.environ.get("DISCORD_REPORT_WEBHOOK_URL")
-    if not webhook:
-        print("::error::DISCORD_REPORT_WEBHOOK_URL 미설정")
-        return 1
-
-    code, body = post_to_discord(webhook, content)
-    print(f"Discord webhook HTTP: {code}")
-    if body:
-        print(f"Discord response: {body}")
-    if code != 204:
-        print(f"::error::Discord webhook 실패 (HTTP {code})")
-        return 1
-    print("[info] Discord 전송 완료")
-    # 대시보드(뉴스룸 탭)에도 적재 — '디스코드 드랍할 때 대시보드에도' (2026-06-29).
-    # Discord 발송은 이미 성공했으므로, 적재 실패가 전체 실패가 되지 않게 가드.
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            push_items_to_dashboard(parse_drop_items(f.read()), path)
-    except Exception as e:
-        print(f"[warn] 대시보드 적재 단계 오류: {e}")
+    # Discord 발송은 2026-10-11 폐지(대표 결정 - 디스코드 운영 종료). 대시보드 뉴스룸 탭 적재만 한다.
+    # 이제 이 단계가 유일한 일이라 실패하면 워크플로를 실패시킨다(침묵 실패 방지).
+    with open(path, "r", encoding="utf-8") as f:
+        push_items_to_dashboard(parse_drop_items(f.read()), path)
     return 0
 
 

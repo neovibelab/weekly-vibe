@@ -63,7 +63,6 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_KOREA_WEBHOOK: ${{ secrets.DISCORD_KOREA_WEBHOOK }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
@@ -77,7 +76,6 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_GLOBAL_EN_WEBHOOK: ${{ secrets.DISCORD_GLOBAL_EN_WEBHOOK }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
@@ -91,7 +89,6 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_CHINA_WEBHOOK: ${{ secrets.DISCORD_CHINA_WEBHOOK }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
@@ -106,7 +103,6 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_JAPAN_WEBHOOK: ${{ secrets.DISCORD_JAPAN_WEBHOOK }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}
@@ -120,7 +116,6 @@ jobs:
         continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
-          DISCORD_SOUTHEAST_ASIA_WEBHOOK: ${{ secrets.DISCORD_SOUTHEAST_ASIA_WEBHOOK }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           SEEN_FILE: ${{ env.SEEN_FILE }}

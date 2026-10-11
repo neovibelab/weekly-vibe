@@ -892,41 +892,6 @@ def _score_indicators(c: dict) -> list[str]:
     return indicators
 
 
-def build_discord_message(c: dict) -> str:
-    score = c.get("total_score", 0)
-    # 만점 8(4지표) 기준 — 🟢 고신호 임계 6(75%). 구 만점 6 시절 5에서 상향.
-    badge = "🟢" if score >= 6 else "🟡"
-    tags = _topic_tags(c)
-
-    title = c["title"][:100]
-    url = c.get("url", "")
-    title_part = f"[**{title}**]({url})" if url else f"**{title}**"
-    summary = (c.get("summary", "") or "").strip()[:500]
-    source = c.get("source", "")
-
-    msg = f"{badge} {title_part} `{tags}`"
-    pub = c.get("published_date") or "발행일 미상"
-    meta = " · ".join(x for x in (source, pub) if x)
-    if meta:
-        msg += f"\n📰 {meta}"
-    if summary:
-        msg += f"\n> {summary}"
-    return msg[:1900]
-
-
-def send_to_discord(webhook_url: str, content: str) -> None:
-    payload = {"content": content[:2000], "flags": 4}
-    resp = requests.post(webhook_url, json=payload, timeout=15)
-    if resp.status_code not in (200, 204):
-        raise RuntimeError(
-            f"Discord 웹훅 실패 (HTTP {resp.status_code}): {resp.text[:200]}"
-        )
-    log.info("Discord 전송 완료 (HTTP %d)", resp.status_code)
-
-
-# ── 메인 ──────────────────────────────────────────────────
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Vibe Signal Collector v3 — 지역·언어 기반")
     parser.add_argument("region", choices=list(REGIONS.keys()), help="수집 지역")
@@ -937,15 +902,11 @@ def main() -> int:
     region_name = region["name"]
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    webhook_url = os.environ.get(region["webhook_env"])
     seen_file = os.environ.get("SEEN_FILE", "seen-titles.txt")
 
     if not api_key:
         log.error("ANTHROPIC_API_KEY 환경변수 미설정")
         return 1
-    if not webhook_url and not args.dry_run:
-        log.warning("%s 환경변수 미설정 — 전송 생략", region["webhook_env"])
-        return 0
 
     # max_retries 5(SDK 기본 2): 앤트로픽 일시 500/429/529를 더 오래 버텨(지수 백오프 ~30초 창)
     # 순간 서버 장애로 인한 빈 채널·헛경보 감소 (2026-06-23 글로벌 api_error 500 사고).
@@ -1040,16 +1001,7 @@ def main() -> int:
         print(json.dumps(selected, ensure_ascii=False, indent=2))
         return 0
 
-    # 6. Discord 전송
-    header = (
-        f"{region['emoji']} **{region_name} Vibe | {today}**\n"
-        f"-# {stats}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    )
-    send_to_discord(webhook_url, header)
-    for c in selected:
-        time.sleep(2)
-        send_to_discord(webhook_url, build_discord_message(c))
+    # 6. Discord 전송은 2026-10-11 폐지(대표 결정 - 디스코드 운영 종료). 대시보드(Supabase) 적재만 남는다.
 
     # 7. Supabase 저장
     if supabase_save:
@@ -1057,7 +1009,8 @@ def main() -> int:
             n = supabase_save(selected, args.region)
             log.info("[%s] Supabase 저장: %d건", region_name, n)
         except Exception as exc:
-            log.warning("[%s] Supabase 저장 실패 (Discord 전송은 완료): %s", region_name, exc)
+            log.error("[%s] Supabase 저장 실패: %s", region_name, exc)
+            return 1
 
     # 8. seen-titles 갱신 (로컬 fallback 유지)
     with open(seen_file, "a", encoding="utf-8") as f:

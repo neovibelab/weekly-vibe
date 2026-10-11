@@ -283,15 +283,6 @@ def recent_urls(days: int = 30) -> set[str]:
         return set()
 
 
-def send_to_discord(webhook_url: str, content: str) -> int:
-    try:
-        r = requests.post(webhook_url, json={"content": content[:1900]}, timeout=10)
-        return r.status_code
-    except Exception as e:
-        log.warning("디스코드 전송 실패: %s", e)
-        return 0
-
-
 # ── 메인 ──────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -390,24 +381,6 @@ def main() -> int:
             log.warning("Supabase 적재 실패 HTTP %d: %s", code, row["title"][:40])
     log.info("Supabase 적재 완료: %d/%d", saved, len(rows))
 
-    # discord 전송 — discord 지정 소스의 signal만, webhook당 최신 DISCORD_CAP건(도배 방지).
-    # promo·기존 적재분(seen)은 자연 제외. #vibe-china 등 지역 채널 최신성 보강.
-    if discord_queue:
-        from collections import defaultdict
-        by_hook = defaultdict(list)
-        for env, name, title, url, pub in discord_queue:
-            by_hook[env].append((name, title, url, pub))
-        for env, posts in by_hook.items():
-            webhook = os.environ.get(env)
-            if not webhook:
-                log.warning("%s 미설정 — discord 전송 생략", env)
-                continue
-            posts.sort(key=lambda x: x[3], reverse=True)  # 최신순
-            sent = 0
-            for name, title, url, _ in posts[:DISCORD_CAP]:
-                if send_to_discord(webhook, f"📰 **[{name}]** {title}\n{url}") in (200, 204):
-                    sent += 1
-            log.info("discord 전송: %s %d/%d건", env, sent, min(len(posts), DISCORD_CAP))
     return 0
 
 

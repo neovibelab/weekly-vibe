@@ -1,6 +1,6 @@
 # weekly-vibe - 일일 수집 엔진 (vibe_search v3)
 
-> **역할**: 엔터·문화 산업 뉴스의 일일 자동 수집 엔진. 5개 검색 프로파일을 현지 발행 리듬에 맞춰 3개 시간대(오전 한국·일본 / 오후 중국·동남아 / 저녁 영어권)로 수집해 Discord 5개 채널에 알리고 Supabase `radar_items`에 적재한다. **저장되는 지역 값은 12종이고 검색 프로파일과 다른 층이다**(§1-4).
+> **역할**: 엔터·문화 산업 뉴스의 일일 자동 수집 엔진. 5개 검색 프로파일을 현지 발행 리듬에 맞춰 3개 시간대(오전 한국·일본 / 오후 중국·동남아 / 저녁 영어권)로 수집해 Supabase `radar_items`에 적재한다. **Discord 알림은 2026-10-11 폐지**(대표 결정 - 디스코드 운영 종료, 대시보드 적재만 남긴다). **저장되는 지역 값은 12종이고 검색 프로파일과 다른 층이다**(§1-4).
 >
 > **주간 브리핑(NEWSPAPER HTML) 발행은 폐기**(2026-06-09). 과거 발행물(`NEWSPAPER_*.html` · `SPECIAL_*.html` · `index.html` · `preview/`)은 역사 아카이브로만 보존하고 신규 생성하지 않는다. 제작 스킬(`.claude/skills/weekly-vibe/`)은 삭제됐다. 구 제작 가이드는 이 파일의 git 히스토리(2026-06-10 이전)에 있다.
 >
@@ -17,11 +17,13 @@
   오전 07시 한국·일본 / 오후 14시 중국·동남아 / 저녁 21시 글로벌(영어)
     → scripts/vibe_search.py (Claude Sonnet web_search, 해당 시간대 지역 순차)
     → 품질 게이트 (validate_candidates → URL 생존 확인)
-    → Discord 5개 지역 채널 알림 + Supabase radar_items upsert
+    → Supabase radar_items upsert (Discord 알림은 2026-10-11 폐지)
     → 대시보드 큐레이션: https://nvl-vibe-radar.vercel.app/
 ```
 
-| 지역 | 언어 | Discord 채널 | Secret |
+> 아래 표의 Discord 채널·Secret은 2026-10-11에 폐지됐다(기록용). 워크플로에서 웹훅 env를 걷어 냈고 `vibe_search.py`는 웹훅 없이 적재만 한다.
+
+| 지역 | 언어 | Discord 채널(폐지) | Secret(폐지) |
 |------|------|-------------|--------|
 | 한국 | 한국어 | `#korea_vibe` | `DISCORD_KOREA_WEBHOOK` |
 | 영어권 검색 | 영어 | `#global_vibe` | `DISCORD_GLOBAL_EN_WEBHOOK` |
@@ -104,7 +106,7 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 
 ## 1-4. 지역 축 (2026-09-10 개편)
 
-**검색 프로파일 5종과 저장 지역 12종은 다른 층이다.** 프로파일은 「어느 언어로 검색해 어느 디스코드 채널에 알리나」이고, 저장 지역은 「그 기사가 다루는 시장이 어디인가」다.
+**검색 프로파일 5종과 저장 지역 12종은 다른 층이다.** 프로파일은 「어느 언어·시간대로 검색하나」이고(디스코드 채널 배정은 10-11 폐지), 저장 지역은 「그 기사가 다루는 시장이 어디인가」다.
 
 - **저장 값 12종** (`radar_items.region`): `korea` `japan` `china` `southeast-asia` `north-america`(미국·캐나다) `europe`(영국·독일·프랑스·북유럽·동유럽) `latin`(스페인어권·브라질) `mena`(중동·북아프리카) `africa-ssa`(사하라이남) `india-sa`(인도·남아시아) `oceania`(호주·뉴질랜드) `multinational`(특정 국가 귀속 없는 다국적 발표·업계 일반론·글로벌 통계).
 - **`global-en`은 신규 저장하지 않는다.** 과거 archived 행이 수천 건이라 라벨 맵에만 「글로벌(구)」로 남는다. 분류가 실패했을 때 소스 힌트로 남는 값도 이 레거시이고, **12종 중 하나를 억지로 찍지 않는다** - `backfill_region.py`가 나중에 내용 기준으로 다시 판정한다.
@@ -138,7 +140,7 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 2. **출처 화이트리스트** - 지역별 `allowed_domains`(주요 일간지·주간지·매거진·전문지)로 web_search 검색 자체를 제한 + 코드 검증에서 목록 외 출처 제외(보도자료 재가공 매체 차단, 대표 지시). `BLOCKED_DOMAINS`(나무위키)는 별개 방어선
 3. `validate_candidates()` - 필수 필드·한국어 요약·**4지표 점수 재계산(≥4)**·발행일 48시간 컷(`MAX_AGE_HOURS` env로 조정, 지역별 값은 §1). 점수 4지표 = 소재적합·캐러셀적합·출처신뢰·교차정체성(각 0~2, 만점 8). 임계 `MIN_TOTAL_SCORE` 기본 4(만점의 50%, env 조정 - 0건 반복 시 3으로 완화). **발행일 미상은 제외**(신뢰성, 대표 지시). 0건이 반복되면 `ALLOW_UNDATED=1`로 임시 완화(플래그 게재). `radar_items`에 `cross_identity` 개별 컬럼은 없다(total_score에 합산만, 개별 표시가 필요하면 마이그레이션 후속)
 4. 점수순 정렬(동점 시 reliability→발행일 확인분 우선) → 배치 내 중복 제거 → **도메인당 2건 상한**(`MAX_PER_DOMAIN`, 1차 패스로 한 매체 독식 방지. 미달 시 2차 패스에서 상한을 풀어 건수 보존) → URL 생존 확인(`check_url_alive`, 404/없는 도메인 차단) → 최대 5건
-5. 드롭 통계를 Discord 헤더 subtext + GitHub Actions Step Summary에 노출
+5. 드롭 통계를 GitHub Actions Step Summary에 노출(Discord 헤더는 10-11 폐지)
 
 단위 테스트: `scripts/test_quality_gate.py`. (도입 경위·4지표 개편 → DR)
 
@@ -153,8 +155,8 @@ Anthropic `web_search` 도구에 날짜 필터 파라미터가 없어 코드 레
 뉴타입컬처클럽 자료실용 산업 리포트 큐레이션. 일일 뉴스 수집과 별개.
 
 - 생성: `/report-scan` 스킬(미네바) - **주간(매주 월 08:00 예약 작업 `report-scan-weekly`) 운영**(2026-10-11 대표 결정, 06-29 격주에서 변경). 4언어 검증 → `drops/YY.MM.DD-주간리포트드롭.md` 2곳 저장(weekly-vibe/drops/ + ecri-ceo-staff/operations/) + 마스터 색인 반영(색인이 SSOT)
-- 발송 로직: `scripts/send_report_drop.py` - 최신 드롭 찾기·정제(HTML주석 제거·2000자 컷)·Discord 전송. 정시·백업 공용 모듈(stdlib). 워크플로 YAML 안에 heredoc으로 로직을 넣지 않는다. 세 가지 필수 - **① 명시 User-Agent**(urllib 기본 UA는 Discord Cloudflare가 403/`error 1010`으로 차단. vibe_search `send_to_discord`는 `requests` UA로 통과 중이라 명시 UA는 후속 권장·미적용) **② 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일 이상 지났으면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음) **③ 대시보드 적재: 발송 직후 드롭의 1위 메달+신규 리포트를 파싱(`parse_drop_items`)해 `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭**(다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env를 정시+백업 워크플로 양쪽에 주입). (403 원인·경계값 버그 → DR)
-- 포스팅(정시): `.github/workflows/discord-report-drop.yml` - 매주 월요일 **10:17 KST** cron. 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만**(cron은 매주, stale 드롭은 재발송하지 않는다 - 주간 운영에서는 월요일 08:00 스캔이 10:17 전에 그 주 드롭을 push해야 한다).
+- 발송 로직: `scripts/send_report_drop.py` - 최신 드롭 찾기·정제 → **대시보드 적재만**(Discord 전송은 2026-10-11 폐지, 아래 ①은 기록용). 정시·백업 공용 모듈(stdlib). 워크플로 YAML 안에 heredoc으로 로직을 넣지 않는다. 세 가지 필수 - **① 명시 User-Agent**(urllib 기본 UA는 Discord Cloudflare가 403/`error 1010`으로 차단. vibe_search `send_to_discord`는 `requests` UA로 통과 중이라 명시 UA는 후속 권장·미적용) **② 중복방지: 드롭이 `DROP_MAX_AGE_DAYS`(기본 7)일 이상 지났으면 발송 생략**(`return 0` → 정시 워크플로 success 유지 → watchdog 오경보 없음) **③ 대시보드 적재: 발송 직후 드롭의 1위 메달+신규 리포트를 파싱(`parse_drop_items`)해 `radar_items`에 `collector='newsroom'`으로 적재 → 대시보드 뉴스룸 탭**(다시보기=기보유는 제외, URL 중복 merge-duplicates, `SUPABASE_URL/KEY` env를 정시+백업 워크플로 양쪽에 주입). (403 원인·경계값 버그 → DR)
+- 적재(정시): `.github/workflows/discord-report-drop.yml`(파일명은 호환 위해 유지) - 매주 월요일 **10:17 KST** cron. 실제 발송은 위 신선도 가드로 **새 드롭 있을 때만**(cron은 매주, stale 드롭은 재발송하지 않는다 - 주간 운영에서는 월요일 08:00 스캔이 10:17 전에 그 주 드롭을 push해야 한다).
 - 백업 감시: `.github/workflows/report-drop-watchdog.yml` - 월 **10:40 KST** 점검 -> 정시 누락 시 직접 재발송(`check_drop_posted.py` 발송 판정). **메일 알림은 2026-09-14 폐기**(`send_drop_alert.py` 삭제) - 백업이 성공하면 드롭은 정상 전송된 것이라 알릴 것이 없고, 실패하면 「결과 판정」 스텝이 `::error::` + exit 1로 잡을 빨갛게 만든다. GitHub cron 신뢰성 보완.
 
 ## 5. 파일 구조
