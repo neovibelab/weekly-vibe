@@ -65,7 +65,7 @@ def fetch() -> list[dict]:
     status = ",".join(TOUCHABLE_STATUS)
     while True:
         r = requests.get(url + "/rest/v1/radar_items", headers=h, timeout=25, params={
-            "select": "id,title,source,region,status,filter_verdict,collector",
+            "select": "id,title,source,region,status,filter_verdict,collector,tags",
             "collector": "eq.gnews",
             "filter_verdict": "in.(%s)" % verdicts,
             "status": "in.(%s)" % status,
@@ -145,6 +145,12 @@ def main() -> int:
             fields["title"] = tko[:500]
         if reg in VALID_REGIONS:
             fields["region"] = reg
+        # 사람 표시 (2026-10-13) - 보류 중 수집분도 재판정 때 @nvl.seoul 「사람」 후보 표시를 받는다.
+        ip = d.get("is_person") is True or str(d.get("is_person")).lower() == "true"
+        if ie and ip:
+            tags = list(it.get("tags") or [])
+            if "person" not in tags:
+                fields["tags"] = tags + ["person"]
 
         if ie:
             passed += 1

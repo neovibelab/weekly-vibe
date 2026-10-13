@@ -195,6 +195,11 @@ false다** - 지역 공연 고지, 채용 공고, 행사 등록 안내, 시상�
 순수 SaaS·B2B·반도체·엔터프라이즈 IT·핀테크·정치·군사는 셋 중 무엇도
 바꾸지 않으므로 false다. 온라인 도박·카지노 광고성 기사도 false다.
 
+is_person: **음악인(아티스트 · 경영자 · 매니저 · 프로듀서)의 결정 · 판단 · 발언이 기사의 중심이면 true.**
+돈과 일에 관한 것이어야 한다 - 사업 방식 · 계약 · 권리 · 가격 · 투자 · 리더십 · 성공과 실패의 회고 · 판에 대한 예측.
+false = 회사가 주어인 발표(인물이 대변인일 뿐) · 신보 · 컴백 · 열애 · 사건사고 · 주가 · 시상식 결과.
+(2026-10-13 - @nvl.seoul 「사람」 칸의 후보 표시다. is_entertainment와 따로 판정한다.)
+
 title_ko: 제목을 자연스러운 한국어로(한국어면 그대로). 제품·서비스·회사·플랫폼 이름은 **원문 표기 그대로** 둔다(Lyria·Suno·Gemini·TuneCore를 음역하지 않는다). 일본어·중국어 고유 개념어는 **음차(원문)** 형태로 쓴다(오시카츠(推し活) · 구쯔경제(谷子经济) · 마이크로 숏드라마(微短剧)). 같은 대상을 매번 같은 표기로 쓴다 - 표기가 흔들리면 같은 사건이 안 묶인다.
 **가운데 줄표를 쓰지 않는다** - 쉼표나 하이픈으로.
 
@@ -204,7 +209,7 @@ title_ko: 제목을 자연스러운 한국어로(한국어면 그대로). 제품
 제목: {title}
 출처: {source}
 
-{{"is_entertainment": true, "title_ko": "...", "region": "..."}}"""
+{{"is_entertainment": true, "is_person": false, "title_ko": "...", "region": "..."}}"""
 
 
 # 판정 보류 표식 (2026-09-10). classify_failed(판정하려다 실패)와 다르다.
@@ -221,7 +226,7 @@ def _is_usage_limit(exc) -> bool:
 # 통짜 파싱이 깨졌을 때 키별로 건질 필드. 제목에 따옴표가 들어가면 모델이 이스케이프를
 # 빠뜨려 통짜 파싱이 무효가 된다(2026-09-10 실측 8%). 쓰는 필드가 셋뿐이라 개별로
 # 건지면 판정이 산다. 3층 방어 본체 = scripts/llm_json.py.
-GATE_KEYS = {"is_entertainment": "bool", "title_ko": "str", "region": "enum"}
+GATE_KEYS = {"is_entertainment": "bool", "is_person": "bool", "title_ko": "str", "region": "enum"}
 
 
 def classify(client, title: str, source: str) -> dict:
@@ -327,11 +332,12 @@ def main() -> int:
     rows, kept, gl_fallback = [], 0, 0
     deferred = bool(args.no_gate)
     for x in picked:
-        ie, tko, reg = None, "", ""
+        ie, tko, reg, ip = None, "", "", False
         if client:
             try:
                 d = classify(client, x["title"], x.get("source") or "")
                 ie = d.get("is_entertainment")
+                ip = d.get("is_person") is True or str(d.get("is_person")).lower() == "true"
                 tko = (d.get("title_ko") or "").strip()
                 reg = (d.get("region") or "").strip()
             except Exception as e:
@@ -360,7 +366,7 @@ def main() -> int:
             "published_date": x.get("published_at"),
             "region": reg,
             "topics": [],
-            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")],
+            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")] + (["person"] if (is_ent and ip) else []),
             "is_entertainment": is_ent,
             "status": "pending" if is_ent else "filtered_out",
             "filter_verdict": ("pass" if is_ent else (GATE_DEFERRED if (deferred and ie is None) else ("non_ent" if ie is not None else "classify_failed"))),
