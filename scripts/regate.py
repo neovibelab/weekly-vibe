@@ -158,8 +158,8 @@ def main() -> int:
             dropped += 1
 
         if args.dry_run:
-            log.info("[dry %d/%d] %s %s | %s", i, len(items),
-                     "O" if ie else "-", reg or "?", (tko or title)[:56])
+            log.info("[dry %d/%d] %s%s %s | %s", i, len(items),
+                     "O" if ie else "-", "P" if (ie and ip) else " ", reg or "?", (tko or title)[:56])
             continue
         code = patch(it["id"], fields)
         if code not in (200, 204):

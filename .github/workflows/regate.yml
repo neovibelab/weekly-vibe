@@ -1,0 +1,34 @@
+name: 보류분 재판정 (수동)
+# API 한도로 판정이 보류(gate_deferred)·실패(classify_failed)한 구글 뉴스 수집분을
+# 다시 게이트에 태운다. scripts/regate.py를 그대로 돌린다(CLAUDE.md §1-5).
+# 2026-10-13 신설 - 그전엔 로컬에서만 돌릴 수 있었는데 로컬 세션은 .env를 읽지 않는다.
+# dry-run은 Supabase를 안 바꾸고 판정만 로그에 찍는다(표본 확인용).
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'dry-run (판정만 - Supabase 미반영)'
+        type: boolean
+        default: true
+      limit:
+        description: '최대 건수 (0 = 전부)'
+        required: false
+        default: '30'
+
+jobs:
+  regate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic requests
+      - name: 재판정
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY_WEEKLY_BRIEFING }}
+        run: python scripts/regate.py ${{ inputs.dry_run && '--dry-run' || '' }} --limit ${{ inputs.limit || '30' }}
