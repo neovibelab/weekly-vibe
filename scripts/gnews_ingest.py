@@ -226,7 +226,12 @@ title_ko: 제목을 자연스러운 한국어로(한국어면 그대로). 제품
 제목: {title}
 출처: {source}
 
-{{"is_entertainment": true, "is_person": false, "title_ko": "...", "region": "..."}}"""
+names: **제목에 나온 고유명사**를 쉼표로 이어 최대 3개. 회사 · 단체 · 인물 · 아티스트 · 작품 · 행사 이름만.
+표기는 `title_ko`와 같게 쓴다(같은 대상이 매번 같은 글자여야 뒤에서 센다).
+없으면 빈 문자열. **일반명사를 넣지 않는다** - 음악 · 스트리밍 · 저작권 · 플랫폼 · 시장 · 산업은 이름이 아니다.
+(2026-10-14 - 두뇌 `raw/names/` 고유명사 사전의 후보 공급이다. 여기서 사전에 올리지는 않는다.)
+
+{{"is_entertainment": true, "is_person": false, "title_ko": "...", "region": "...", "names": "..."}}"""
 
 
 # 판정 보류 표식 (2026-09-10). classify_failed(판정하려다 실패)와 다르다.
@@ -243,7 +248,31 @@ def _is_usage_limit(exc) -> bool:
 # 통짜 파싱이 깨졌을 때 키별로 건질 필드. 제목에 따옴표가 들어가면 모델이 이스케이프를
 # 빠뜨려 통짜 파싱이 무효가 된다(2026-09-10 실측 8%). 쓰는 필드가 셋뿐이라 개별로
 # 건지면 판정이 산다. 3층 방어 본체 = scripts/llm_json.py.
-GATE_KEYS = {"is_entertainment": "bool", "is_person": "bool", "title_ko": "str", "region": "enum"}
+# names는 배열이 아니라 **쉼표로 이은 문자열**로 받는다 (2026-10-14). `parse_obj`의
+# 3층 방어가 bool·str·enum만 건지고 list를 못 건지는데, `llm_json.py`는
+# nvl-vibe-radar와 쌍둥이라 한쪽만 고치면 어긋난다. 문자열이면 기존 기계가 그대로 쓴다.
+GATE_KEYS = {"is_entertainment": "bool", "is_person": "bool", "title_ko": "str",
+             "region": "enum", "names": "str"}
+
+# 고유명사 태그 - `n:<이름>`. 마이그레이션 없이 `tags` 배열에 얹는다(`q:`·`person` 선례).
+# 일반명사가 새면 뒤에서 세는 자리가 쓰레기가 되므로 길이·개수로만 1차 방어하고
+# **사전에 없는 것을 고르는 일은 산출 스크립트가 한다**(`scripts/wiki-candidates.py`).
+NAME_STOP = {"음악", "스트리밍", "저작권", "플랫폼", "시장", "산업", "콘텐츠", "엔터테인먼트",
+             "아티스트", "레이블", "팬덤", "차트", "앨범", "공연", "AI", "인공지능"}
+
+
+def name_tags(raw) -> list:
+    out = []
+    for piece in str(raw or "").replace("·", ",").split(","):
+        n = piece.strip().strip("'\"[]")
+        if not n or len(n) < 2 or len(n) > 40 or n in NAME_STOP:
+            continue
+        t = "n:" + n
+        if t not in out:
+            out.append(t)
+        if len(out) >= 3:
+            break
+    return out
 
 
 def classify(client, title: str, source: str) -> dict:
@@ -350,7 +379,9 @@ def main() -> int:
     rows, kept, gl_fallback = [], 0, 0
     deferred = bool(args.no_gate)
     for x in picked:
-        ie, tko, reg, ip = None, "", "", False
+        # **밖에서 초기화한다.** `d`는 try 안에서만 묶여서, 판정이 실패하거나
+        # --no-gate면 앞 기사의 값이 그대로 따라붙는다(2026-10-14 - names를 더하며 봤다).
+        ie, tko, reg, ip, nm = None, "", "", False, ""
         if client:
             try:
                 d = classify(client, x["title"], x.get("source") or "")
@@ -358,6 +389,7 @@ def main() -> int:
                 ip = d.get("is_person") is True or str(d.get("is_person")).lower() == "true"
                 tko = (d.get("title_ko") or "").strip()
                 reg = (d.get("region") or "").strip()
+                nm = d.get("names") or ""
             except Exception as e:
                 if _is_usage_limit(e):
                     # 한도는 재시도해도 안 풀린다. 보류로 돌리고 수집은 계속한다.
@@ -384,7 +416,9 @@ def main() -> int:
             "published_date": x.get("published_at"),
             "region": reg,
             "topics": [],
-            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")] + (["person"] if (is_ent and ip and person_lang_ok(x.get("hl"))) else []),
+            "tags": ([x["factor_hint"], "q:" + (x.get("query_name") or "?")]
+                     + (["person"] if (is_ent and ip and person_lang_ok(x.get("hl"))) else [])
+                     + (name_tags(nm) if is_ent else [])),
             "is_entertainment": is_ent,
             "status": "pending" if is_ent else "filtered_out",
             "filter_verdict": ("pass" if is_ent else (GATE_DEFERRED if (deferred and ie is None) else ("non_ent" if ie is not None else "classify_failed"))),
