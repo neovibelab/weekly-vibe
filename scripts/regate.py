@@ -36,7 +36,7 @@ import sys
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gnews_ingest import GATE_DEFERRED, REGION_GUIDE, VALID_REGIONS, classify  # noqa: E402
+from gnews_ingest import GATE_DEFERRED, REGION_GUIDE, VALID_REGIONS, classify, hl_of_query, person_lang_ok  # noqa: E402
 
 # stdout 재래핑은 main()에서만 한다 - gnews_ingest가 import 시점에 이미 감싸므로
 # 여기서 또 감싸면 앞 래퍼가 닫혀 I/O 오류가 난다(classify_tense가 같은 이유로 그렇게 한다).
@@ -147,7 +147,8 @@ def main() -> int:
             fields["region"] = reg
         # 사람 표시 (2026-10-13) - 보류 중 수집분도 재판정 때 @nvl.seoul 「사람」 후보 표시를 받는다.
         ip = d.get("is_person") is True or str(d.get("is_person")).lower() == "true"
-        if ie and ip:
+        qn = next((t[2:] for t in (it.get("tags") or []) if str(t).startswith("q:")), "")
+        if ie and ip and person_lang_ok(hl_of_query(qn)):
             tags = list(it.get("tags") or [])
             if "person" not in tags:
                 fields["tags"] = tags + ["person"]

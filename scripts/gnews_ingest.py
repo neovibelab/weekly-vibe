@@ -49,6 +49,23 @@ log = logging.getLogger("gnews")
 LOOKBACK = int(os.environ.get("GNEWS_LOOKBACK_DAYS", "3"))
 UA = "Mozilla/5.0 (compatible; NVLVibeRadar/1.0)"
 
+# 「사람」 표시는 이 언어 판 질의에서 온 기사에만 붙인다 (2026-10-13 대표 - 「주요 언어를 영어, 일본어,
+# 한국어로」). 중국어 · 아랍어 · 스페인어 · 포르투갈어 판 기사는 엔터 판정은 그대로 받고 표시만 안 붙는다.
+PERSON_LANGS = ("en", "ja", "ko")
+
+
+def person_lang_ok(hl: str) -> bool:
+    return (hl or "").split("-")[0].lower() in PERSON_LANGS
+
+
+def hl_of_query(name: str) -> str:
+    """질의 이름(tags의 q:) → hl. 모르는 이름이면 빈 문자열."""
+    for _f, n, _q, hl, _gl, _c in QUERIES:
+        if n == name:
+            return hl
+    return ""
+
+
 # (요인, 이름, 질의, hl, gl, ceid) - 정본은 nvl-vibe-radar/google-news-queries.md
 # 요인 힌트는 radar의 GRID_FACTORS(IP·포맷·테크·자본·정책·교차산업·교차정체성) + 넓은 산업
 # 스캔용 "기존"뿐이다. 2026-09-10에 붙인 신흥시장 5질의도 요인 없는 넓은 산업 스캔이라
@@ -298,6 +315,7 @@ def main() -> int:
             # 어느 질의가 데려왔는지 남긴다 (2026-10-08). 이게 없으면 죽은 질의와
             # 조용한 뉴스 주간이 구별되지 않는다. 집계는 scripts/query_yield.py.
             x["query_name"] = name
+            x["hl"] = hl
             # 게이트 haiku가 내용 기준으로 판정한 값으로 나중에 덮인다. 여기 값은 폴백.
             x["region_fallback"] = REGION_BY_GL.get(gl, "multinational")
             # 룩백 컷에만 쓰고 버리던 발행일을 여기서 붙잡는다 (2026-09-10).
@@ -366,7 +384,7 @@ def main() -> int:
             "published_date": x.get("published_at"),
             "region": reg,
             "topics": [],
-            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")] + (["person"] if (is_ent and ip) else []),
+            "tags": [x["factor_hint"], "q:" + (x.get("query_name") or "?")] + (["person"] if (is_ent and ip and person_lang_ok(x.get("hl"))) else []),
             "is_entertainment": is_ent,
             "status": "pending" if is_ent else "filtered_out",
             "filter_verdict": ("pass" if is_ent else (GATE_DEFERRED if (deferred and ie is None) else ("non_ent" if ie is not None else "classify_failed"))),
