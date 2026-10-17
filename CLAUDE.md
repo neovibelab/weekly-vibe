@@ -56,6 +56,7 @@
   - 기준선 2026-10-08 = 질의 40 · 수집 112건/일 · 좌표율 36.0% · 못본사건 102 · 발행일치 14/445(3.1%).
   - **되돌림** - 8주 쌓아 다섯 숫자가 모두 평평하면(추세 없음) 로그를 접고 수동 점검으로 돌린다.
 - **태깅**: 7렌즈 멀티태깅(`fan-behavior` `consumer-behavior` `ent-deals` `ip-business` `artist-ownership` `tech-issues` `taste-values`, `topics` 배열). **`cross-industry` 태그는 만들지 않는다**(대표 결정) - 레퍼런스는 일부 신호의 속성이 아니라 전 콘텐츠의 해석 렌즈다. 타 업종 이전 원리 판정은 대시보드 보조·추천 프롬프트(nvl-vibe-radar `REF_FRAME`)가 한다. `taste-values` = 세대를 가로지르는 취향·가치 신호(지속가능·로컬·디깅·리바이벌·취향 공동체, 엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)의 재정의. **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar`(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 바꾼다. 대시보드는 과거 `gen-z-lifestyle`을 alias로 호환(마이그레이션 불필요). (경위 → DR)
+- **고유명사 후보** (2026-10-14 gnews · **2026-10-17 넷으로**): 게이트가 항목마다 `names`를 함께 받아 `tags`에 `n:<이름>`으로 남긴다. 두뇌 `raw/names/` 사전의 **후보 공급까지**이고 사전 등재는 세션이 한다(무인 푸시 금지). **문구·변환 정본 = `scripts/name_gate.py`** - 넷이 import한다. **복제하지 않는다** - 역매칭은 글자가 같아야 세므로 수집기마다 문구가 갈리면 같은 대상이 두 줄로 쌓인다. 산출 = `../scripts/wiki-candidates.py`(그 절은 수집기를 안 가린다). **되돌림** - 4주 돌려 승격 0건이면 산출을 접는다.
 - **출력 언어**: 모든 외국어 기사 제목은 한국어 번역. **LLM 응답 JSON 파싱은 `scripts/llm_json.py` 하나로 모았다**(2026-09-10) - `parse_obj`(코드펜스 제거 → 첫 균형 블록 → 키별 정규식 3층, 실패 시 예외) · `parse_list`(원본 → 수리 → 개별 객체 추출 3단, 구 `_parse_json_robust`). **`nvl-vibe-radar/llm_json.py`와 쌍둥이다** - 두 저장소는 서로 import할 수 없으니 한쪽을 고치면 반드시 다른 쪽도 고친다.
 - **개별 테스트**: `ai-news-daily.yml`의 `workflow_dispatch` region input(all/korea/global-en/china/japan/southeast-asia). 이건 **검색 프로파일**이지 저장 지역이 아니다(아래 §1-4).
 - **실패 경보**: 지역 스텝이 검색 실패(web_search API·코드 에러)로 끝나면 `scripts/notify_region_failure.py`가 **잡을 실패시킨다**(`::error::` + exit 1). **메일 경보는 2026-09-14 대표 지시로 폐기** - 「[NVL] 경보 메일이 불필요하다」. GitHub Actions가 자기 알림을 보내므로 추가 채널·시크릿이 필요 없다. **0건(정상)은 exit 0이라 안 잡힌다** - 침묵 실패만 본다. **되돌림** - 잡 실패가 눈에 안 띄어 침묵 실패가 또 늦게 발견되면 Discord 경보 전용 웹훅을 세운다.
@@ -171,6 +172,7 @@ weekly-vibe/
 ├── scripts/
 │   ├── vibe_search.py           ← 수집 엔진 v3 (5지역)
 │   ├── llm_json.py              ← LLM 응답 JSON 3층 파싱 (nvl-vibe-radar/llm_json.py와 쌍둥이)
+│   ├── name_gate.py             ← 고유명사 게이트 문구·`n:` 태그 변환 (수집기 넷 공통 정본)
 │   ├── supabase_writer.py       ← radar_items upsert
 │   ├── send_report_drop.py      ← 리포트 드롭 발송 공용 모듈 (정시+백업)
 │   ├── check_drop_posted.py     ← 백업: 오늘 발송 여부 판정 (gh 런 이력)

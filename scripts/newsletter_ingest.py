@@ -30,6 +30,7 @@ from urllib.parse import quote, urlparse, urlunparse
 import requests
 
 from llm_json import parse_obj
+from name_gate import NAMES_RULE, name_tags
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -297,7 +298,7 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
     # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
     # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
     fallback = {"topics": [], "summary_ko": "", "title_ko": "", "is_gossip": False,
-                "is_promo": False, "is_entertainment": True, "_failed": True}
+                "is_promo": False, "is_entertainment": True, "names": "", "_failed": True}
     if not key:
         return fallback
     try:
@@ -340,11 +341,12 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
             "제품·서비스·회사·플랫폼 이름은 **원문 표기 그대로** 둔다(Lyria·Suno·Gemini·TuneCore를 음역하지 않는다). 일본어·중국어 고유 개념어는 **음차(원문)** 형태로 쓴다(오시카츠(推し活) · 구쯔경제(谷子经济) · 마이크로 숏드라마(微短剧)). 같은 대상을 매번 같은 표기로 쓴다 - 표기가 흔들리면 같은 사건이 안 묶인다.\n"
             "**title_ko·summary_ko에 가운데 줄표(—)를 쓰지 않는다.** 쉼표나 하이픈(-)으로 바꾸거나 문장을 끊는다.\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
+            + NAMES_RULE
             + REGION_GUIDE +
             "  예 - 한국 뉴스레터가 전한 소니뮤직 도쿄 소식은 japan. "
             "빌보드의 스웨덴 레이블 인수 기사는 europe. "
             "IFPI 세계 음반시장 연간 집계는 multinational.\n\n"
-            '{"is_entertainment": true, "is_gossip": false, "is_promo": false, "topics": [...], "title_ko": "...", "summary_ko": "...", "region": "..."}'
+            '{"is_entertainment": true, "is_gossip": false, "is_promo": false, "topics": [...], "title_ko": "...", "summary_ko": "...", "region": "...", "names": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -354,7 +356,7 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
         # topics는 배열이라 3층에서 못 건진다 - 그때는 빈 배열로 떨어진다.
         data = parse_obj(msg.content[0].text.strip(), {
             "is_entertainment": "bool", "is_gossip": "bool", "is_promo": "bool",
-            "title_ko": "str", "summary_ko": "str", "region": "enum",
+            "title_ko": "str", "summary_ko": "str", "region": "enum", "names": "str",
         })
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
         ie = data.get("is_entertainment")
@@ -370,6 +372,8 @@ def classify(subject: str, text: str, region_hint: str, broad: bool = False) -> 
             "is_promo": bool(data.get("is_promo", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
             "region": reg if reg in set(REGIONS) else None,
+            # 고유명사 후보 - `tags`에 `n:<이름>`으로 얹는다 (2026-10-17 · gnews 선례)
+            "names": data.get("names") or "",
         }
     except Exception as e:
         log.warning("분류 실패: %s", e)
@@ -443,7 +447,7 @@ def build_row(msg, name: str, region_hint: str, broad: bool, seen: set[str], num
         "collector": "newsletter",
         "summary": (cls["summary_ko"] or body_text[:200]),
         "topics": cls["topics"],
-        "tags": cls["topics"],
+        "tags": cls["topics"] + (name_tags(cls.get("names")) if is_ent else []),
         "is_entertainment": is_ent,
         # region: classify가 내용 기준으로 판정한 값 우선, 없으면 발신자 고정 힌트로 폴백
         # (발신 매체 국적 != 기사 내용 지역 문제 해결 - 예: Longblack의 글로벌 기사, 2026-06-23).

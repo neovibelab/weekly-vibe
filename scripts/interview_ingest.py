@@ -35,6 +35,7 @@ from email.utils import parsedate_to_datetime
 import requests
 
 from llm_json import parse_obj
+from name_gate import NAMES_RULE, name_tags
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -200,7 +201,7 @@ def classify(title: str, text: str, media: str) -> dict:
     # _failed: 하드 실패(키 없음·API 예외). main이 이걸 보고 미분류 원문을 인터뷰로 오적재하지 않고
     # filtered_out + classify_failed로 적재한다(is_interview 판정 불가 → 풀 노출 안 함).
     fallback = {"is_interview": False, "is_music_ent": False, "is_industry": False, "person_ko": "", "summary_ko": "",
-                "title_ko": "", "region": None, "_failed": True}
+                "title_ko": "", "region": None, "names": "", "_failed": True}
     if not key:
         return fallback
     try:
@@ -233,12 +234,14 @@ def classify(title: str, text: str, media: str) -> dict:
             "제품·서비스·회사·플랫폼 이름은 **원문 표기 그대로** 둔다(Lyria·Suno·Gemini·TuneCore를 음역하지 않는다). 일본어·중국어 고유 개념어는 **음차(원문)** 형태로 쓴다(오시카츠(推し活) · 구쯔경제(谷子经济) · 마이크로 숏드라마(微短剧)). 같은 대상을 매번 같은 표기로 쓴다 - 표기가 흔들리면 같은 사건이 안 묶인다.\n"
             "**title_ko·summary_ko에 가운데 줄표(—)를 쓰지 않는다.** 쉼표나 하이픈(-)으로 바꾸거나 문장을 끊는다.\n"
             "summary_ko: 한국어 120자 이내 핵심 요약(누가 무엇을 말했는지).\n"
+            + NAMES_RULE
+            + "  인터뷰는 **인물 이름을 첫 자리에** 둔다(`person_ko`와 같은 표기). 그다음이 쇼 · 레이블 · 작품 이름이다.\n"
             + REGION_GUIDE +
             "  인터뷰는 '기사 내용의 시장' = 인물이 주로 활동하는 시장으로 읽는다.\n"
             "  예 - 미국 매체가 실은 나이지리아 아프로비츠 뮤지션 인터뷰는 africa-ssa. "
             "영국 밴드의 신보 인터뷰는 europe. "
             "여러 나라 출신이 섞인 업계 좌담은 multinational.\n\n"
-            '{"is_interview": true, "is_music_ent": true, "is_industry": true, "person_ko": "...", "title_ko": "...", "summary_ko": "...", "region": "..."}'
+            '{"is_interview": true, "is_music_ent": true, "is_industry": true, "person_ko": "...", "title_ko": "...", "summary_ko": "...", "region": "...", "names": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -249,7 +252,7 @@ def classify(title: str, text: str, media: str) -> dict:
         data = parse_obj(msg.content[0].text.strip(), {
             "is_interview": "bool", "is_music_ent": "bool", "is_industry": "bool",
             "person_ko": "str", "title_ko": "str", "summary_ko": "str",
-            "region": "enum",
+            "region": "enum", "names": "str",
         })
         def _b(v):
             if isinstance(v, str):
@@ -272,6 +275,9 @@ def classify(title: str, text: str, media: str) -> dict:
             "summary_ko": (data.get("summary_ko") or "").strip(),
             "title_ko": (data.get("title_ko") or "").strip(),
             "region": reg if reg in VALID_REGIONS else None,
+            # 고유명사 후보 - `tags`에 `n:<이름>`으로 얹는다 (2026-10-17 · gnews 선례).
+            # 인터뷰는 `person_ko`가 이미 이름이라 첫 자리에 그것이 온다.
+            "names": data.get("names") or "",
         }
     except Exception as e:
         log.warning("분류 실패: %s", e)
@@ -373,7 +379,10 @@ def main() -> int:
                 "collector": "interview",
                 "summary": summary,
                 "topics": [],
-                "tags": [media],  # text|video - 대시보드에서 형태 구분용
+                # text|video(대시보드 형태 구분) + 고유명사 후보 `n:<이름>`.
+                # **통과분에만 붙인다** - 인터뷰가 아닌 글의 이름까지 세면 후보가 묽어진다.
+                "tags": ([media] + (name_tags(cls.get("names"))
+                                    if (is_int and not failed) else [])),
                 "is_entertainment": True,  # 인터뷰 소스는 엔터 직결
                 # 분류 값 우선, 없으면 소스 고정 힌트. 힌트가 레거시 global-en이면
                 # 미판정인 채로 남고 backfill_region.py가 재판정한다.

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""뉴스룸 수집기 — allowlist 기업 뉴스룸/블로그의 RSS·Atom 피드에서 최신 글을 가져와
+"""뉴스룸 수집기 - allowlist 기업 뉴스룸/블로그의 RSS·Atom 피드에서 최신 글을 가져와
 분류 후 Supabase radar_items(collector='newsroom')에 적재. GitHub Actions 일일 cron.
 
-런타임 의존: requests, anthropic (피드 파싱은 stdlib xml.etree — 외부 feedparser 불필요).
+런타임 의존: requests, anthropic (피드 파싱은 stdlib xml.etree - 외부 feedparser 불필요).
 환경변수:
   SUPABASE_URL / SUPABASE_KEY
   ANTHROPIC_API_KEY          분류용(없으면 토픽·요약 없이 적재)
-  NEWSROOM_LOOKBACK_DAYS     기본 7 (뉴스룸은 매일 발행 아님 — 저빈도 소스 포착 위해 넉넉히. URL dedup이라 겹쳐도 안전)
+  NEWSROOM_LOOKBACK_DAYS     기본 7 (뉴스룸은 매일 발행 아님 - 저빈도 소스 포착 위해 넉넉히. URL dedup이라 겹쳐도 안전)
 사용: python scripts/newsroom_ingest.py [--dry-run]
 """
 from __future__ import annotations
@@ -25,6 +25,7 @@ from email.utils import parsedate_to_datetime
 import requests
 
 from llm_json import parse_obj
+from name_gate import NAMES_RULE, name_tags
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -65,8 +66,8 @@ LEGACY_UNJUDGED = "global-en"
 LOOKBACK_DAYS = int(os.environ.get("NEWSROOM_LOOKBACK_DAYS", "7"))
 FETCH_CAP = 8  # 피드당 최대 처리 건수
 DISCORD_CAP = 8  # discord 전송 webhook당 최대 (도배 방지)
-# discord 전송 토픽 필터 — 엔터·문화·소비 핵심만 전송(순수 tech-issues·ent-deals 거시는 컷).
-# 36氪 happy_life(생활소비) 성격 근사 — 신약·항공·로봇 등 엔터·소비와 먼 글 차단.
+# discord 전송 토픽 필터 - 엔터·문화·소비 핵심만 전송(순수 tech-issues·ent-deals 거시는 컷).
+# 36氪 happy_life(생활소비) 성격 근사 - 신약·항공·로봇 등 엔터·소비와 먼 글 차단.
 DISCORD_TOPICS = {"fan-behavior", "consumer-behavior", "taste-values", "ip-business", "artist-ownership"}
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -195,7 +196,7 @@ def classify(title: str, text: str, region_hint: str) -> dict:
     # _failed: 하드 실패(키 없음·API 예외, 예: 크레딧 잔액 부족 400) 표시.
     # main이 이걸 보고 미번역 원문을 풀에 섞지 않고 filtered_out + classify_failed로 적재한다.
     fallback = {"topics": [], "summary_ko": "", "title_ko": "", "is_gossip": False,
-                "is_promo": False, "is_entertainment": True, "_failed": True}
+                "is_promo": False, "is_entertainment": True, "names": "", "_failed": True}
     if not key:
         return fallback
     try:
@@ -210,7 +211,7 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "(이 수집기는 엔터 IP홀더 뉴스룸이라 대부분 true지만, 모회사 일반 보도자료·거시경제가 섞이면 false).\n"
             "is_gossip: 연예인 사생활·열애/결혼/이혼·스캔들·루머·신변잡기 등 산업 신호가 아닌 단순 가십이면 true. "
             "작품·산업·비즈니스·정책·데이터는 false. 애매하면 false(보존 우선).\n"
-            "topics: 해당되는 것만 (배열 0~3개) — " + ", ".join(TOPIC_KEYS) + "\n"
+            "topics: 해당되는 것만 (배열 0~3개) - " + ", ".join(TOPIC_KEYS) + "\n"
             "  ※ tech-issues는 '엔터·미디어·콘텐츠 산업을 흔드는 기술 변화'에만 태깅. "
             "일반 IT·SaaS·반도체는 tech-issues 아님.\n"
             "is_promo: 단순 홍보면 true, 산업 신호면 false. "
@@ -220,11 +221,12 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "title_ko: 제목을 자연스러운 한국어로 번역(고유명사·작품명·아티스트명은 적절히 유지, 한국어면 그대로).\n"
             "제품·서비스·회사·플랫폼 이름은 **원문 표기 그대로** 둔다(Lyria·Suno·Gemini·TuneCore를 음역하지 않는다). 일본어·중국어 고유 개념어는 **음차(원문)** 형태로 쓴다(오시카츠(推し活) · 구쯔경제(谷子经济) · 마이크로 숏드라마(微短剧)). 같은 대상을 매번 같은 표기로 쓴다 - 표기가 흔들리면 같은 사건이 안 묶인다.\n"
             "summary_ko: 한국어 150자 이내 핵심 요약 (무엇을 다뤘는지)\n"
+            + NAMES_RULE
             + REGION_GUIDE +
             "  예 - 디즈니 뉴스룸의 일본 전개 발표는 japan. "
             "스포티파이의 브라질 요금제 발표는 latin. "
             "전 세계에 동시 적용되는 정책 변경 발표는 multinational.\n\n"
-            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "is_promo": false, "title_ko": "...", "summary_ko": "...", "region": "..."}'
+            '{"is_entertainment": true, "is_gossip": false, "topics": [...], "is_promo": false, "title_ko": "...", "summary_ko": "...", "region": "...", "names": "..."}'
         )
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001", max_tokens=400,
@@ -234,7 +236,7 @@ def classify(title: str, text: str, region_hint: str) -> dict:
         # topics는 배열이라 3층에서 못 건진다 - 그때는 빈 배열로 떨어진다.
         data = parse_obj(msg.content[0].text.strip(), {
             "is_entertainment": "bool", "is_gossip": "bool", "is_promo": "bool",
-            "title_ko": "str", "summary_ko": "str", "region": "enum",
+            "title_ko": "str", "summary_ko": "str", "region": "enum", "names": "str",
         })
         topics = [t for t in (data.get("topics") or []) if t in TOPIC_KEYS]
         ie = data.get("is_entertainment")
@@ -248,6 +250,8 @@ def classify(title: str, text: str, region_hint: str) -> dict:
             "is_gossip": bool(data.get("is_gossip", False)),
             "is_promo": bool(data.get("is_promo", False)),
             "is_entertainment": bool(ie) if ie is not None else True,
+            # 고유명사 후보 - `tags`에 `n:<이름>`으로 얹는다 (2026-10-17 · gnews 선례)
+            "names": data.get("names") or "",
             "region": reg if reg in VALID_REGIONS else None,
         }
     except Exception as e:
@@ -293,7 +297,7 @@ def main() -> int:
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=LOOKBACK_DAYS)
     seen = recent_urls() if not dry else set()
     rows = []
-    discord_queue = []  # (webhook_env, name, title, url, pub) — discord 지정 소스의 signal만
+    discord_queue = []  # (webhook_env, name, title, url, pub) - discord 지정 소스의 signal만
 
     for src in sources:
         if src.get("feed", "").startswith("_"):
@@ -344,7 +348,7 @@ def main() -> int:
                 "collector": "newsroom",
                 "summary": (cls["summary_ko"] or summary_raw[:200]),
                 "topics": cls["topics"],
-                "tags": cls["topics"],
+                "tags": cls["topics"] + (name_tags(cls.get("names")) if is_ent else []),
                 "is_entertainment": is_ent,
                 # region: classify 내용 기준 값 우선, 없으면 소스 고정 힌트 폴백 (2026-06-23).
                 # 힌트가 레거시 global-en이면 미판정인 채로 남고 backfill_region.py가 재판정한다.
@@ -352,7 +356,7 @@ def main() -> int:
                 "published_date": pub,
                 # 분류 하드 실패(failed, 크레딧 400 등)는 미번역 원문이라 풀에 안 섞이게 filtered_out +
                 # classify_failed 표시 → backfill_translate.py가 정확히 찾아 재번역. promo·비엔터·가십도
-                # filtered_out(대시보드 기본 뷰 숨김 — app.py neq.filtered_out · dashboard.html inPool).
+                # filtered_out(대시보드 기본 뷰 숨김 - app.py neq.filtered_out · dashboard.html inPool).
                 "status": "filtered_out" if (failed or is_promo or not is_ent or is_gos) else "pending",
                 "filter_verdict": ("classify_failed" if failed else "promo" if is_promo else "non_ent" if not is_ent else "gossip" if is_gos else "pass"),
                 "total_score": 0,
