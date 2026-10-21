@@ -81,7 +81,7 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 - **엔진**: `scripts/newsroom_ingest.py` - RSS(`item`)·Atom(`entry`) 피드 fetch(stdlib `xml.etree`, 외부 feedparser 불필요) → 룩백 내 항목 → Claude haiku 분류(7렌즈 + 한국어 요약) → upsert. 지역은 소스별 고정 힌트.
 - **allowlist**: `sources_newsrooms.json` - 17소스. IP홀더·플랫폼(Disney·Netflix·Apple·Spotify·YouTube·UMG·WMG·Sony Music·Toei) + 아카이브·연구(Speakola·Geena Davis Institute) + **차트메트릭 2종**(Blog·Flow Insights, 2026-09-10 등재) + **한국 산업 매체 2종**(테크M·바이라인네트워크, 2026-10-08 등재) + **1차 자료 2종**(RIAA·Deezer Newsroom, 2026-10-11 등재).
   - **1차 자료 층이 비어 있었다** (2026-10-11 실측). 2026 발행본 38편이 인용한 183종 중 레이더가 가진 건 37종(20%)인데, 없는 쪽 상위가 뉴스가 아니라 **1차 자료**였다 - `booking.naver.com` 12 · `kocca.kr` · `korea.kr` · `ifpi.org` · `riaa.com` · `newsroom-deezer.com` · `asobisystem.com`. 이 중 **공식 RSS가 있는 것은 RIAA와 Deezer뿐**이어서 둘만 넣었다(IFPI·Grammy는 `/feed/`가 HTML을 준다. KOCCA·문체부는 위 10-08 실측대로 없다). 예약 페이지·레딧·인스타는 **피드로 받을 성격이 아니고** 자동화 금지 쪽이라 손대지 않는다.
-  - **밀도 낮은 피드는 붙이지 않았다.** CJ 뉴스룸(`cjnews.cj.net/feed/`)과 벤처스퀘어는 피드가 살아 있지만 전자는 그룹 전체 보도자료(쇼핑·식자재)고 후자는 스타트업 일반이라 엔터 밀도가 낮다. **검수 로그의 읽는 법이 「수집/일은 올리면 안 되는 쪽」**이라 밀도가 기준이다.
+  - **밀도 낮은 피드는 붙이지 않았다.** CJ 뉴스룸(`cjnews.cj.net/feed/`)과 벤처스퀘어는 피드가 살아 있지만 CJ 뉴스룸은 그룹 전체 보도자료(쇼핑·식자재)고 벤처스퀘어는 스타트업 일반이라 엔터 밀도가 낮다. **검수 로그의 읽는 법이 「수집/일은 올리면 안 되는 쪽」**이라 밀도가 기준이다.
   - **되돌림** - RIAA·Deezer 수집분이 4주간 풀에 한 건도 안 남으면 뺀다(테크M·바이라인과 같은 조건).
   - **한국 기업 뉴스룸은 넣을 수 없다**(2026-10-08 실측). 카카오엔터·CJ ENM·네이버웹툰·지니뮤직·스튜디오드래곤은 단일 페이지 앱이라 표준 경로에 피드가 없고 두 곳의 `sitemap.xml`은 내비게이션 페이지만 담는다. 하이브는 403. 기관(KOCCA·문체부·저작권위)도 자체 RSS가 없고 네이버 블로그 RSS는 전시·이벤트 홍보다. 집계처 뉴스와이어는 피드가 있으나(`api.newswire.co.kr/rss/all`) B2B 중소기업 보도자료다. 대신 **니치 산업 매체**를 쓴다 - 가십 섹션이 없어 전체 피드가 곧 산업 피드이고 링크가 원문이다. 뺀 것 = 전자신문 방송통신(「[ET포토] 세븐틴」 연작이 피드를 덮는다) · 한국경제 엔터(가십) · 아웃스탠딩(유료 장벽) · 지디넷·블로터(일반 IT·분양). **되돌림** - 두 매체 수집분이 4주간 풀에 한 건도 안 남으면 뺀다.
   - **기관 1차 자료도 넣을 수 없다** (2026-10-17 실측 - 위 10-08 판정의 재확인). 10-11에 「발행본 인용 183종 중 레이더 보유 20%, 없는 쪽 상위가 1차 자료」가 나와 `kocca.kr`·`korea.kr`을 다시 쳤다. **둘 다 안 된다.**
@@ -100,7 +100,7 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 
 - **엔진**: `scripts/interview_ingest.py` - 매체 RSS·유튜브 채널 RSS(`videos.xml?channel_id=UC…`) fetch(stdlib `xml.etree`) → Claude haiku 분류 → **is_interview=true만** upsert. YouTube Atom의 `<media:group>` 중첩 제목·설명도 파싱(newsroom 파서 확장). 지역은 소스 고정 힌트(분류 값 우선).
 - **분류 게이트**: haiku가 두 축을 따로 판정하고 **둘 다 true여야 적재**한다. ① `is_interview`(형태 - 아티스트 본인 발화 중심만 true. 뉴스·리뷰·차트·퍼포먼스 단독·MV·리스트는 false, 애매하면 false = 정밀 우선) ② `is_music_ent`(주제 - 발화 내용이 음악·엔터 창작이나 그 산업이면 true. 연애·육아·건강·심리·창업·테크·정치는 false. **말하는 사람이 아티스트여도 주제가 음악·엔터가 아니면 false**). 모델이 `is_music_ent` 키를 빠뜨리면 통과시킨다. 그 밖에 `person_ko`(주 인물 한국어 표기)·title_ko/summary_ko/region. summary는 "인물 - 요지" 관례. `is_interview=false`·분류실패는 `filtered_out`(verdict `not_interview`/`classify_failed`)로 적재해 풀·인터뷰탭에서 숨긴다. (주제 축 신설 경위 → DR)
-- **allowlist**: `sources_interviews.json` - 31소스 중 **활성 8**(영상 7 + 텍스트 1). 2026-09-02에 30→8로 줄였고(기준 = 실적 → 영상 → 음악·창작 주제 → 국내 1 → 텍스트 1), **2026-10-08에 구성이 바뀌었다** - Trapital 등재, MMTG 문명특급 제외(대표 「예능이니 빼고」). **뺀 사유는 각 항목 `_reason`에, 무엇을 뽑을지는 `_strength`에 적는다**(후자는 digest 프롬프트가 읽는다). 유입이 부족해지면 FADER·GRAMMYS부터 되살린다. 각 소스 `media`("text"|"video") 힌트 → 대시보드 `tags`. (축소 근거·실측 → DR)
+- **allowlist**: `sources_interviews.json` - 31소스 중 **활성 8**(영상 7 + 텍스트 1). 2026-09-02에 30→8로 줄였고(기준 = 실적 → 영상 → 음악·창작 주제 → 국내 1 → 텍스트 1), **2026-10-08에 구성이 바뀌었다** - Trapital 등재, MMTG 문명특급 제외(대표 「예능이니 빼고」). **뺀 사유는 각 항목 `_reason`에, 무엇을 뽑을지는 `_strength`에 적는다**(`_strength`는 digest 프롬프트가 읽는다). 유입이 부족해지면 FADER·GRAMMYS부터 되살린다. 각 소스 `media`("text"|"video") 힌트 → 대시보드 `tags`. (축소 근거·실측 → DR)
   - **국내 소스가 0이다** (2026-10-08). 09-02에 「국내 1」로 남긴 자리가 문명특급이었는데 예능이라 뺐다. **한국 음악·엔터 업계 당사자가 말하는 팟캐스트를 아직 못 찾았다** - 찾으면 이 자리에 넣는다.
   - **대시보드 탭 라벨은 「사람」이다** (2026-10-13 대표 - 10-08의 「팟캐스트」에서 바꿨다. @nvl.seoul 평일 「사람」 칸의 후보 풀). 인터뷰 수집분에 더해 **gnews 게이트가 `is_person`(음악인의 돈 · 일에 대한 결정 · 발언이 중심)을 판정해 `tags`에 `person`을 붙인 기사**도 이 탭에 뜬다(`regate.py`도 붙인다). **표시는 영어 · 일본어 · 한국어 판 질의에서 온 기사에만 붙는다**(`PERSON_LANGS`, 10-13 대표 - 아랍어 판 기사가 섞였다). 판정은 질의의 `hl`로 하고, `q:` 태그가 없는 10-08 이전 적재분은 붙이지 않는다. 관점 축(`is_industry`)은 리더십 · 커리어와 돈의 결정 · 성공과 실패의 회고를 true로 넓혔다. `collector` 값과 파일명은 `interview`로 둔다 - 저장 값은 대표가 보는 자리가 아니고 `radar_items` 2,206행이 걸려 있다(`global-en`을 라벨만 「글로벌(구)」로 둔 것과 같은 처리).
 - **스케줄**: `.github/workflows/interview-ingest.yml` **화·금 11:00 KST**(02:00 UTC) + `workflow_dispatch`(lookback_days). 주 2회, **룩백 14일·나이컷 없음**. 대시보드 인터뷰 탭 노출. GitHub 신규 예약 워크플로는 첫 예정 발화를 스킵한다 - 첫 자동 수집이 안 보이면 `workflow_dispatch` 1회 수동.
@@ -109,7 +109,7 @@ vibe_search와 같은 풀(`radar_items`)을 공유하는 두 번째 수집기. �
 - **쓰는 자리는 대시보드 탭이 아니라 digest다** (2026-10-08 대표). 「다 보고 들을 시간이 없다」 · 「당사자 발언이란 점에서 중요하게 관리하고 싶다」. 2,206건을 카드로 쌓아 타깃 0건·발행 인용 1건이었다 - **팟캐스트는 훑는 물건이 아니라 듣는 물건**이라 카드 목록이 맞지 않았다. `../scripts/podcast-digest.py`가 자동자막(yt-dlp, 위스퍼 불필요)으로 전사하고 haiku로 회차마다 **요지 3줄 + 당사자 발언 3\~5개(타임코드)**를 뽑아 두뇌 `raw/library/podcast/`에 채널별로 쌓는다. 주 23회차 = 듣는 데 17시간, 읽는 데 5분. 비용은 전사 0 + digest 주 $0.23.
   - **채널마다 뽑을 것이 다르다** - `_strength` 칸이 그걸 적고 digest 프롬프트가 읽는다(Trapital 자본·카탈로그 · Music Tectonics 산업 구조 · And The Writer Is 창작과 업계 작동 · Zach Sang 아티스트 발언).
   - **유튜브 채널 피드는 쇼츠·클립이 다수다**(2026-10-08 길이 표본 - 21편 중 0\~3분이 다수). 길이 문턱 12분이 메타만 보고 걸러 API를 안 쓴다. **근본 해법은 팟캐스트 RSS를 따로 붙이는 것**이고 추측 주소 6개가 전부 404라 쇼별 조회가 필요하다(미착수).
-  - **검증 층을 겹치지 않는다** - 위키 `status`(미검증→검증)는 **관점의 검증**이고, 당사자 발언의 검증은 「실제로 말했나」다. 후자는 타임코드·전사본이 보증한다. 그래서 적재물은 `citation_ready: false`에 **verbatim 직접 인용 금지**, 패러프레이즈는 출처 표기 후 자유. 선례 = `raw/library/2026-07-11-steve-stoute-unitedmasters.md`.
+  - **검증 층을 겹치지 않는다** - 위키 `status`(미검증→검증)는 **관점의 검증**이고, 당사자 발언의 검증은 「실제로 말했나」다. 발언 검증은 타임코드·전사본이 보증한다. 그래서 적재물은 `citation_ready: false`에 **verbatim 직접 인용 금지**, 패러프레이즈는 출처 표기 후 자유. 선례 = `raw/library/2026-07-11-steve-stoute-unitedmasters.md`.
   - **되돌림** - 8주 동안 digest가 팩트시트·발행에 한 번도 안 쓰이면 수집을 접는다.
 
 ## 1-4. 지역 축 (2026-09-10 개편)
@@ -131,7 +131,7 @@ Anthropic 계정의 지출 한도에 걸리면 게이트 haiku가 전건 400으�
 - **수집은 계속한다.** `gnews_ingest.py --no-gate`(워크플로 `no_gate` 입력)는 판정을
   건너뛰고 원문 제목 그대로 적재한다. 한도 오류는 자동 감지해 같은 자리로 떨어뜨리므로
   사람이 안 봐도 데이터는 남는다.
-- **보류와 실패를 가른다.** `filter_verdict='gate_deferred'`는 「판정을 미뤘다」이고
+- **보류와 실패를 나눈다.** `filter_verdict='gate_deferred'`는 「판정을 미뤘다」이고
   `classify_failed`는 「판정하려다 실패」다. 둘 다 `filtered_out`이라 풀에 안 뜬다.
 - **한도가 풀리면 `scripts/regate.py`.** 두 verdict를 찾아 게이트에 다시 태운다.
   게이트 로직은 `gnews_ingest`에서 import한다 - 두 벌이 되면 반드시 어긋난다.
