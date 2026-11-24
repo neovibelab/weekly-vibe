@@ -140,7 +140,7 @@ diff하는데 `weekly-vibe`는 NVL `.gitignore`가 통째로 제외한다(R-029)
    **36.0%**로 적혀 있다(감사 지적). 이번에는 어느 쪽으로 봐도 미발동이다.
 
 **판정된 행은 `RE_JUDGED`가 빼므로 다시 안 올라온다** - 그래서 위 다섯을
-`agents/dev-queue/26.11.16-되돌림-조건-128건이-못셈이다.md`와 `SESSION_LOG` `## OPEN`에 적었다.
+`agents/dev-queue/2026-11-16-되돌림-조건-128건이-못셈이다.md`와 `SESSION_LOG` `## OPEN`에 적었다.
 
 ---
 
@@ -372,7 +372,7 @@ interview)에 같이 붙이면서 **프롬프트 문구와 `n:` 변환을 `scrip
 
 원문(§1 태깅 항목): `taste-values`(취향·가치)는 **세대를 가로지르는** 취향/가치 신호 - 지속가능·로컬·디깅 문화·시티팝/Y2K 리바이벌·앰비언트·취향 공동체 등(엔터 밖 패션·뷰티·F&B·여행·리테일 포함). 구 `gen-z-lifestyle`(Z세대 인구통계 축)을 2026-06-17 재정의(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영). **키 동기화 필수** - 같은 풀(`radar_items.topics`)을 쓰는 `newsletter_ingest.py`·`newsroom_ingest.py`의 `TOPIC_KEYS`, `nvl-vibe-radar` 대시보드(`app.py` VALID_TOPICS·`dashboard.html` 필터/TOPICS/CROSS_CUL)도 함께 변경. 대시보드는 과거 누적 `gen-z-lifestyle` 항목을 alias로 호환(마이그레이션 무용).
 
-- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/26.06.17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 - SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).
+- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/2026-06-17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 - SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).
 
 ## §1 - 실패 경보 (2026-06-17)
 
@@ -506,5 +506,5 @@ interview)에 같이 붙이면서 **프롬프트 문구와 `n:` 변환을 `scrip
 - 2026-06-15: 리포트 드롭 워크플로 YAML 깨짐(인라인 heredoc) 수정 - 6/4부터 startup_failure로 미발송이던 것 복구. 발송 로직을 `scripts/send_report_drop.py`로 분리, cron 10:00→10:17(정시 고부하 회피), 백업 감시 워크플로(`report-drop-watchdog.yml`, 월 10:40) 신설 - 정시 누락 시 자동 재발송 + 메일 알림.
 - 2026-06-17: 수집 시간대 분산 - `ai-news-daily.yml` 단일 cron(07:00 일괄)에서 cron 3개로(07:00 한·일 / 14:00 중·동남아 / 21:00 글로벌). 지역별 현지 발행 리듬에 맞춰 신선도↑. 단일 워크플로 유지(각 step `if`가 `github.event.schedule`·수동 region input 분기), skip 지역은 outcome=skipped라 실패 경보 무영향.
 - 2026-06-17: 도메인 다양성 - `select_candidates`에 도메인당 2건 상한(`MAX_PER_DOMAIN`) 추가. 한 매체(동남아 방콕포스트)가 점수순 5건을 독식하던 구조 차단. 2-패스(1차 상한 적용 → 미달 시 2차 상한 해제)로 도메인 얕은 지역 건수 보존. `test_quality_gate.py` 케이스 추가.
-- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/26.06.17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 - SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).
+- 2026-06-17: **세대 축 → 취향·가치 축 개편**(메타 마케팅 서밋 "세대 말고 취향·가치관" 명제 반영, 근거 `ecri-marketing/2026-06-17-메타-마케팅-서밋-2026-인사이트.md` §4). ① 7번째 렌즈 `gen-z-lifestyle`(Z세대)→`taste-values`(취향·가치): TOPIC_LABELS·5지역 search_terms(각 지역 언어)·프롬프트 문단 모두 세대 라벨에서 세대 횡단 취향/가치 신호로 교체. ② 폐기된 `z_lifestyle_digest.py`의 ③교차정체성 지표를 4번째 스코어링 지표(`cross_identity`, 0~2)로 부활 - SCORE_KEYS 4개·만점 8·`MIN_TOTAL_SCORE` 3→4(env 조정)·Discord 배지 5→6·`_score_indicators` 반영. ③ 같은 풀 공유하는 `newsletter_ingest`·`newsroom_ingest`·`nvl-vibe-radar` 대시보드 키 동기화(대시보드는 구 키 alias 호환). 미해결: `radar_items`에 `cross_identity` 개별 컬럼 없음(total_score엔 합산 반영, 개별 표시 필요 시 마이그레이션 후속). 미배포(대표 검토 대기).
 - 2026-09-30: **vibe_search 사용량 기록** - 지역 한 번 돌 때마다 입력·출력·캐시·검색·fetch 횟수와 달러 추정치를 로그와 Step Summary에 남긴다(`_add_usage`·`_report_usage`, pause_turn 재개분까지 합산). 9-18 검색 예산 조임 뒤의 비용을 아무도 못 재고 있었고, 대표 지출 정리에서 API 충전이 월 20~26만 원으로 나와 가장 큰 미실측 항목이었다. 추정치는 청구서가 아니다 - 단가가 바뀌면 `PRICE_PER_MTOK`를 고친다. **되돌림** - 한 달 실측이 쌓이고 비용 판단이 끝나면 요약 줄은 남기고 더 늘리지 않는다.

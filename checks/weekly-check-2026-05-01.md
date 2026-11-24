@@ -81,7 +81,7 @@ git push origin main
 
 ### 이슈 3: 딥다이브 내부 파일 미확인 (심각도: LOW)
 
-**현상**: `internal/26.05.02-deepdive-candidates.md` 생성 여부 확인 불가. 자동 발행 워크플로우 미완료로 인해 미생성 추정.
+**현상**: `internal/2026-05-02-deepdive-candidates.md` 생성 여부 확인 불가. 자동 발행 워크플로우 미완료로 인해 미생성 추정.
 
 **권장 조치**: 발행 완료 후 워크플로우 artifact 또는 로컬 `internal/` 폴더에서 확인.
 
@@ -92,7 +92,7 @@ git push origin main
 ```
 c7f0ffd fix(ci): Step D 헤더 메타를 sed로 결정적 치환
 3155b52 fix(ci): Verify의 마스트헤드 날짜 검증 완화 + staging artifact 누락 수정
-20ad86d fix(ci): <title> 날짜 형식을 점 구분(YYYY.MM.DD)으로 통일
+20ad86d fix(ci): <title> 날짜 형식을 점 구분(YYYYYY-MM-DD)으로 통일
 dc6885d ci: 주간 브리핑 워크플로우 분할 실행 재설계 (레이트 리밋 회피, 12 step + 모델 분리)
 35a6dce style: 호별 제목을 단일 핵심 주제로 압축 (15~25자 통일)
 ```

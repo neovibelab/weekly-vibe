@@ -26,7 +26,7 @@ DISCORD_LIMIT = 1990  # 2000자 하드리밋 - 안전 마진 10자
 
 
 def find_latest_drop():
-    """파일명(YY.MM.DD) 기준 사전순 최신 드롭 1개."""
+    """파일명(YYYY-MM-DD) 기준 사전순 최신 드롭 1개."""
     files = sorted(glob.glob(DROP_GLOB))
     return files[-1] if files else None
 
@@ -59,8 +59,8 @@ def post_to_discord(webhook, content):
 
 
 def drop_age_days(path):
-    """파일명 YY.MM.DD에서 드롭 날짜를 파싱해 KST 기준 경과일. 실패 시 None(보수적: 발송 허용)."""
-    m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", os.path.basename(path))
+    """파일명 YYYY-MM-DD에서 드롭 날짜를 파싱해 KST 기준 경과일. 실패 시 None(보수적: 발송 허용)."""
+    m = re.search(r"(?:20)?(\d{2})[.-](\d{2})[.-](\d{2})", os.path.basename(path))
     if not m:
         return None
     yy, mm, dd = (int(x) for x in m.groups())
@@ -139,7 +139,7 @@ def push_items_to_dashboard(items, drop_path):
         return 0
     # 발행일 폴백 = 드롭 날짜(파일명). 각 항목에 실제 발행일(it["date"])이 있으면 그걸 우선.
     drop_iso = None
-    m = re.search(r"(\d{2})\.(\d{2})\.(\d{2})", os.path.basename(drop_path))
+    m = re.search(r"(?:20)?(\d{2})[.-](\d{2})[.-](\d{2})", os.path.basename(drop_path))
     if m:
         yy, mm, dd = (int(x) for x in m.groups())
         try:
