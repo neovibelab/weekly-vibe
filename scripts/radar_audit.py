@@ -130,7 +130,7 @@ def cited() -> tuple[int, int]:
     못 읽는다. 라이브 풀의 41%가 구글 뉴스 리다이렉트라 상한이 낮다는 것을 알고 본다.
     """
     pub = sorted(f for f in glob.glob(os.path.join(NVL, "ecri-newsletter", "md-archive", "*.md"))
-                 if re.match(r"2026(0[5-9]|1[0-2])", os.path.basename(f)))
+                 if re.match(r"2026-(0[5-9]|1[0-2])-", os.path.basename(f)))
     if not pub:
         return 0, 0
     urls = []
